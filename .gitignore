@@ -1,0 +1,18 @@
+# Data files (keep structure, ignore contents)
+data/raw/**/*.csv
+data/raw/**/*.json
+data/processed/**/*.csv
+data/processed/**/*.json
+!**/.gitkeep
+
+# DuckDB
+*.duckdb
+*.duckdb.wal
+
+# Evidence
+evidence-reports/node_modules/
+evidence-reports/.evidence/
+evidence-reports/build/
+
+# OS
+.DS_Store
