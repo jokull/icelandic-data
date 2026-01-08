@@ -1,0 +1,24 @@
+[project]
+name = "hagstofan-data"
+version = "0.1.0"
+description = "Data processing for Icelandic statistics"
+requires-python = ">=3.11"
+dependencies = [
+    "openpyxl>=3.1",
+    "polars>=1.0",
+    "httpx>=0.27",
+    "playwright>=1.40",
+    "pdfplumber>=0.10",
+    "docling>=2.15",
+    "iceaddr>=0.6.1",
+]
+
+[project.scripts]
+process-sedlabanki = "scripts.sedlabanki:main"
+skatturinn = "scripts.skatturinn:main"
+financials = "scripts.financials:main"
+
+[tool.uv]
+dev-dependencies = [
+    "ipython>=8.0",
+]

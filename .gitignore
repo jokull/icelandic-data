@@ -1,13 +1,20 @@
-# Data files (keep structure, ignore contents)
-data/raw/**/*.csv
-data/raw/**/*.json
-data/processed/**/*.csv
-data/processed/**/*.json
-!**/.gitkeep
+# Data (large files, regenerable)
+data/raw/
+data/processed/
 
 # DuckDB
 *.duckdb
 *.duckdb.wal
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.python-version
+.uv/
+
+# Playwright browsers
+.playwright/
 
 # Evidence
 evidence-reports/node_modules/
@@ -16,3 +23,11 @@ evidence-reports/build/
 
 # OS
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

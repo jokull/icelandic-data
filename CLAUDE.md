@@ -6,9 +6,10 @@ Self-building data agent for Icelandic data. Extracts from official sources, bui
 
 ```
 /.claude/skills/{source}.md   # Data source skills (fetching, API docs, series scope)
+/scripts/{source}.py          # Python processing scripts (uv project)
 /data/
-  /raw/{source}/              # Raw downloads (CSV, JSON)
-  /processed/                 # Cleaned, joined datasets
+  /raw/{source}/              # Raw downloads (Excel, CSV, JSON)
+  /processed/                 # Cleaned, tidy datasets
 /evidence-reports/
   /sources/{source}/          # SQL queries per data source
   /pages/{report}.md          # Evidence report pages
@@ -36,41 +37,17 @@ Reports live in `/evidence-reports/pages/`. Each report:
 
 **When asked for a new report:** Create the SQL queries and Evidence page.
 
-## Quick Reference
-
-### Data fetching
-```bash
-# Fetch from Hagstofan
-curl -X POST "https://px.hagstofa.is/pxis/api/v1/is/{path}/{TABLE}.px" \
-  -H "Content-Type: application/json" \
-  -d '{"query": [], "response": {"format": "csv"}}'
-```
-
-### Evidence commands
-```bash
-cd evidence-reports
-npm run sources    # Regenerate data from SQL queries
-npm run dev        # Start dev server at localhost:3000
-npm run build      # Build static site
-```
-
-### DuckDB queries
-```bash
-# Query CSVs directly
-duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
-```
-
 ## Active Skills
 
 | Skill | Source | Description |
 |-------|--------|-------------|
 | [hagstofan](/.claude/skills/hagstofan.md) | Statistics Iceland | PX-Web API for economic, demographic, trade data |
-
-## Active Reports
-
-| Report | Path | Description |
-|--------|------|-------------|
-| E-bike Imports | `/evidence-reports/pages/index.md` | E-bike, e-scooter, bike import trends 2017-2025 |
+| [sedlabanki](/.claude/skills/sedlabanki.md) | Central Bank of Iceland | SDMX API for monetary, financial, external sector data |
+| [reykjavik](/.claude/skills/reykjavik.md) | Reykjavík Municipality | CKAN + PX-Web APIs for municipal services, demographics, welfare, nationality data |
+| [skatturinn](/.claude/skills/skatturinn.md) | Iceland Tax Authority | Annual reports (ársreikningar), company registry, ownership chain mapping via Playwright |
+| [financials](/.claude/skills/financials.md) | PDF Extraction | Structured financial data from annual reports using Docling + Claude interpretation |
+| [hms](/.claude/skills/hms.md) | HMS Property Registry | Kaupskrá fasteigna - 222k property transactions 2006-present, geocoded |
+| [iceaddr](/.claude/skills/iceaddr.md) | Address Geocoding | Python library for Icelandic address lookup, reverse geocoding, postcodes |
 
 ## Adding a New Skill
 
@@ -83,15 +60,6 @@ duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
 3. Add SQL source in `/evidence-reports/sources/{source}/`
 4. Update this file's "Active Skills" table
 
-## Adding a New Report
-
-1. Ensure data source skill exists
-2. Create SQL queries in `/evidence-reports/sources/{source}/`
-3. Run `npm run sources` to generate data
-4. Create `/evidence-reports/pages/{report}.md` with Evidence components
-5. Test with `npm run dev`
-6. Update this file's "Active Reports" table
-
 ## Tools
 
 Installed via `./setup.sh`:
@@ -99,7 +67,49 @@ Installed via `./setup.sh`:
 - `miller` - CSV swiss army knife
 - `duckdb` - SQL on local files
 - `pandoc` - document conversion
+- `uv` - Python package manager
+- `xlsx2csv` - Excel to CSV conversion
+
+Python (managed by `uv`):
+- `polars` - Fast DataFrame library
+- `openpyxl` - Excel file reading
+- `httpx` - HTTP client
+- `playwright` - Headless browser automation (for skatturinn.is)
+- `pdfplumber` - PDF text/table extraction
+- `docling` - AI-powered PDF extraction with 97.9% table accuracy (IBM)
+- `iceaddr` - Icelandic address geocoding (bundled SQLite from Staðfangaskrá)
 
 Evidence (in `/evidence-reports/`):
 - Node.js project with DuckDB integration
 - SQL queries → Parquet → Interactive charts
+
+## Quick Commands
+
+```bash
+# Process raw data into tidy CSVs
+uv run python scripts/sedlabanki.py
+
+# Query processed data
+duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
+
+# Start Evidence dev server
+cd evidence-reports && npm run dev
+
+# Get company info and annual reports list
+uv run python scripts/skatturinn.py info <kennitala>
+
+# Download annual report PDF
+uv run python scripts/skatturinn.py download <kennitala> --year 2024
+
+# Extract financials from PDF (full pipeline)
+uv run python scripts/financials.py company <kennitala> --year 2024
+
+# Extract from local PDF
+uv run python scripts/financials.py extract /path/to/report.pdf
+
+# Property price analysis
+duckdb -c "SELECT YEAR(kaupsamningur_dags), median(kaupverd*1000/einflm_m2) FROM 'data/processed/kaupskra_geocoded.parquet' WHERE NOT onothaefur AND tegund='Fjölbýli' GROUP BY 1 ORDER BY 1"
+
+# Geocode an Icelandic address
+uv run python -c "from iceaddr import iceaddr_lookup; print(iceaddr_lookup('Laugavegur', number=22, postcode=101))"
+```
