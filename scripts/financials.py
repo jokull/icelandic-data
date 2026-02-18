@@ -134,6 +134,191 @@ class Metrics:
     profit_margin: float | None = None
 
 
+# ============================================================================
+# BANK-SPECIFIC DATACLASSES
+# ============================================================================
+
+@dataclass
+class BankIncomeStatement:
+    """Bank income statement (different structure from commercial companies)."""
+
+    # Interest income/expense
+    interest_income: float | None = None  # Vaxtatekjur
+    interest_expense: float | None = None  # Vaxtagjöld
+    net_interest_income: float | None = None  # Hreinar vaxtatekjur
+
+    # Fee income
+    fee_income: float | None = None  # Þóknanatekjur
+    fee_expense: float | None = None  # Þóknanagjöld
+    net_fee_income: float | None = None  # Hreinar þóknanatekjur
+
+    # Other income
+    net_financial_income: float | None = None  # Hreinar fjármunatekjur
+    other_operating_income: float | None = None  # Aðrar rekstrartekjur
+    share_of_associates: float | None = None  # Hlutdeild í afkomu hlutdeildarfélaga
+
+    # Total operating income
+    total_operating_income: float | None = None  # Rekstrartekjur samtals
+
+    # Expenses
+    salary_expense: float | None = None  # Laun og launatengd gjöld
+    other_operating_expense: float | None = None  # Annar rekstrarkostnaður
+    total_operating_expense: float | None = None  # Rekstrarkostnaður samtals
+
+    # Special items
+    bank_tax: float | None = None  # Sérstakur skattur á fjármálafyrirtæki
+    impairment: float | None = None  # Virðisrýrnun / niðurfærsla
+
+    # Profit
+    profit_before_tax: float | None = None  # Hagnaður fyrir tekjuskatt
+    income_tax: float | None = None  # Tekjuskattur
+    net_profit: float | None = None  # Hagnaður
+
+
+@dataclass
+class BankBalanceSheet:
+    """Bank balance sheet."""
+
+    # Assets
+    cash_and_central_bank: float | None = None  # Handbært fé og innstæður í Seðlabanka
+    loans_to_credit_institutions: float | None = None  # Lán til lánastofnana
+    loans_to_customers: float | None = None  # Lán til viðskiptavina
+    bonds_and_securities: float | None = None  # Skuldabréf og verðbréf
+    derivatives_assets: float | None = None  # Afleiður (eignir)
+    other_assets: float | None = None  # Aðrar eignir
+    total_assets: float | None = None  # Eignir samtals
+
+    # Liabilities
+    deposits_from_credit_institutions: float | None = None  # Innlán frá lánastofnunum
+    deposits_from_customers: float | None = None  # Innlán frá viðskiptavinum
+    borrowings: float | None = None  # Lántökur
+    debt_securities_issued: float | None = None  # Útgefin skuldabréf
+    derivatives_liabilities: float | None = None  # Afleiður (skuldir)
+    subordinated_debt: float | None = None  # Víkjandi skuldir
+    other_liabilities: float | None = None  # Aðrar skuldir
+    total_liabilities: float | None = None  # Skuldir samtals
+
+    # Equity
+    share_capital: float | None = None  # Hlutafé
+    reserves: float | None = None  # Varasjóðir
+    retained_earnings: float | None = None  # Óráðstafað eigið fé
+    total_equity: float | None = None  # Eigið fé samtals
+
+
+@dataclass
+class BankRegulatoryCapital:
+    """Bank regulatory capital metrics (Basel III)."""
+
+    # Capital ratios
+    cet1_ratio: float | None = None  # CET1 hlutfall
+    tier1_ratio: float | None = None  # Eiginfjárþáttur 1 hlutfall
+    total_car: float | None = None  # Eiginfjárhlutfall (CAR)
+
+    # Risk-weighted assets
+    rwa: float | None = None  # Áhættugrunnar
+
+    # Liquidity
+    lcr: float | None = None  # Lausafjárþekjuhlutfall (LCR)
+    nsfr: float | None = None  # Fjármögnunarhlutfall (NSFR)
+
+    # Capital amounts
+    cet1_capital: float | None = None  # CET1 eiginfjárþáttur
+    tier1_capital: float | None = None  # Eiginfjárþáttur 1
+    tier2_capital: float | None = None  # Eiginfjárþáttur 2
+    total_capital: float | None = None  # Eiginfjárgrunnur
+
+
+@dataclass
+class BankKeyMetrics:
+    """Bank-specific KPIs."""
+
+    # Profitability
+    roe: float | None = None  # Return on Equity
+    roa: float | None = None  # Return on Assets
+    nim: float | None = None  # Net Interest Margin
+    cost_income_ratio: float | None = None  # Kostnaðarhlutfall
+
+    # Asset quality
+    npl_ratio: float | None = None  # Non-performing loans ratio
+    coverage_ratio: float | None = None  # Provision coverage
+
+    # Per share
+    eps: float | None = None  # Earnings per share
+    book_value_per_share: float | None = None  # Bókfært virði á hlut
+
+    # Dividends
+    dividend_per_share: float | None = None  # Arður á hlut
+    dividend_total: float | None = None  # Arður samtals
+    payout_ratio: float | None = None  # Arðgreiðsluhlutfall
+    buybacks: float | None = None  # Endurkaupaáætlun
+
+
+@dataclass
+class BankFinancials:
+    """Complete structured financial data for a bank."""
+
+    # Identification
+    bank_name: str
+    kennitala: str
+    fiscal_year: int
+    report_type: Literal["parent", "consolidated", "quarterly"] = "consolidated"
+    period_end: str | None = None  # e.g., "2024-12-31"
+
+    # Financial statements
+    income: BankIncomeStatement = field(default_factory=BankIncomeStatement)
+    balance: BankBalanceSheet = field(default_factory=BankBalanceSheet)
+
+    # Regulatory capital
+    capital: BankRegulatoryCapital = field(default_factory=BankRegulatoryCapital)
+
+    # Key metrics
+    metrics: BankKeyMetrics = field(default_factory=BankKeyMetrics)
+
+    # Ownership
+    ownership: list[Owner] = field(default_factory=list)
+
+    # Extraction metadata
+    extraction: ExtractionMeta = field(
+        default_factory=lambda: ExtractionMeta(
+            source_pdf="", extracted_at=datetime.now().isoformat()
+        )
+    )
+
+    def calculate_metrics(self):
+        """Calculate derived metrics from raw data."""
+        # ROE = Net Profit / Total Equity
+        if self.income.net_profit and self.balance.total_equity:
+            self.metrics.roe = round(
+                self.income.net_profit / self.balance.total_equity * 100, 1
+            )
+
+        # NIM = Net Interest Income / Average Earning Assets (approx with loans)
+        if self.income.net_interest_income and self.balance.loans_to_customers:
+            self.metrics.nim = round(
+                self.income.net_interest_income / self.balance.loans_to_customers * 100, 1
+            )
+
+        # Cost-to-income = Operating Expenses / Operating Income
+        if self.income.total_operating_expense and self.income.total_operating_income:
+            self.metrics.cost_income_ratio = round(
+                abs(self.income.total_operating_expense) / self.income.total_operating_income * 100, 1
+            )
+
+        # Payout ratio = Dividends / Net Profit
+        if self.metrics.dividend_total and self.income.net_profit:
+            self.metrics.payout_ratio = round(
+                self.metrics.dividend_total / self.income.net_profit * 100, 1
+            )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
+
+    def to_json(self, indent: int = 2) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
+
+
 @dataclass
 class CompanyFinancials:
     """Complete structured financial data for a company year."""
@@ -413,6 +598,307 @@ def extract_basic_info(markdown: str, pdf_path: Path) -> CompanyFinancials:
     return financials
 
 
+def extract_bank_financials(markdown: str, pdf_path: Path) -> BankFinancials:
+    """
+    Extract bank-specific financial data from markdown.
+
+    Bank annual reports have a different structure than commercial companies,
+    with focus on interest income, regulatory capital, and banking metrics.
+    """
+    financials = BankFinancials(
+        bank_name="Unknown Bank",
+        kennitala="",
+        fiscal_year=0,
+        extraction=ExtractionMeta(
+            source_pdf=str(pdf_path),
+            extracted_at=datetime.now().isoformat(),
+        ),
+    )
+
+    # Extract kennitala from filename
+    kt_match = re.search(r"(\d{10})", pdf_path.stem)
+    if kt_match:
+        financials.kennitala = kt_match.group(1)
+
+    # Extract year from filename
+    year_match = re.search(r"_(\d{4})", pdf_path.stem)
+    if year_match:
+        financials.fiscal_year = int(year_match.group(1))
+
+    # Bank name patterns
+    bank_patterns = [
+        r"(Arion banki[^\n]*)",
+        r"(Íslandsbanki[^\n]*)",
+        r"(Landsbankinn[^\n]*)",
+        r"(Kvika[^\n]*banki)",
+    ]
+    for pattern in bank_patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.bank_name = match.group(1).strip()
+            break
+
+    # ========== INCOME STATEMENT ==========
+    # Bank reports often have table format: | Label ....  |  | 123.456 | 111.222 |
+    # We need patterns that handle dots, pipes, and whitespace
+
+    # Interest income (Vaxtatekjur)
+    patterns = [
+        r"\|\s*Vaxtatekjur\s*[.\s]*\|[^|]*\|\s*([\d.,]+)\s*\|",  # Table format
+        r"Vaxtatekjur[.\s]+[\|\s]*([\d.,]+)",  # Dotted line format
+        r"Interest income[.\s]+[\|\s]*([\d.,]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.income.interest_income = parse_icelandic_number(match.group(1))
+            break
+
+    # Interest expense (Vaxtagjöld)
+    patterns = [
+        r"\|\s*Vaxtagjöld\s*[.\s]*\|[^|]*\|\s*\(?([\d.,]+)\)?\s*\|",
+        r"Vaxtagjöld[.\s]+[\|\s]*\(?([\d.,]+)\)?",
+        r"Interest expense[.\s]+[\|\s]*\(?([\d.,]+)\)?",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            val = parse_icelandic_number(match.group(1))
+            if val:
+                financials.income.interest_expense = -abs(val)
+            break
+
+    # Net interest income (Hreinar vaxtatekjur)
+    patterns = [
+        r"\|\s*Hreinar vaxtatekjur\s*[.\s]*\|[^|]*\|\s*([\d.,]+)\s*\|",
+        r"Hreinar vaxtatekjur[.\s]+[\|\s]*([\d.,]+)",
+        r"Net interest income[.\s]+[\|\s]*([\d.,]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.income.net_interest_income = parse_icelandic_number(match.group(1))
+            break
+
+    # Fee income (Þóknanatekjur)
+    patterns = [
+        r"\|\s*Þóknanatekjur\s*[.\s]*\|[^|]*\|\s*([\d.,]+)\s*\|",
+        r"Þóknanatekjur[.\s]+[\|\s]*([\d.,]+)",
+        r"Fee.*?income[.\s]+[\|\s]*([\d.,]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.income.fee_income = parse_icelandic_number(match.group(1))
+            break
+
+    # Net profit (Hagnaður) - need to be careful to get the main "Hagnaður" line
+    # Look for "Hagnaður ..." followed by a table cell with number
+    patterns = [
+        r"\|\s*Hagnaður\s*\.+\s*\|[^|]*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|",  # Table with 2 years
+        r"Hagnaður ársins nam ([\d.,]+) millj",  # Narrative format
+        r"Net profit[.\s]+[\|\s]*([\d.,]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.income.net_profit = parse_icelandic_number(match.group(1))
+            break
+
+    # Bank tax (Sérstakur skattur)
+    patterns = [
+        r"\|\s*Sérstakur skattur\s*[.\s]*\|[^|]*\|\s*\(?([\d.,]+)\)?\s*\|",
+        r"Sérstakur skattur[.\s]+[\|\s]*\(?([\d.,]+)\)?",
+        r"[Bb]ank (?:levy|tax)[.\s]+[\|\s]*\(?([\d.,]+)\)?",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            val = parse_icelandic_number(match.group(1))
+            if val:
+                financials.income.bank_tax = -abs(val)
+            break
+
+    # ========== BALANCE SHEET ==========
+
+    # Loans to customers (Lán til viðskiptavina)
+    patterns = [
+        r"\|\s*Lán til viðskiptavina\s*[.\s]*\|[^|]*\|\s*([\d.,]+)\s*\|",
+        r"Lán til viðskiptavina[.\s]+[\|\s]*([\d.,]+)",
+        r"Loans to customers[.\s]+[\|\s]*([\d.,]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.balance.loans_to_customers = parse_icelandic_number(match.group(1))
+            break
+
+    # Customer deposits (Innlán frá viðskiptavinum)
+    patterns = [
+        r"\|\s*Innlán frá viðskiptavinum\s*[.\s]*\|[^|]*\|\s*([\d.,]+)\s*\|",
+        r"Innlán frá viðskiptavinum[.\s]+[\|\s]*([\d.,]+)",
+        r"[Dd]eposits from customers[.\s]+[\|\s]*([\d.,]+)",
+        r"Customer deposits[.\s]+[\|\s]*([\d.,]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.balance.deposits_from_customers = parse_icelandic_number(match.group(1))
+            break
+
+    # Total assets (Eignir samtals)
+    patterns = [
+        r"\|\s*Eignir samtals\s*[.\s]*\|[^|]*\|\s*([\d.,]+)\s*\|",
+        r"Eignir samtals[.\s]+[\|\s]*([\d.,]+)",
+        r"Total assets[.\s]+[\|\s]*([\d.,]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.balance.total_assets = parse_icelandic_number(match.group(1))
+            break
+
+    # Total equity (Eigið fé samtals)
+    patterns = [
+        r"\|\s*Eigið fé samtals\s*[.\s]*\|[^|]*\|\s*([\d.,]+)\s*\|",
+        r"Eigið fé samtals[.\s]+[\|\s]*([\d.,]+)",
+        r"Total equity[.\s]+[\|\s]*([\d.,]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.balance.total_equity = parse_icelandic_number(match.group(1))
+            break
+
+    # ========== KEY METRICS ==========
+    # These are often in narrative text like "arðsemi eigin fjár nam 13,2%"
+
+    # ROE - look in narrative text
+    patterns = [
+        r"arðsemi eigin fjár nam ([\d,]+)\s*%",  # "arðsemi eigin fjár nam 13,2%"
+        r"ROE[:\s]+([\d.,]+)\s*%",
+        r"Return on equity[:\s]+([\d.,]+)\s*%",
+        r"Arðsemi eigin fjár[:\s]+([\d.,]+)\s*%",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            # Handle comma as decimal separator
+            val_str = match.group(1).replace(",", ".")
+            try:
+                financials.metrics.roe = float(val_str)
+            except ValueError:
+                pass
+            break
+
+    # NIM
+    patterns = [
+        r"NIM[:\s]+([\d.,]+)\s*%",
+        r"Net interest margin[:\s]+([\d.,]+)\s*%",
+        r"Vaxtamunur[:\s]+([\d.,]+)\s*%",
+        r"vaxtamunur[^\d]*([\d,]+)\s*%",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            val_str = match.group(1).replace(",", ".")
+            try:
+                financials.metrics.nim = float(val_str)
+            except ValueError:
+                pass
+            break
+
+    # Cost-to-income
+    patterns = [
+        r"Cost.?to.?income[:\s]+([\d.,]+)\s*%",
+        r"C/I[:\s]+([\d.,]+)\s*%",
+        r"Kostnaðarhlutfall[:\s]+([\d.,]+)\s*%",
+        r"kostnaðarhlutfall[^\d]*([\d,]+)\s*%",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            val_str = match.group(1).replace(",", ".")
+            try:
+                financials.metrics.cost_income_ratio = float(val_str)
+            except ValueError:
+                pass
+            break
+
+    # ========== REGULATORY CAPITAL ==========
+
+    # CET1 ratio
+    patterns = [
+        r"CET1[:\s]+([\d.,]+)\s*%",
+        r"CET 1[:\s]+([\d.,]+)\s*%",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.capital.cet1_ratio = parse_icelandic_number(match.group(1))
+            break
+
+    # Total CAR
+    patterns = [
+        r"(?:Total )?CAR[:\s]+([\d.,]+)\s*%",
+        r"Eiginfjárhlutfall[:\s]+([\d.,]+)\s*%",
+        r"Capital (?:adequacy )?ratio[:\s]+([\d.,]+)\s*%",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.capital.total_car = parse_icelandic_number(match.group(1))
+            break
+
+    # ========== DIVIDENDS ==========
+
+    # Dividend total
+    patterns = [
+        r"[Aa]rð(?:ur|greiðsl)[:\s]+([\d.,]+)\s*(?:m\.?kr|millj)",
+        r"[Dd]ividend[s]?[:\s]+([\d.,]+)\s*(?:m\.?kr|million)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.metrics.dividend_total = parse_icelandic_number(match.group(1))
+            break
+
+    # Buybacks
+    patterns = [
+        r"[Ee]ndurkaupaáætl[:\s]+([\d.,]+)",
+        r"[Bb]uyback[s]?[:\s]+([\d.,]+)",
+        r"[Ss]hare repurchase[s]?[:\s]+([\d.,]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE)
+        if match:
+            financials.metrics.buybacks = parse_icelandic_number(match.group(1))
+            break
+
+    # Calculate derived metrics
+    financials.calculate_metrics()
+
+    # Assess confidence
+    filled_fields = sum([
+        financials.income.net_interest_income is not None,
+        financials.income.net_profit is not None,
+        financials.balance.total_assets is not None,
+        financials.balance.total_equity is not None,
+        financials.metrics.nim is not None or financials.metrics.roe is not None,
+    ])
+    if filled_fields >= 4:
+        financials.extraction.confidence = "high"
+    elif filled_fields >= 2:
+        financials.extraction.confidence = "medium"
+    else:
+        financials.extraction.confidence = "low"
+        financials.extraction.notes.append(
+            "Low extraction confidence - consider manual review"
+        )
+
+    return financials
+
+
 def generate_claude_prompt(markdown: str, tables: list[dict], schema: str) -> str:
     """Generate a prompt for Claude to interpret the extracted content."""
     tables_json = json.dumps(tables, indent=2, ensure_ascii=False)
@@ -453,7 +939,7 @@ Common Icelandic terms:
 Return ONLY valid JSON, no markdown code blocks.'''
 
 
-def extract_command(pdf_path: str, output_format: str = "json") -> None:
+def extract_command(pdf_path: str, output_format: str = "json", is_bank: bool = False) -> None:
     """Extract financials from a PDF file."""
     path = Path(pdf_path)
     if not path.exists():
@@ -463,8 +949,11 @@ def extract_command(pdf_path: str, output_format: str = "json") -> None:
     # Extract with Docling
     markdown, tables = extract_with_docling(path)
 
-    # Basic heuristic extraction
-    financials = extract_basic_info(markdown, path)
+    # Use bank-specific or standard extraction
+    if is_bank:
+        financials = extract_bank_financials(markdown, path)
+    else:
+        financials = extract_basic_info(markdown, path)
 
     if output_format == "json":
         print(financials.to_json())
@@ -473,30 +962,68 @@ def extract_command(pdf_path: str, output_format: str = "json") -> None:
         print(markdown)
     elif output_format == "prompt":
         # Generate Claude prompt
-        schema = json.dumps(asdict(CompanyFinancials(
-            company_name="", kennitala="", fiscal_year=0
-        )), indent=2)
+        if is_bank:
+            schema = json.dumps(asdict(BankFinancials(
+                bank_name="", kennitala="", fiscal_year=0
+            )), indent=2)
+        else:
+            schema = json.dumps(asdict(CompanyFinancials(
+                company_name="", kennitala="", fiscal_year=0
+            )), indent=2)
         print(generate_claude_prompt(markdown, tables, schema))
     elif output_format == "tables":
         # Just output tables
         print(json.dumps(tables, indent=2, ensure_ascii=False))
     else:
         # Summary
-        print(f"Company: {financials.company_name}")
-        print(f"Kennitala: {financials.kennitala}")
-        print(f"Fiscal Year: {financials.fiscal_year}")
-        print(f"Report Type: {financials.report_type}")
-        print()
-        print("Income Statement:")
-        print(f"  Revenue: {financials.income.revenue:,.0f}" if financials.income.revenue else "  Revenue: -")
-        print(f"  Net Profit: {financials.income.net_profit:,.0f}" if financials.income.net_profit else "  Net Profit: -")
-        print()
-        print("Balance Sheet:")
-        print(f"  Total Assets: {financials.balance.total_assets:,.0f}" if financials.balance.total_assets else "  Total Assets: -")
-        print(f"  Total Equity: {financials.balance.total_equity:,.0f}" if financials.balance.total_equity else "  Total Equity: -")
-        print()
-        print("Metrics:")
-        print(f"  Equity Ratio: {financials.metrics.equity_ratio}%" if financials.metrics.equity_ratio else "  Equity Ratio: -")
+        if is_bank:
+            print(f"Bank: {financials.bank_name}")
+            print(f"Kennitala: {financials.kennitala}")
+            print(f"Fiscal Year: {financials.fiscal_year}")
+            print(f"Report Type: {financials.report_type}")
+            print()
+            print("Income Statement:")
+            print(f"  Interest Income: {financials.income.interest_income:,.0f}" if financials.income.interest_income else "  Interest Income: -")
+            print(f"  Interest Expense: {financials.income.interest_expense:,.0f}" if financials.income.interest_expense else "  Interest Expense: -")
+            print(f"  Net Interest Income: {financials.income.net_interest_income:,.0f}" if financials.income.net_interest_income else "  Net Interest Income: -")
+            print(f"  Net Profit: {financials.income.net_profit:,.0f}" if financials.income.net_profit else "  Net Profit: -")
+            print()
+            print("Balance Sheet:")
+            print(f"  Loans to Customers: {financials.balance.loans_to_customers:,.0f}" if financials.balance.loans_to_customers else "  Loans to Customers: -")
+            print(f"  Customer Deposits: {financials.balance.deposits_from_customers:,.0f}" if financials.balance.deposits_from_customers else "  Customer Deposits: -")
+            print(f"  Total Assets: {financials.balance.total_assets:,.0f}" if financials.balance.total_assets else "  Total Assets: -")
+            print(f"  Total Equity: {financials.balance.total_equity:,.0f}" if financials.balance.total_equity else "  Total Equity: -")
+            print()
+            print("Key Metrics:")
+            print(f"  ROE: {financials.metrics.roe}%" if financials.metrics.roe else "  ROE: -")
+            print(f"  NIM: {financials.metrics.nim}%" if financials.metrics.nim else "  NIM: -")
+            print(f"  Cost/Income: {financials.metrics.cost_income_ratio}%" if financials.metrics.cost_income_ratio else "  Cost/Income: -")
+            print()
+            print("Regulatory Capital:")
+            print(f"  CET1 Ratio: {financials.capital.cet1_ratio}%" if financials.capital.cet1_ratio else "  CET1 Ratio: -")
+            print(f"  Total CAR: {financials.capital.total_car}%" if financials.capital.total_car else "  Total CAR: -")
+            print()
+            print("Dividends:")
+            print(f"  Dividend Total: {financials.metrics.dividend_total:,.0f}" if financials.metrics.dividend_total else "  Dividend Total: -")
+            print(f"  Buybacks: {financials.metrics.buybacks:,.0f}" if financials.metrics.buybacks else "  Buybacks: -")
+            print(f"  Payout Ratio: {financials.metrics.payout_ratio}%" if financials.metrics.payout_ratio else "  Payout Ratio: -")
+        else:
+            print(f"Company: {financials.company_name}")
+            print(f"Kennitala: {financials.kennitala}")
+            print(f"Fiscal Year: {financials.fiscal_year}")
+            print(f"Report Type: {financials.report_type}")
+            print()
+            print("Income Statement:")
+            print(f"  Revenue: {financials.income.revenue:,.0f}" if financials.income.revenue else "  Revenue: -")
+            print(f"  Net Profit: {financials.income.net_profit:,.0f}" if financials.income.net_profit else "  Net Profit: -")
+            print()
+            print("Balance Sheet:")
+            print(f"  Total Assets: {financials.balance.total_assets:,.0f}" if financials.balance.total_assets else "  Total Assets: -")
+            print(f"  Total Equity: {financials.balance.total_equity:,.0f}" if financials.balance.total_equity else "  Total Equity: -")
+            print()
+            print("Metrics:")
+            print(f"  Equity Ratio: {financials.metrics.equity_ratio}%" if financials.metrics.equity_ratio else "  Equity Ratio: -")
+
         print()
         print(f"Confidence: {financials.extraction.confidence}")
         for note in financials.extraction.notes:
@@ -596,6 +1123,96 @@ async def company_command(kennitala: str, year: int | None, output_format: str) 
         extract_command(str(pdf_path), "summary")
 
 
+async def bank_command(kennitala: str, year: int | None, output_format: str) -> None:
+    """Full pipeline for bank annual reports: download PDF and extract with bank-specific patterns."""
+    try:
+        from scripts.skatturinn import get_company_info, download_annual_report
+        from playwright.async_api import async_playwright
+    except ImportError as e:
+        print(f"Import error: {e}")
+        print("Make sure skatturinn.py and playwright are available")
+        sys.exit(1)
+
+    # Known bank kennitalas
+    BANK_NAMES = {
+        "5810080150": "Arion banki hf.",
+        "4910083880": "Íslandsbanki hf.",
+        "4710044100": "Landsbankinn hf.",
+        "5407992500": "Kvika banki hf.",
+    }
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+
+        # Get company info
+        print(f"Fetching bank info for {kennitala}...")
+        company = await get_company_info(page, kennitala)
+
+        if not company:
+            print(f"Bank {kennitala} not found")
+            await browser.close()
+            return
+
+        bank_name = BANK_NAMES.get(kennitala, company.name)
+        print(f"Bank: {bank_name}")
+
+        # Determine which year to download
+        if year:
+            target_year = year
+        elif company.available_reports:
+            target_year = max(r.year for r in company.available_reports)
+            print(f"Using latest available year: {target_year}")
+        else:
+            print("No reports available")
+            await browser.close()
+            return
+
+        # Download PDF
+        print(f"Downloading annual report for {target_year}...")
+        pdf_path = await download_annual_report(page, kennitala, target_year, RAW_DIR)
+
+        await browser.close()
+
+        if not pdf_path:
+            print("Download failed")
+            return
+
+    # Extract with bank-specific patterns
+    print("Extracting bank financials...")
+    markdown, tables = extract_with_docling(pdf_path)
+    financials = extract_bank_financials(markdown, pdf_path)
+
+    # Override bank name if known
+    if kennitala in BANK_NAMES:
+        financials.bank_name = BANK_NAMES[kennitala]
+
+    # Add ownership from page scraping
+    for owner in company.beneficial_owners:
+        financials.ownership.append(Owner(
+            name=owner.name,
+            kennitala=owner.kennitala if owner.is_company else None,
+            birth_year_month=owner.kennitala if not owner.is_company else None,
+            percentage=owner.ownership_pct,
+        ))
+
+    # Save to processed directory
+    output_dir = PROCESSED_DIR / "banks" / kennitala
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_file = output_dir / f"{target_year}.json"
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(financials.to_json())
+
+    print(f"Saved to {output_file}")
+
+    # Output based on format
+    if output_format == "json":
+        print(financials.to_json())
+    else:
+        extract_command(str(pdf_path), "summary", is_bank=True)
+
+
 async def group_command(kennitala: str, depth: int = 3) -> None:
     """Build corporate group structure by following ownership chains."""
     try:
@@ -675,6 +1292,11 @@ def main():
         default="summary",
         help="Output format",
     )
+    extract_parser.add_argument(
+        "--bank",
+        action="store_true",
+        help="Use bank-specific extraction (for Arion, Íslandsbanki, Landsbankinn)",
+    )
 
     # company command
     company_parser = subparsers.add_parser(
@@ -696,20 +1318,44 @@ def main():
     group_parser.add_argument("kennitala", help="Starting company kennitala")
     group_parser.add_argument("--depth", type=int, default=3, help="Max recursion depth")
 
+    # bank command - extract bank-specific financials
+    bank_parser = subparsers.add_parser(
+        "bank", help="Extract bank financials (full pipeline)"
+    )
+    bank_parser.add_argument("kennitala", help="Bank kennitala (e.g., 5810080150 for Arion)")
+    bank_parser.add_argument("--year", type=int, help="Fiscal year (default: latest)")
+    bank_parser.add_argument(
+        "--format",
+        choices=["json", "summary"],
+        default="summary",
+        help="Output format",
+    )
+
     # schema command - output the JSON schema
-    subparsers.add_parser("schema", help="Output the JSON schema")
+    subparsers.add_parser("schema", help="Output the JSON schema for commercial companies")
+    subparsers.add_parser("bank-schema", help="Output the JSON schema for banks")
 
     args = parser.parse_args()
 
     if args.command == "extract":
-        extract_command(args.pdf_path, args.format)
+        extract_command(args.pdf_path, args.format, is_bank=args.bank)
     elif args.command == "company":
         asyncio.run(company_command(args.kennitala, args.year, args.format))
     elif args.command == "group":
         asyncio.run(group_command(args.kennitala, args.depth))
+    elif args.command == "bank":
+        # Bank command - same as company but with bank-specific extraction
+        asyncio.run(bank_command(args.kennitala, args.year, args.format))
     elif args.command == "schema":
         schema = asdict(CompanyFinancials(
             company_name="Example Company ehf.",
+            kennitala="1234567890",
+            fiscal_year=2024,
+        ))
+        print(json.dumps(schema, indent=2, ensure_ascii=False))
+    elif args.command == "bank-schema":
+        schema = asdict(BankFinancials(
+            bank_name="Example Bank hf.",
             kennitala="1234567890",
             fiscal_year=2024,
         ))

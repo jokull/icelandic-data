@@ -127,6 +127,63 @@ interface CompanyFinancials {
 }
 ```
 
+## Bank-Specific Schema
+
+Banks have a different financial structure than commercial companies:
+
+```typescript
+interface BankFinancials {
+  bank_name: string;
+  kennitala: string;
+  fiscal_year: number;
+  report_type: "parent" | "consolidated" | "quarterly";
+
+  // Income Statement (different from commercial companies)
+  income: {
+    interest_income: number;        // Vaxtatekjur
+    interest_expense: number;       // Vaxtagjöld
+    net_interest_income: number;    // Hreinar vaxtatekjur (KEY METRIC)
+    fee_income: number;             // Þóknanatekjur
+    fee_expense: number;            // Þóknanagjöld
+    net_fee_income: number;         // Hreinar þóknanatekjur
+    total_operating_income: number; // Rekstrartekjur samtals
+    total_operating_expense: number;// Rekstrarkostnaður
+    bank_tax: number;               // Sérstakur skattur á fjármálafyrirtæki
+    impairment: number;             // Virðisrýrnun
+    net_profit: number;             // Hagnaður
+  };
+
+  // Balance Sheet
+  balance: {
+    loans_to_customers: number;     // Lán til viðskiptavina
+    deposits_from_customers: number;// Innlán frá viðskiptavinum
+    total_assets: number;           // Eignir samtals
+    total_equity: number;           // Eigið fé samtals
+  };
+
+  // Regulatory Capital (Basel III)
+  capital: {
+    cet1_ratio: number;             // CET1 hlutfall
+    tier1_ratio: number;            // Eiginfjárþáttur 1
+    total_car: number;              // Eiginfjárhlutfall (CAR)
+    rwa: number;                    // Áhættugrunnar (Risk-Weighted Assets)
+    lcr: number;                    // Lausafjárþekjuhlutfall
+    nsfr: number;                   // Fjármögnunarhlutfall
+  };
+
+  // Key Metrics
+  metrics: {
+    roe: number;                    // Return on Equity
+    nim: number;                    // Net Interest Margin (KEY)
+    cost_income_ratio: number;      // Kostnaðarhlutfall
+    npl_ratio: number;              // Non-performing loans
+    dividend_total: number;         // Total dividends paid
+    buybacks: number;               // Share repurchases
+    payout_ratio: number;           // Dividend + buybacks / profit
+  };
+}
+```
+
 ## Icelandic Financial Terms
 
 | Icelandic | English | Schema Field |
@@ -153,6 +210,8 @@ interface CompanyFinancials {
 
 ## CLI Usage
 
+### Standard Companies
+
 ```bash
 # Extract financials from a downloaded PDF
 uv run python scripts/financials.py extract /path/to/report.pdf
@@ -160,15 +219,35 @@ uv run python scripts/financials.py extract /path/to/report.pdf
 # Full pipeline: download + extract for a company
 uv run python scripts/financials.py company 5012043070 --year 2024
 
-# Extract multiple years for comparison
-uv run python scripts/financials.py company 5012043070 --years 2020-2024
-
 # Output as JSON
 uv run python scripts/financials.py company 5012043070 --year 2024 --format json
-
-# Output as CSV (flattened)
-uv run python scripts/financials.py company 5012043070 --year 2024 --format csv
 ```
+
+### Banks (Arion, Íslandsbanki, Landsbankinn)
+
+Banks have different financial statement structures. Use the `--bank` flag or dedicated `bank` command:
+
+```bash
+# Extract bank financials from PDF (local file)
+uv run python scripts/financials.py extract /path/to/arion_2024.pdf --bank
+
+# Full pipeline for banks
+uv run python scripts/financials.py bank 5810080150 --year 2024  # Arion
+uv run python scripts/financials.py bank 4910083880 --year 2024  # Íslandsbanki
+uv run python scripts/financials.py bank 4710044100 --year 2024  # Landsbankinn
+
+# Output JSON schema for banks
+uv run python scripts/financials.py bank-schema
+```
+
+### Bank Kennitalas
+
+| Bank | Kennitala |
+|------|-----------|
+| Arion banki hf. | 5810080150 |
+| Íslandsbanki hf. | 4910083880 |
+| Landsbankinn hf. | 4710044100 |
+| Kvika banki hf. | 5407992500 |
 
 ## Docling Integration
 

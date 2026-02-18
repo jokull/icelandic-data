@@ -107,7 +107,15 @@ Classification changed in 2020:
 
 3. **Classification changes:** Tariff codes change over time. Always check when series definitions shifted.
 
-4. **Wide format:** PX tables often return years as columns. Use `mlr reshape` or DuckDB UNPIVOT to normalize.
+4. **Wide format:** PX tables return time periods as columns. Unpivot to tidy format:
+   ```python
+   # Polars unpivot
+   df.unpivot(index="Category", variable_name="month", value_name="value")
+   ```
+   ```sql
+   -- DuckDB UNPIVOT
+   UNPIVOT table ON * EXCLUDE (category) INTO NAME month VALUE passengers
+   ```
 
 5. **Icelandic headers:** Column names are in Icelandic. Common terms:
    - `Ár` = Year

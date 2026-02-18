@@ -48,6 +48,8 @@ Reports live in `/evidence-reports/pages/`. Each report:
 | [financials](/.claude/skills/financials.md) | PDF Extraction | Structured financial data from annual reports using Docling + Claude interpretation |
 | [hms](/.claude/skills/hms.md) | HMS Property Registry | Kaupskrá fasteigna - 222k property transactions 2006-present, geocoded |
 | [iceaddr](/.claude/skills/iceaddr.md) | Address Geocoding | Python library for Icelandic address lookup, reverse geocoding, postcodes |
+| [nasdaq](/.claude/skills/nasdaq.md) | Nasdaq Iceland | Exchange notices, annual reports, insider trading for listed companies |
+| [samgongustofa](/.claude/skills/samgongustofa.md) | Transport Authority | Vehicle registrations by make, fuel type, location via Power BI scraping |
 
 ## Adding a New Skill
 
@@ -83,6 +85,29 @@ Evidence (in `/evidence-reports/`):
 - Node.js project with DuckDB integration
 - SQL queries → Parquet → Interactive charts
 
+## Evidence Gotchas
+
+1. **Use sources, not inline paths:** Define SQL in `sources/{name}/` with absolute paths, then reference as `{name}.{table}`:
+   ```sql
+   -- sources/nasdaq/passengers.sql (use absolute path)
+   SELECT * FROM read_csv('/Users/jokull/Code/hagstofan/data/processed/file.csv')
+   ```
+   ```markdown
+   -- pages/report.md (reference source)
+   ```sql myquery
+   SELECT * FROM nasdaq.passengers WHERE year = 2025
+   ```
+   ```
+
+2. **Source setup:** Each source folder needs `connection.yaml`:
+   ```yaml
+   name: sourcename
+   type: duckdb
+   options: {}
+   ```
+
+3. **Hot reload:** Sources rebuild on file change. Check terminal for errors.
+
 ## Quick Commands
 
 ```bash
@@ -112,4 +137,10 @@ duckdb -c "SELECT YEAR(kaupsamningur_dags), median(kaupverd*1000/einflm_m2) FROM
 
 # Geocode an Icelandic address
 uv run python -c "from iceaddr import iceaddr_lookup; print(iceaddr_lookup('Laugavegur', number=22, postcode=101))"
+
+# List Nasdaq Iceland companies
+uv run python scripts/nasdaq.py companies
+
+# Search company announcements (handles Icelandic encoding)
+uv run python scripts/nasdaq.py search --company "Arion banki hf." --category "Ársreikningur"
 ```
