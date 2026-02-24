@@ -204,18 +204,29 @@ def parse_meeting_page(html: str, url: str, council_key: str) -> Meeting:
     current_minute = None
     
     for item in items:
-        text = item.get_text(separator=" ", strip=True)
+        # Get paragraphs separately to preserve structure
+        paragraphs = item.find_all("p")
+        
+        # Get full text with line breaks for processing
+        text = item.get_text(separator="\n", strip=True)
         
         # Skip navigation/footer items
         if len(text) < 50:
             continue
         
-        # Extract case serial
+        # Extract case serial from full text
         case_serial = extract_case_serial(text)
         
-        # Extract headline (first line or text before case serial)
-        lines = text.split("\n")
-        headline = lines[0][:200] if lines else text[:200]
+        # Headline is the first paragraph (title line)
+        if paragraphs:
+            headline = paragraphs[0].get_text(strip=True)[:200]
+            # Inquiry is the rest of the paragraphs joined with newlines
+            inquiry_parts = [p.get_text(strip=True) for p in paragraphs[1:] if p.get_text(strip=True) and p.get_text(strip=True) != "Fylgigögn"]
+            inquiry_text = "\n\n".join(inquiry_parts) if inquiry_parts else None
+        else:
+            lines = text.split("\n")
+            headline = lines[0][:200] if lines else text[:200]
+            inquiry_text = text[:2000] if len(text) > 200 else None
         
         # Clean headline - remove "Fylgigögn" suffix
         headline = re.sub(r"\s*Fylgigögn\s*$", "", headline)
@@ -242,7 +253,7 @@ def parse_meeting_page(html: str, url: str, council_key: str) -> Meeting:
             case_serial=case_serial,
             headline=headline,
             address=address,
-            inquiry=text[:2000] if len(text) > 200 else None,
+            inquiry=inquiry_text,
             remarks=None,  # Would need more sophisticated parsing
             entities=entities,
             attachments=attachments,
