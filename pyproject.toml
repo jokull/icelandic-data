@@ -12,6 +12,8 @@ dependencies = [
     "docling>=2.15",
     "iceaddr>=0.6.1",
     "fastexcel>=0.19.0",
+    "beautifulsoup4>=4.14.3",
+    "typer>=0.21.2",
 ]
 
 [project.scripts]
@@ -19,7 +21,7 @@ process-sedlabanki = "scripts.sedlabanki:main"
 skatturinn = "scripts.skatturinn:main"
 financials = "scripts.financials:main"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "ipython>=8.0",
 ]
