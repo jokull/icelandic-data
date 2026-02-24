@@ -198,12 +198,20 @@ def parse_meeting_page(html: str, url: str, council_key: str) -> Meeting:
     )
     
     # Parse agenda items
-    # Items are typically in <li> or separate sections with headers
-    items = content.find_all("li")
+    # Real agenda items have id="agenda_XXXXX", skip attachment <li> items inside <ul>
+    items = content.find_all("li", id=lambda x: x and x.startswith("agenda_"))
+    
+    # Fallback to all <li> if no agenda_ items found
+    if not items:
+        items = content.find_all("li")
     
     current_minute = None
     
     for item in items:
+        # Skip items inside <ul> (attachment lists) - they don't have agenda_ id
+        if item.parent and item.parent.name == "ul" and not item.get("id", "").startswith("agenda_"):
+            continue
+        
         # Get paragraphs separately to preserve structure
         paragraphs = item.find_all("p")
         
