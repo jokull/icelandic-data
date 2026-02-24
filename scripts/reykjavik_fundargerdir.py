@@ -35,11 +35,19 @@ COUNCILS = {
         "name": "Afgreiðslufundir skipulagsfulltrúa",
         "pattern": "/fundargerdir/afgreidslufundir-skipulagsfulltrua-fundur-nr-{n}",
         "municipality": "Reykjavík",
+        "planitor_name": "Skipulagsfulltrúi",
+    },
+    "skipulags-og-samgongurad": {
+        "name": "Skipulags- og samgönguráð",
+        "pattern": "/fundargerdir/skipulags-og-samgongurad-starfadi-2018-2022-fundur-nr-{n}",
+        "municipality": "Reykjavík",
+        "planitor_name": "Skipulags- og samgönguráð",
     },
     "umhverfis-og-skipulagsrad": {
         "name": "Umhverfis- og skipulagsráð",
         "pattern": "/fundargerdir/umhverfis-og-skipulagsrad-fundur-nr-{n}",
         "municipality": "Reykjavík",
+        "planitor_name": "Umhverfis- og skipulagsráð",
     },
 }
 
