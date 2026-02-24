@@ -255,16 +255,38 @@ def parse_meeting_page(html: str, url: str, council_key: str) -> Meeting:
         # Extract case serial from full text
         case_serial = extract_case_serial(text)
         
-        # Headline is the first paragraph (title line)
+        # Structure: first <p> = headline, middle <p>s = inquiry, last <p> = remarks/decision
         if paragraphs:
             headline = paragraphs[0].get_text(strip=True)[:200]
-            # Inquiry is the rest of the paragraphs joined with newlines
-            inquiry_parts = [p.get_text(strip=True) for p in paragraphs[1:] if p.get_text(strip=True) and p.get_text(strip=True) != "Fylgigögn"]
-            inquiry_text = "\n\n".join(inquiry_parts) if inquiry_parts else None
+            
+            # Filter out empty paragraphs and "Fylgigögn"
+            content_paragraphs = [
+                p.get_text(strip=True) for p in paragraphs[1:]
+                if p.get_text(strip=True) and p.get_text(strip=True) != "Fylgigögn"
+            ]
+            
+            if len(content_paragraphs) >= 2:
+                # Last paragraph is the decision/remarks
+                remarks_text = content_paragraphs[-1]
+                # Middle paragraphs are the inquiry
+                inquiry_text = "\n\n".join(content_paragraphs[:-1])
+            elif len(content_paragraphs) == 1:
+                # Only one paragraph after headline - treat as remarks if it looks like a decision
+                para = content_paragraphs[0]
+                if extract_status(para):
+                    remarks_text = para
+                    inquiry_text = None
+                else:
+                    remarks_text = None
+                    inquiry_text = para
+            else:
+                remarks_text = None
+                inquiry_text = None
         else:
             lines = text.split("\n")
             headline = lines[0][:200] if lines else text[:200]
             inquiry_text = text[:2000] if len(text) > 200 else None
+            remarks_text = None
         
         # Clean headline - remove "Fylgigögn" suffix
         headline = re.sub(r"\s*Fylgigögn\s*$", "", headline)
@@ -288,15 +310,15 @@ def parse_meeting_page(html: str, url: str, council_key: str) -> Meeting:
                     type="application/pdf",
                 ))
         
-        # Extract status from inquiry text
-        status = extract_status(inquiry_text or text) if (inquiry_text or text) else None
+        # Extract status from remarks (the decision paragraph)
+        status = extract_status(remarks_text) if remarks_text else None
         
         minute = Minute(
             case_serial=case_serial,
             headline=headline,
             address=address,
             inquiry=inquiry_text,
-            remarks=None,  # Would need more sophisticated parsing
+            remarks=remarks_text,
             status=status,
             entities=entities,
             attachments=attachments,
