@@ -14,6 +14,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
+# Add scripts directory to path for relative imports
+sys.path.insert(0, str(Path(__file__).parent))
+
 import polars as pl
 
 RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / "skatturinn"
@@ -1034,7 +1037,11 @@ async def company_command(kennitala: str, year: int | None, output_format: str) 
     """Full pipeline: download PDF from skatturinn and extract."""
     # Import skatturinn functions
     try:
-        from scripts.skatturinn import get_company_info, download_annual_report
+        # Try relative import first, then absolute
+        try:
+            from skatturinn import get_company_info, download_annual_report
+        except ImportError:
+            from scripts.skatturinn import get_company_info, download_annual_report
         from playwright.async_api import async_playwright
     except ImportError as e:
         print(f"Import error: {e}")
@@ -1216,7 +1223,10 @@ async def bank_command(kennitala: str, year: int | None, output_format: str) -> 
 async def group_command(kennitala: str, depth: int = 3) -> None:
     """Build corporate group structure by following ownership chains."""
     try:
-        from scripts.skatturinn import get_company_info
+        try:
+            from skatturinn import get_company_info
+        except ImportError:
+            from scripts.skatturinn import get_company_info
         from playwright.async_api import async_playwright
     except ImportError as e:
         print(f"Import error: {e}")

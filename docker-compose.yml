@@ -1,0 +1,19 @@
+networks:
+  mediaserver_frontend:
+    external: true
+
+services:
+  evidence:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - mediaserver_frontend
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: mediaserver_frontend
+      traefik.http.routers.evidence.rule: Host(`reports.solberg.is`)
+      traefik.http.routers.evidence.tls.certresolver: prod
+      traefik.http.routers.evidence.middlewares: hsts-header
+      traefik.http.services.evidence.loadbalancer.server.port: "80"

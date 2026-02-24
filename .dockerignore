@@ -1,0 +1,10 @@
+node_modules
+evidence-reports/node_modules
+evidence-reports/build
+evidence-reports/.evidence
+.venv
+.git
+*.pyc
+__pycache__
+data/raw
+.claude

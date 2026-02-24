@@ -77,29 +77,48 @@ async def get_company_info(page: Page, kennitala: str) -> Company | None:
     Returns:
         Company object or None if not found
     """
-    url = f"https://www.skatturinn.is/fyrirtaekjaskra/leit/kennitala/{kennitala}"
-    print(f"  Fetching {url}")
-
-    try:
-        await page.goto(url, wait_until="networkidle", timeout=30000)
-    except Exception as e:
-        print(f"  Error loading page: {e}")
-        return None
-
-    # Check if company exists
-    content = await page.content()
-    if "Ekkert fyrirtæki fannst" in content or "ekki til" in content.lower():
+    import asyncio as aio
+    
+    # Go to search page and search by kennitala
+    print(f"  Searching for {kennitala}...")
+    await page.goto("https://www.skatturinn.is/fyrirtaekjaskra/leit/", wait_until="networkidle", timeout=30000)
+    
+    # Fill kennitala field (id="kt")
+    await page.fill("#kt", kennitala)
+    await page.click('button[type="submit"]')
+    await page.wait_for_load_state("networkidle")
+    
+    # Check if no results
+    body_text = await page.inner_text("body")
+    if "engri niðurstöðu" in body_text:
         print(f"  Company {kennitala} not found")
         return None
-
-    # Extract company name from h1
+    
+    # Check if we need to click through to company page
+    # (search might return multiple results or direct to company)
+    if f"/kennitala/{kennitala}" not in page.url:
+        # Try to click the kennitala link in results
+        link = await page.query_selector(f'a:has-text("{kennitala}")')
+        if link:
+            await link.click()
+            await page.wait_for_load_state("networkidle")
+        else:
+            print(f"  Could not find link for {kennitala}")
+            return None
+    
+    # Now on company page - extract info
+    # Extract company name from h1 (format: "Name (kennitala)")
     try:
-        name_el = await page.query_selector("h1")
-        name = await name_el.inner_text() if name_el else "Unknown"
-        name = name.strip()
+        h1 = await page.query_selector("h1")
+        h1_text = await h1.inner_text() if h1 else ""
+        # Remove kennitala from name
+        name = re.sub(r"\s*\(\d{10}\)\s*$", "", h1_text).strip()
+        if not name:
+            name = "Unknown"
     except Exception:
         name = "Unknown"
-
+    
+    print(f"  Found: {name}")
     company = Company(kennitala=kennitala, name=name)
 
     # Extract beneficial owners from .collapsebox elements
@@ -153,34 +172,73 @@ async def get_company_info(page: Page, kennitala: str) -> Company | None:
 
     # Extract available annual reports from "Gögn úr ársreikningaskrá" section
     try:
-        # Find the annual reports table
-        tables = await page.query_selector_all("table")
-        for table in tables:
-            header = await table.query_selector("th")
-            if header:
-                header_text = await header.inner_text()
-                if "Rek. ár" in header_text or "ársreikn" in header_text.lower():
-                    rows = await table.query_selector_all("tr")
-                    for row in rows[1:]:  # Skip header
-                        cells = await row.query_selector_all("td")
-                        if len(cells) >= 4:
-                            year_text = await cells[0].inner_text()
-                            # Name in cells[1]
-                            date_text = await cells[2].inner_text()
-                            report_num = await cells[3].inner_text()
+        # Click to expand the annual reports section
+        reports_header = await page.query_selector('text="Gögn úr ársreikningaskrá"')
+        if reports_header:
+            await reports_header.click()
+            await aio.sleep(1)
+            await page.wait_for_load_state("networkidle")
+        
+        # Parse reports from body text (not in HTML tables)
+        body_text = await page.inner_text("body")
+        
+        # Find the reports section between "Rek. ár" and "Raunverulegir eigendur"
+        if "Rek. ár" in body_text:
+            start = body_text.find("Rek. ár")
+            end = body_text.find("Raunverulegir eigendur", start)
+            if end == -1:
+                end = body_text.find("Leit í fyrirtækjaskrá", start)
+            reports_text = body_text[start:end] if end > start else body_text[start:start+3000]
+            
+            # Parse lines: "2024	Marel Iceland ehf.	30.09.2025	833793	Ársreikningur"
+            lines = reports_text.strip().split("\n")
+            for line in lines[1:]:  # Skip header
+                parts = line.split("\t")
+                if len(parts) >= 4 and parts[0].strip().isdigit():
+                    year_text = parts[0].strip()
+                    date_text = parts[2].strip() if len(parts) > 2 else ""
+                    report_num = parts[3].strip() if len(parts) > 3 else ""
+                    
+                    try:
+                        year = int(year_text)
+                        company.available_reports.append(
+                            AnnualReport(
+                                year=year,
+                                report_number=report_num,
+                                submission_date=date_text,
+                            )
+                        )
+                    except ValueError:
+                        continue
+        
+        # Fallback: try table-based extraction if text parsing failed
+        if not company.available_reports:
+            tables = await page.query_selector_all("table")
+            for table in tables:
+                header = await table.query_selector("th")
+                if header:
+                    header_text = await header.inner_text()
+                    if "Rek. ár" in header_text or "ársreikn" in header_text.lower():
+                        rows = await table.query_selector_all("tr")
+                        for row in rows[1:]:  # Skip header
+                            cells = await row.query_selector_all("td")
+                            if len(cells) >= 4:
+                                year_text = await cells[0].inner_text()
+                                date_text = await cells[2].inner_text()
+                                report_num = await cells[3].inner_text()
 
-                            try:
-                                year = int(year_text.strip())
-                                company.available_reports.append(
-                                    AnnualReport(
-                                        year=year,
-                                        report_number=report_num.strip(),
-                                        submission_date=date_text.strip(),
+                                try:
+                                    year = int(year_text.strip())
+                                    company.available_reports.append(
+                                        AnnualReport(
+                                            year=year,
+                                            report_number=report_num.strip(),
+                                            submission_date=date_text.strip(),
+                                        )
                                     )
-                                )
-                            except ValueError:
-                                continue
-                    break
+                                except ValueError:
+                                    continue
+                        break
     except Exception as e:
         print(f"  Warning: Could not extract reports list: {e}")
 
