@@ -288,8 +288,9 @@ def parse_meeting_page(html: str, url: str, council_key: str) -> Meeting:
             inquiry_text = text[:2000] if len(text) > 200 else None
             remarks_text = None
         
-        # Clean headline - remove "Fylgigögn" suffix
+        # Clean headline - remove "Fylgigögn" suffix and trailing case serial
         headline = re.sub(r"\s*Fylgigögn\s*$", "", headline)
+        headline = re.sub(r"\s*-?\s*USK\d+\s*$", "", headline)
         
         # Extract address
         address = extract_address(text)
