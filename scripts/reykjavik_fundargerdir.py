@@ -69,7 +69,8 @@ class Entity:
 @dataclass
 class Attachment:
     url: str
-    name: str
+    label: str  # Name/title of the attachment
+    type: str = "application/pdf"  # MIME type
 
 
 @dataclass
@@ -254,7 +255,8 @@ def parse_meeting_page(html: str, url: str, council_key: str) -> Meeting:
                 full_url = urljoin(FUNDUR_BASE, href) if not href.startswith("http") else href
                 attachments.append(Attachment(
                     url=full_url,
-                    name=link.get_text(strip=True) or "Attachment"
+                    label=link.get_text(strip=True) or "Attachment",
+                    type="application/pdf",
                 ))
         
         minute = Minute(
