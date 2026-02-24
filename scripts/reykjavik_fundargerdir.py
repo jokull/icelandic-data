@@ -80,6 +80,7 @@ class Minute:
     address: Optional[str]
     inquiry: Optional[str]
     remarks: Optional[str]
+    status: Optional[str] = None  # "samþykkt", "synjað", "frestað", etc.
     entities: list[Entity] = field(default_factory=list)
     attachments: list[Attachment] = field(default_factory=list)
 
@@ -126,21 +127,49 @@ def extract_case_serial(text: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def extract_address(text: str) -> Optional[str]:
-    """Try to extract address from text"""
-    # Common patterns: "nr. X við Y", "að Y X", "lóð nr. X við Y"
-    patterns = [
-        r"(?:nr\.|lóð(?:ar)?(?:innar)?)\s*(\d+[a-z]?)\s+við\s+(\w+(?:götu|veg|braut|stræti|torg|holt|mel|ás|brekku|hlíð))",
-        r"(\w+(?:götu|veg|braut|stræti|torg|holt|mel|ás|brekku|hlíð))\s+(\d+[a-z]?)",
-        r"að\s+(\w+(?:götu|veg|braut|stræti))\s+(\d+[a-z]?)",
+def extract_status(text: str) -> Optional[str]:
+    """Extract decision status from text (samþykkt, synjað, etc.)"""
+    # Look for status keywords, typically at end of a sentence
+    status_patterns = [
+        (r"\bsamþykkt\b", "samþykkt"),  # approved
+        (r"\bsysjað\b", "synjað"),  # rejected (typo variant)
+        (r"\bsynjað\b", "synjað"),  # rejected
+        (r"\bfrestað\b", "frestað"),  # postponed
+        (r"\bvísað\s+(?:til|frá)\b", "vísað"),  # referred
+        (r"\bfellt\s+niður\b", "fellt niður"),  # dropped
+        (r"\bafgreitt\b", "afgreitt"),  # processed
     ]
+    
+    text_lower = text.lower()
+    for pattern, status in status_patterns:
+        if re.search(pattern, text_lower):
+            return status
+    return None
+
+
+def extract_address(text: str) -> Optional[str]:
+    """Try to extract address from text (headline or inquiry)"""
+    # Common Icelandic street suffixes
+    street_suffixes = r"(?:götu|gata|veg|vegur|braut|stræti|torg|holt|mel|ás|brekku|hlíð|gerði|garði|sund|land|bakki|nes|eyri|staðir|höfði|teig|grund)"
+    
+    patterns = [
+        # "Langagerði 24" at start of headline (before " - ")
+        rf"^(\w*{street_suffixes})\s+(\d+[a-zA-Z]?)\s*[-–]",
+        # "nr. X við Y" pattern
+        rf"(?:nr\.|lóð(?:ar)?(?:innar)?)\s*(\d+[a-zA-Z]?)\s+við\s+(\w+{street_suffixes})",
+        # "Streetname 24" in text
+        rf"(\w*{street_suffixes})\s+(\d+[a-zA-Z]?)\b",
+        # "að Streetname X"
+        rf"að\s+(\w+{street_suffixes})\s+(\d+[a-zA-Z]?)",
+    ]
+    
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
             groups = match.groups()
             if len(groups) == 2:
                 # Normalize to "Street Number" format
-                if groups[0].isdigit() or re.match(r"\d+[a-z]?$", groups[0]):
+                if groups[0].isdigit() or re.match(r"^\d+[a-zA-Z]?$", groups[0]):
                     return f"{groups[1]} {groups[0]}"
                 return f"{groups[0]} {groups[1]}"
     return None
@@ -259,12 +288,16 @@ def parse_meeting_page(html: str, url: str, council_key: str) -> Meeting:
                     type="application/pdf",
                 ))
         
+        # Extract status from inquiry text
+        status = extract_status(inquiry_text or text) if (inquiry_text or text) else None
+        
         minute = Minute(
             case_serial=case_serial,
             headline=headline,
             address=address,
             inquiry=inquiry_text,
             remarks=None,  # Would need more sophisticated parsing
+            status=status,
             entities=entities,
             attachments=attachments,
         )
@@ -291,6 +324,7 @@ def meeting_to_dict(meeting: Meeting) -> dict:
                 "address": m.address,
                 "inquiry": m.inquiry,
                 "remarks": m.remarks,
+                "status": m.status,
                 "entities": [asdict(e) for e in m.entities],
                 "attachments": [asdict(a) for a in m.attachments],
             }
