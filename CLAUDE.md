@@ -10,7 +10,7 @@ Self-building data agent for Icelandic data. Extracts from official sources, bui
 /data/
   /raw/{source}/              # Raw downloads (Excel, CSV, JSON)
   /processed/                 # Cleaned, tidy datasets
-/{report}.html                # Self-contained HTML reports with Chart.js
+/reports/{report}.html        # Self-contained HTML reports with Chart.js (gitignored)
 ```
 
 ## Two Jobs
@@ -28,7 +28,7 @@ Each skill in `/.claude/skills/` documents ONE data source:
 
 ### 2. HTML Reports (visualization)
 
-Reports are **single self-contained `.html` files** in the project root:
+Reports are **single self-contained `.html` files** in `/reports/`:
 - Embed data as JSON directly in `<script>` tags
 - Use Chart.js (CDN) for charts — `<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>`
 - Serve locally with `serve .` for development
@@ -110,7 +110,7 @@ uv run python scripts/sedlabanki.py
 duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
 
 # Serve HTML reports locally
-serve .
+serve reports
 
 # Get company info and annual reports list
 uv run python scripts/skatturinn.py info <kennitala>
