@@ -1,20 +1,17 @@
 # Icelandic Data
 
-AI-assisted data agent for Icelandic public data. Fetches from official APIs, processes into tidy datasets, and builds self-contained HTML reports with Chart.js.
+Data toolkit for Icelandic public data, built around [Claude Code](https://claude.com/claude-code). The `.claude/skills/` files document each data source — API endpoints, series codes, encoding quirks, classification changes — and the `scripts/` directory has Python scripts that fetch, clean, and transform the data.
 
-Built with [Claude Code](https://claude.com/claude-code) — each data source is a skill file that teaches the agent how to fetch and interpret the data.
+Not a portable skill library. The skills reference co-located scripts, assume local tooling (`uv`, `duckdb`, `playwright`), and work as a unit. Clone the repo, run setup, and use Claude Code to research questions, join data sources, or produce outputs — a gist, a CSV, an HTML report, whatever fits.
 
-## How it works
+## Structure
 
 ```
-.claude/skills/{source}.md   → Data source documentation (API docs, endpoints, caveats)
-scripts/{source}.py           → Python processing scripts
-data/raw/{source}/            → Raw downloads (Excel, CSV, JSON)
+.claude/skills/{source}.md   → Data source docs (API, endpoints, caveats)
+scripts/{source}.py           → Fetch + transform scripts
+data/raw/{source}/            → Raw downloads
 data/processed/               → Cleaned datasets
-{report}.html                 → Self-contained HTML reports
 ```
-
-Ask the agent about an Icelandic data source and it will research the API, create a skill file, write a processing script, and build an HTML report — or any subset of those steps.
 
 ## Data sources
 
@@ -34,6 +31,8 @@ Ask the agent about an Icelandic data source and it will research the API, creat
 | Public Procurement | 3,494+ tenders via TED API and OCDS bulk data |
 | Open Accounts | Government invoices by org/vendor/type, 2017–present |
 | Icelandic Courts | Ruling search across all three court levels |
+| Fuel Market | Gasvaktin prices, conglomerate financials |
+| Insurance Market | Combined ratios, Nordic comparison |
 
 ## Setup
 
@@ -54,11 +53,4 @@ duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
 
 # Company financials pipeline
 uv run python scripts/financials.py company <kennitala> --year 2024
-
-# Serve reports locally
-npx serve .
 ```
-
-## Reports
-
-Reports are single `.html` files — no build step, no dependencies beyond a CDN link to Chart.js. Open directly in a browser or serve locally.
