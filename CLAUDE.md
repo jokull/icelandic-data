@@ -85,11 +85,8 @@ Keep reports visually consistent:
 
 Installed via `./setup.sh`:
 - `jq` - JSON processing
-- `miller` - CSV swiss army knife
 - `duckdb` - SQL on local files
-- `pandoc` - document conversion
 - `uv` - Python package manager
-- `xlsx2csv` - Excel to CSV conversion
 
 Python (managed by `uv`):
 - `polars` - Fast DataFrame library
