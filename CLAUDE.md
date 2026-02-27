@@ -1,23 +1,20 @@
-# Data Agent
+# Icelandic Data Toolkit
 
-Self-building data agent for Icelandic data. Extracts from official sources, builds HTML reports with embedded charts.
+Data toolkit for Icelandic public data. Each skill in `.claude/skills/` documents one data source — API endpoints, series codes, encoding quirks, classification changes. Scripts in `scripts/` fetch, clean, and transform the data.
 
 ## Architecture
 
 ```
-/.claude/skills/{source}.md   # Data source skills (fetching, API docs, series scope)
-/scripts/{source}.py          # Python processing scripts (uv project)
+/.claude/skills/{source}.md   # Data source docs (API, endpoints, caveats)
+/scripts/{source}.py          # Fetch + transform scripts (uv project)
 /data/
   /raw/{source}/              # Raw downloads (Excel, CSV, JSON)
-  /processed/                 # Cleaned, tidy datasets
-/reports/{report}.html        # Self-contained HTML reports with Chart.js (gitignored)
+  /processed/                 # Cleaned datasets
 ```
 
-## Two Jobs
+## Skills
 
-### 1. Data Skills (extraction)
-
-Each skill in `/.claude/skills/` documents ONE data source:
+Each skill documents ONE data source:
 - API endpoints and authentication
 - Available series and their scope
 - Tariff codes, variable mappings, classification changes
@@ -26,27 +23,14 @@ Each skill in `/.claude/skills/` documents ONE data source:
 
 **When asked about a new data source:** Research it thoroughly, then create a skill file.
 
-### 2. HTML Reports (visualization)
+## HTML Reports
 
-Reports are **single self-contained `.html` files** in `/reports/`:
-- Embed data as JSON directly in `<script>` tags
-- Use Chart.js (CDN) for charts — `<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>`
-- Serve locally with `serve .` for development
+When asked for a report, produce a **single self-contained `.html` file** in `/reports/`:
+- Embed data as JSON in `<script>` tags
+- Use Chart.js (CDN) — `<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>`
 - No build step, no dependencies
 
-**When asked for a new report:** Create the data CSVs, then build a single HTML file.
-
-### HTML Report Style Guide
-
-Keep reports visually consistent:
-- System font stack: `-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`
-- Max width `960px`, centered
-- Colors: red `#dc2626` (bad/Iceland), blue `#2563eb` (neutral/Norway), green `#059669` (good/Denmark), orange `#d97706` (warn), purple `#7c3aed`
-- Cards: `border-radius: 12px`, `border: 1px solid #e5e7eb`, white background
-- Charts in `.chart-wrap` with `height: 360px` (or `420px` for `.tall`)
-- TL;DR box: blue left border, light blue background
-- Metric grid: `grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))`
-- Tables: minimal borders (bottom only), hover highlight, right-aligned numbers
+Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.js in `.chart-wrap` at `height: 360px`.
 
 ## Active Skills
 
@@ -105,9 +89,6 @@ uv run python scripts/sedlabanki.py
 
 # Query processed data
 duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
-
-# Serve HTML reports locally
-serve reports
 
 # Get company info and annual reports list
 uv run python scripts/skatturinn.py info <kennitala>
