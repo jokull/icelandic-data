@@ -16,10 +16,8 @@ __pycache__/
 # Playwright browsers
 .playwright/
 
-# Evidence
-evidence-reports/node_modules/
-evidence-reports/.evidence/
-evidence-reports/build/
+# HTML reports (self-contained, local only)
+*.html
 
 # OS
 .DS_Store
