@@ -1,6 +1,6 @@
 # Data Agent
 
-Self-building data agent for Icelandic data. Extracts from official sources, builds Evidence reports with charts.
+Self-building data agent for Icelandic data. Extracts from official sources, builds HTML reports with embedded charts.
 
 ## Architecture
 
@@ -10,9 +10,7 @@ Self-building data agent for Icelandic data. Extracts from official sources, bui
 /data/
   /raw/{source}/              # Raw downloads (Excel, CSV, JSON)
   /processed/                 # Cleaned, tidy datasets
-/evidence-reports/
-  /sources/{source}/          # SQL queries per data source
-  /pages/{report}.md          # Evidence report pages
+/{report}.html                # Self-contained HTML reports with Chart.js
 ```
 
 ## Two Jobs
@@ -28,14 +26,27 @@ Each skill in `/.claude/skills/` documents ONE data source:
 
 **When asked about a new data source:** Research it thoroughly, then create a skill file.
 
-### 2. Evidence Reports (visualization)
+### 2. HTML Reports (visualization)
 
-Reports live in `/evidence-reports/pages/`. Each report:
-- Queries data via SQL in `/evidence-reports/sources/`
-- Uses Evidence components: `<LineChart>`, `<BarChart>`, `<DataTable>`, `<BigValue>`
-- Renders in browser with `npm run dev`
+Reports are **single self-contained `.html` files** in the project root:
+- Embed data as JSON directly in `<script>` tags
+- Use Chart.js (CDN) for charts — `<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>`
+- Serve locally with `serve .` for development
+- No build step, no dependencies
 
-**When asked for a new report:** Create the SQL queries and Evidence page.
+**When asked for a new report:** Create the data CSVs, then build a single HTML file.
+
+### HTML Report Style Guide
+
+Keep reports visually consistent:
+- System font stack: `-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`
+- Max width `960px`, centered
+- Colors: red `#dc2626` (bad/Iceland), blue `#2563eb` (neutral/Norway), green `#059669` (good/Denmark), orange `#d97706` (warn), purple `#7c3aed`
+- Cards: `border-radius: 12px`, `border: 1px solid #e5e7eb`, white background
+- Charts in `.chart-wrap` with `height: 360px` (or `420px` for `.tall`)
+- TL;DR box: blue left border, light blue background
+- Metric grid: `grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))`
+- Tables: minimal borders (bottom only), hover highlight, right-aligned numbers
 
 ## Active Skills
 
@@ -43,13 +54,22 @@ Reports live in `/evidence-reports/pages/`. Each report:
 |-------|--------|-------------|
 | [hagstofan](/.claude/skills/hagstofan.md) | Statistics Iceland | PX-Web API for economic, demographic, trade data |
 | [sedlabanki](/.claude/skills/sedlabanki.md) | Central Bank of Iceland | SDMX API for monetary, financial, external sector data |
-| [reykjavik](/.claude/skills/reykjavik.md) | Reykjavík Municipality | CKAN + PX-Web APIs for municipal services, demographics, welfare, nationality data |
+| [reykjavik](/.claude/skills/reykjavik.md) | Reykjavík Municipality | CKAN + PX-Web APIs for municipal services, demographics, welfare, nationality data. **Opin Fjármál**: vendor-level spending by division/unit (2014–2025, ~94k rows/yr) — use for "what does Reykjavík buy/spend/pay" |
 | [skatturinn](/.claude/skills/skatturinn.md) | Iceland Tax Authority | Annual reports (ársreikningar), company registry, ownership chain mapping via Playwright |
 | [financials](/.claude/skills/financials.md) | PDF Extraction | Structured financial data from annual reports using Docling + Claude interpretation |
 | [hms](/.claude/skills/hms.md) | HMS Property Registry | Kaupskrá fasteigna - 222k property transactions 2006-present, geocoded |
 | [iceaddr](/.claude/skills/iceaddr.md) | Address Geocoding | Python library for Icelandic address lookup, reverse geocoding, postcodes |
 | [nasdaq](/.claude/skills/nasdaq.md) | Nasdaq Iceland | Exchange notices, annual reports, insider trading for listed companies |
 | [samgongustofa](/.claude/skills/samgongustofa.md) | Transport Authority | Vehicle registrations by make, fuel type, location via Power BI scraping |
+| [insurance](/.claude/skills/insurance.md) | Insurance Market | 4 insurers (Sjóvá, Skagi/VÍS, TM, Vörður), combined ratios, Nordic comparison |
+| [fuel](/.claude/skills/fuel.md) | Fuel Market | Gasvaktin prices, N1/Olís/Orkan/Atlantsolía, conglomerate financials |
+| [vedur](/.claude/skills/vedur.md) | Meteorological Office | XML weather API for observations/forecasts, climatological data |
+| [loftgaedi](/.claude/skills/loftgaedi.md) | Air Quality (UST) | PM10/PM2.5/NO2/H2S monitoring, 57 stations, hourly data via UST API |
+| [tenders](/.claude/skills/tenders.md) | Public Procurement | TED API + OCDS bulk data for 3,494+ Icelandic tenders, award tracking, CPV search |
+| [opnirreikningar](/.claude/skills/opnirreikningar.md) | Open Accounts | Government invoice data — paid invoices by org/vendor/type, 2017–present |
+| [ferdamalastofa](/.claude/skills/ferdamalastofa.md) | Icelandic Tourist Board | Keflavík passenger counts by nationality/month, flights, accommodation, tourism stats via Power BI scraping |
+| [domstolar](/.claude/skills/domstolar.md) | Icelandic Courts | Héraðsdómstólar, Landsréttur, Hæstiréttur — ruling search, RSS feeds, PDF download, HTML scraping |
+| [skipulagsmal](/.claude/skills/skipulagsmal.md) | Planitor | Planning & building permits — cases, minutes, entities, nearby search across 5 municipalities |
 
 ## Adding a New Skill
 
@@ -59,8 +79,7 @@ Reports live in `/evidence-reports/pages/`. Each report:
    - Available datasets and their codes
    - Example queries
    - Data caveats
-3. Add SQL source in `/evidence-reports/sources/{source}/`
-4. Update this file's "Active Skills" table
+3. Update this file's "Active Skills" table
 
 ## Tools
 
@@ -81,33 +100,6 @@ Python (managed by `uv`):
 - `docling` - AI-powered PDF extraction with 97.9% table accuracy (IBM)
 - `iceaddr` - Icelandic address geocoding (bundled SQLite from Staðfangaskrá)
 
-Evidence (in `/evidence-reports/`):
-- Node.js project with DuckDB integration
-- SQL queries → Parquet → Interactive charts
-
-## Evidence Gotchas
-
-1. **Use sources, not inline paths:** Define SQL in `sources/{name}/` with absolute paths, then reference as `{name}.{table}`:
-   ```sql
-   -- sources/nasdaq/passengers.sql (use absolute path)
-   SELECT * FROM read_csv('/Users/jokull/Code/hagstofan/data/processed/file.csv')
-   ```
-   ```markdown
-   -- pages/report.md (reference source)
-   ```sql myquery
-   SELECT * FROM nasdaq.passengers WHERE year = 2025
-   ```
-   ```
-
-2. **Source setup:** Each source folder needs `connection.yaml`:
-   ```yaml
-   name: sourcename
-   type: duckdb
-   options: {}
-   ```
-
-3. **Hot reload:** Sources rebuild on file change. Check terminal for errors.
-
 ## Quick Commands
 
 ```bash
@@ -117,8 +109,8 @@ uv run python scripts/sedlabanki.py
 # Query processed data
 duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
 
-# Start Evidence dev server
-cd evidence-reports && npm run dev
+# Serve HTML reports locally
+serve .
 
 # Get company info and annual reports list
 uv run python scripts/skatturinn.py info <kennitala>
@@ -143,4 +135,7 @@ uv run python scripts/nasdaq.py companies
 
 # Search company announcements (handles Icelandic encoding)
 uv run python scripts/nasdaq.py search --company "Arion banki hf." --category "Ársreikningur"
+
+# Process Gasvaktin fuel prices
+uv run python scripts/fuel_prices.py
 ```

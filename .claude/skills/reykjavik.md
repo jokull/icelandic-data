@@ -6,7 +6,9 @@ Open data from Reykjavík City via two APIs:
 
 ## Data Scope
 
-586+ datasets covering municipal operations, social services, demographics, and infrastructure:
+589 CKAN datasets + 293 PX-Web tables covering municipal operations, social services, demographics, and infrastructure.
+
+**Full catalog:** [`data/reykjavik_catalog.md`](/data/reykjavik_catalog.md) — browse this first to find the right dataset before querying APIs.
 
 - **Financial:** Annual accounts by department and fund (Ársuppgjör)
 - **Education:** School enrollment, music schools, after-school programs
@@ -115,11 +117,86 @@ curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_show?id=arsuppgjor-
 
 ## Key Datasets
 
-### Financial
+### Financial — Opin Fjármál (Annual Accounts with Vendor Detail)
+
+**Use this for:** "What does Reykjavík spend on X?", "Who are Reykjavík's biggest vendors?", "How much does Reykjavík pay Strætó/SORPA/etc?"
+
+**Dataset:** `arsuppgjor` on gagnagatt — CSV files per year, semicolon-delimited, 2014–2025.
+
+**Coverage:** A-part only (tax-funded). Three funds: Reykjavíkurborg (Aðalsjóður), Eignasjóður fasteignastofa, Bílastæðasjóður. B-part entities (OR, Strætó, Félagsbústaðir, SORPA, etc.) are **not** included as buyers — but they appear as vendors when the A-part pays them.
+
+**Download URLs (latest years):**
+```bash
+# 2024 full year (~94k rows)
+curl -sL 'https://gagnagatt.reykjavik.is/dataset/75521327-9d99-47d1-b1fd-a273057cbb4b/resource/54bb63af-1037-47e9-9a00-165b758f09a9/download/uppg202412_island.csv' \
+  -o data/raw/reykjavik_accounts/uppg202412.csv
+
+# 2025 Q1-Q3
+curl -sL 'https://gagnagatt.reykjavik.is/dataset/75521327-9d99-47d1-b1fd-a273057cbb4b/resource/ccc2422a-63c1-4145-8579-7f4e383afbc6/download/uppg202509_island.csv' \
+  -o data/raw/reykjavik_accounts/uppg202509.csv
+
+# For other years, use CKAN API:
+curl -s 'https://gagnagatt.reykjavik.is/api/3/action/package_show?id=arsuppgjor' | jq '.result.resources[] | {name, url}'
+```
+
+**CSV Schema (semicolon-delimited, UTF-8):**
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| `uttak` | Extract ID | `UPPG202412` |
+| `fyrirtaeki` | Fund name | `Reykjavíkurborg`, `Eignasjóður fasteignastofa` |
+| `samtala1` | Division (svið) | `Skóla- og frístundasvið` |
+| `samtala2` | Department | `Grunnskólar` |
+| `samtala3` | Sub-department | `Grunnskólar` |
+| `samtala4` | Category | (often empty) |
+| `samtala0` | Unit/school/office | `Grandaskóli` |
+| `tegund1` | Expense type L1 | `Rekstrargjöld` |
+| `tegund2` | Expense type L2 | `Skrifstofu- og stjórnunarkostnaður` |
+| `tegund3` | Expense type L3 | `Fjarskiptakostnaður` |
+| `tegund4` | Expense type L4 | (often empty) |
+| `tegund0` | Expense type detail | `Fjarskipti` |
+| `vm_numer` | Vendor ID (internal) | `60829` |
+| `vm_nafn` | Vendor name | `Sýn hf.` |
+| `ar` | Year | `2024` |
+| `arsfjordungur` | Quarter (1-4) | `3` |
+| `raun` | Amount ISK | `8262` (positive=expense, negative=revenue) |
+
+**Key divisions (samtala1) in 2024:**
+- Skóla- og frístundasvið — 80 bn (schools, kindergartens, recreation)
+- Velferðarsvið — 46 bn (welfare services)
+- Menningar- og íþróttasvið — 20 bn (culture, sports)
+- Umhverfis- og skipulagssvið — 12 bn (environment, planning)
+- Framlög til B-hluta — 5.5 bn (transfers to subsidiaries)
+
+**Top external vendors (2024):** Strætó (5.6 bn), SORPA (2 bn), Veitur/OR (1.5 bn), Slökkvilið (1.5 bn), Skólamatur (817 m).
+
+**Note:** Salary rows have empty `vm_numer`/`vm_nafn` (personal data excluded). Internal transfers (Reykjavíkurborg ↔ Eignasjóður) are the largest "vendor" entries.
+
+**DuckDB queries:**
+```sql
+-- Top vendors for a division
+SELECT vm_nafn, sum(raun) as total
+FROM read_csv('data/raw/reykjavik_accounts/uppg202412.csv', delim=';', header=true)
+WHERE samtala1 = 'Velferðarsvið' AND raun > 0 AND vm_nafn IS NOT NULL AND vm_nafn != ''
+GROUP BY 1 ORDER BY 2 DESC LIMIT 20
+
+-- Spending by division over time (load multiple years)
+SELECT ar, samtala1, sum(raun) as total
+FROM read_csv('data/raw/reykjavik_accounts/uppg*.csv', delim=';', header=true, union_by_name=true)
+WHERE raun > 0
+GROUP BY 1, 2 ORDER BY 1, 3 DESC
+
+-- All payments to a specific vendor
+SELECT ar, arsfjordungur, samtala1, samtala0, tegund1, tegund2, raun
+FROM read_csv('data/raw/reykjavik_accounts/uppg202412.csv', delim=';', header=true)
+WHERE vm_nafn ILIKE '%strætó%'
+ORDER BY raun DESC
+```
+
 | Dataset ID | Description |
 |------------|-------------|
-| `arsuppgjor-a-hluta-reykjavikurborgar` | Annual accounts section A (2014-2025) |
-| `arsuppgjor-b-hluta-reykjavikurborgar` | Annual accounts section B (enterprises) |
+| `arsuppgjor` | Annual accounts A-part with vendor detail (2014-2025) |
+| `arsuppgjor-b-hluta-reykjavikurborgar` | Annual accounts section B (enterprises, no vendor detail) |
 
 ### Population & Demographics
 | Dataset ID | Description | Verified |
