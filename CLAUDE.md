@@ -54,6 +54,9 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [ferdamalastofa](/.claude/skills/ferdamalastofa.md) | Icelandic Tourist Board | Keflavík passenger counts by nationality/month, flights, accommodation, tourism stats via Power BI scraping |
 | [domstolar](/.claude/skills/domstolar.md) | Icelandic Courts | Héraðsdómstólar, Landsréttur, Hæstiréttur — ruling search, RSS feeds, PDF download, HTML scraping |
 | [skipulagsmal](/.claude/skills/skipulagsmal.md) | Planitor | Planning & building permits — cases, minutes, entities, nearby search across 5 municipalities |
+| [car](/.claude/skills/car.md) | island.is | Vehicle lookup by plate/VIN via public GraphQL API |
+| [gengi](/.claude/skills/gengi.md) | Borgun | Currency exchange rates (card rates, not interbank) |
+| [laun](/.claude/skills/laun.md) | payday.is | Take-home salary calculator with tax/pension breakdown |
 
 ## Adding a New Skill
 
