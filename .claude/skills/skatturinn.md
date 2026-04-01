@@ -53,19 +53,9 @@ Reports contain:
 - **Shareholders (Hluthafar):** For smaller companies
 - Notes on related party transactions
 
-## Access Method: Playwright
+## Access Methods
 
-No public API exists for downloading annual reports. The website uses a shopping cart system that requires JavaScript interaction.
-
-### Setup
-
-```bash
-# Install dependencies (already in pyproject.toml)
-uv sync
-
-# Install Chromium browser
-uv run playwright install chromium
-```
+No public API exists for downloading annual reports. The website uses a shopping cart system that requires JavaScript interaction. Two methods are available:
 
 ### Page Structure (Verified)
 
@@ -97,7 +87,7 @@ uv run playwright install chromium
 | 1 | Ársreikningur (PDF) | Works |
 | 4 | Rafrænn ársreikningur (XBRL?) | Different flow, may fail |
 
-Some years have `typeid=4` instead of `1`. The current script only handles `typeid=1` reliably.
+Some years have `typeid=4` instead of `1`. Only `typeid=1` is reliable.
 
 ### Download Flow (Verified)
 
@@ -111,10 +101,68 @@ Some years have `typeid=4` instead of `1`. The current script only handles `type
 
 3. **Click "Áfram"** button to proceed
 
-4. **Download triggers** - clicking download button returns PDF
+4. **Download triggers** - clicking "Sækja öll skjöl" returns ZIP with PDFs
 
-### CLI Usage
+### Method 1: Chrome DevTools MCP (Recommended)
 
+Uses the user's real Chrome browser via Chrome DevTools MCP. More reliable than headless Playwright because skatturinn.is has anti-bot measures that block headless browsers.
+
+**Prerequisites:** Chrome must be running with `--remote-debugging-port=9222` (use `~/bin/chrome-debug`).
+
+**Step-by-step workflow:**
+
+```
+1. Navigate to company page:
+   mcp__chrome-devtools__navigate_page → https://www.skatturinn.is/fyrirtaekjaskra/leit/kennitala/{kennitala}
+
+2. Extract report item IDs via evaluate_script:
+   document.querySelectorAll('td[data-itemid]') →
+   returns [{itemid, typeid, text}, ...] for each report
+
+3. Add reports to cart (one at a time, with delay):
+   mcp__chrome-devtools__evaluate_script →
+   fetch('/da/CartService/addToCart?itemid={id}&typeid=1')
+     .then(r => r.json())
+   → returns {addCartItemResult: true, shoppingCartUrl: "https://vefur.rsk.is/...?kid=XXXX"}
+
+4. Navigate to the shoppingCartUrl from the response:
+   mcp__chrome-devtools__navigate_page → {shoppingCartUrl}
+
+5. Click "Áfram" button:
+   mcp__chrome-devtools__click → selector: input[value="Áfram"], or text "Áfram"
+
+6. Click "Sækja öll skjöl" to download ZIP:
+   mcp__chrome-devtools__click → text "Sækja öll skjöl"
+
+7. PDF files download to Chrome's default download directory (~/.config/google-chrome/Default/ or ~/Downloads/)
+```
+
+**Example evaluate_script to get all report IDs:**
+```javascript
+Array.from(document.querySelectorAll('td[data-itemid]')).map(td => ({
+  itemid: td.dataset.itemid,
+  typeid: td.dataset.typeid,
+  text: td.textContent.trim()
+}))
+```
+
+**Example evaluate_script to add to cart:**
+```javascript
+fetch('/da/CartService/addToCart?itemid=808877&typeid=1')
+  .then(r => r.json())
+```
+
+### Method 2: Playwright (Headless)
+
+Python script using Playwright for automated/batch downloads. May fail on skatturinn.is due to anti-bot measures (timeout on page load or form fields).
+
+**Setup:**
+```bash
+uv sync
+uv run playwright install chromium
+```
+
+**CLI Usage:**
 ```bash
 # Get company info with beneficial owners
 uv run python scripts/skatturinn.py info 5012043070
@@ -129,12 +177,15 @@ uv run python scripts/skatturinn.py download 5012043070
 uv run python scripts/skatturinn.py chain 5012043070 --depth 3
 ```
 
+**Known issue:** The Playwright script may timeout on `#kt` selector when loading the company page. If this happens, fall back to Chrome DevTools MCP method.
+
 ### Anti-Bot Measures
 
 Observed behavior:
 1. **Session cookies required** - JSESSIONID must persist across requests
 2. **Rate limiting** - 3 second delay recommended between requests
 3. **Cross-domain flow** - Cart redirects from skatturinn.is to vefur.rsk.is
+4. **Headless detection** - Playwright headless may be blocked; Chrome DevTools MCP works because it uses the real browser
 
 ## PDF Extraction
 
