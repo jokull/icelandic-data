@@ -57,6 +57,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [car](/.claude/skills/car.md) | island.is | Vehicle lookup by plate/VIN via public GraphQL API |
 | [gengi](/.claude/skills/gengi.md) | Borgun | Currency exchange rates (card rates, not interbank) |
 | [laun](/.claude/skills/laun.md) | payday.is | Take-home salary calculator with tax/pension breakdown |
+| [maskina](/.claude/skills/maskina.md) | Maskína | Public opinion polls — structured data via Tableau Public VizQL + articles via WordPress API |
 
 ## Adding a New Skill
 
