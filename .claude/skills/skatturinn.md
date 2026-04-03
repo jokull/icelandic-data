@@ -4,7 +4,7 @@ Company registry and annual reports (ársreikningar) from the Icelandic tax auth
 
 ## Overview
 
-Skatturinn operates the Company Registry (Fyrirtækjaskrá) and Annual Reports Registry (Ársreikningaskrá). Annual reports are available free of charge since January 1, 2021, but require browser automation to download due to a shopping cart workflow with anti-bot measures.
+Skatturinn operates the Company Registry (Fyrirtækjaskrá) and Annual Reports Registry (Ársreikningaskrá). Annual reports are available free of charge since January 1, 2021, but require browser automation to download due to a shopping cart workflow that needs JavaScript execution.
 
 **Use case:** Map company ownership chains by extracting beneficial owners from annual reports, then recursively looking up parent company reports.
 
@@ -105,7 +105,7 @@ Some years have `typeid=4` instead of `1`. Only `typeid=1` is reliable.
 
 ### Method 1: Chrome DevTools MCP (Recommended)
 
-Uses the user's real Chrome browser via Chrome DevTools MCP. More reliable than headless Playwright because skatturinn.is has anti-bot measures that block headless browsers.
+Uses the user's real Chrome browser via Chrome DevTools MCP. Convenient for interactive exploration and one-off downloads — no Python setup required.
 
 **Prerequisites:** Chrome must be running with `--remote-debugging-port=9222` (use `~/bin/chrome-debug`).
 
@@ -154,7 +154,7 @@ fetch('/da/CartService/addToCart?itemid=808877&typeid=1')
 
 ### Method 2: Playwright (Headless)
 
-Python script using Playwright for automated/batch downloads. May fail on skatturinn.is due to anti-bot measures (timeout on page load or form fields).
+Python script using Playwright for automated/batch downloads. Better suited for bulk operations and scripted pipelines.
 
 **Setup:**
 ```bash
@@ -177,7 +177,7 @@ uv run python scripts/skatturinn.py download 5012043070
 uv run python scripts/skatturinn.py chain 5012043070 --depth 3
 ```
 
-**Known issue:** The Playwright script may timeout on `#kt` selector when loading the company page. If this happens, fall back to Chrome DevTools MCP method.
+**Tip:** If the Playwright script times out on `#kt` selector, the Chrome DevTools MCP method above is a quick alternative.
 
 ### Anti-Bot Measures
 
@@ -185,7 +185,7 @@ Observed behavior:
 1. **Session cookies required** - JSESSIONID must persist across requests
 2. **Rate limiting** - 3 second delay recommended between requests
 3. **Cross-domain flow** - Cart redirects from skatturinn.is to vefur.rsk.is
-4. **Headless detection** - Playwright headless may be blocked; Chrome DevTools MCP works because it uses the real browser
+4. **JavaScript required** - The shopping cart workflow needs full JS execution; both Playwright and Chrome DevTools handle this
 
 ## PDF Extraction
 
