@@ -434,38 +434,45 @@ def parse_icelandic_number(text: str) -> float | None:
 
 def extract_with_docling(pdf_path: Path) -> tuple[str, list[dict]]:
     """
-    Extract markdown and tables from PDF using Docling.
+    Extract text and tables from PDF using pdfplumber.
 
     Returns:
-        Tuple of (markdown_content, list_of_tables)
+        Tuple of (text_content, list_of_tables)
     """
-    try:
-        from docling.document_converter import DocumentConverter
-    except ImportError:
-        print("Docling not installed. Run: uv sync")
-        sys.exit(1)
+    import pdfplumber
 
-    print(f"  Extracting with Docling: {pdf_path}")
-    converter = DocumentConverter()
-    result = converter.convert(str(pdf_path))
+    print(f"  Extracting with pdfplumber: {pdf_path}")
+    pages_text: list[str] = []
+    tables: list[dict] = []
+    table_idx = 0
 
-    # Get markdown representation
-    markdown = result.document.export_to_markdown()
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text() or ""
+            pages_text.append(text)
 
-    # Extract tables as dictionaries
-    tables = []
-    for i, table in enumerate(result.document.tables):
-        try:
-            df = table.export_to_dataframe()
-            tables.append({
-                "index": i,
-                "rows": len(df),
-                "columns": list(df.columns),
-                "data": df.to_dict(orient="records"),
-            })
-        except Exception as e:
-            print(f"  Warning: Could not extract table {i}: {e}")
+            for raw_table in page.extract_tables() or []:
+                if not raw_table or len(raw_table) < 2:
+                    continue
+                # First row as headers, rest as data
+                header_row = [str(c or "").strip() for c in raw_table[0]]
+                columns = [h if h else f"col_{j}" for j, h in enumerate(header_row)]
+                rows = []
+                for row in raw_table[1:]:
+                    rows.append({
+                        columns[j]: str(cell or "").strip()
+                        for j, cell in enumerate(row)
+                        if j < len(columns)
+                    })
+                tables.append({
+                    "index": table_idx,
+                    "rows": len(rows),
+                    "columns": columns,
+                    "data": rows,
+                })
+                table_idx += 1
 
+    markdown = "\n\n".join(pages_text)
     print(f"  Extracted {len(tables)} tables, {len(markdown)} chars of text")
     return markdown, tables
 
