@@ -179,9 +179,8 @@ uv run python scripts/skatturinn.py chain 5012043070 --depth 3
 
 **Tip:** If the Playwright script times out on `#kt` selector, the Chrome DevTools MCP method above is a quick alternative.
 
-### Anti-Bot Measures
+### Technical Requirements
 
-Observed behavior:
 1. **Session cookies required** - JSESSIONID must persist across requests
 2. **Rate limiting** - 3 second delay recommended between requests
 3. **Cross-domain flow** - Cart redirects from skatturinn.is to vefur.rsk.is
