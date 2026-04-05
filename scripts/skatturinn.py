@@ -1,20 +1,22 @@
 """
 Download annual reports (ársreikningar) from skatturinn.is and extract ownership data.
 
-Uses Playwright for browser automation since there's no public API.
+Uses httpx for plain HTTP requests — no browser automation needed.
 Maps ownership chains by following beneficial owner kennitalas recursively.
 """
 
 import argparse
 import asyncio
+import io
 import json
 import re
 import sys
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import httpx
 import pdfplumber
-from playwright.async_api import async_playwright, Page, Browser
 
 RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / "skatturinn"
 PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
@@ -24,6 +26,12 @@ REQUEST_DELAY = 3.0
 
 # Kennitala patterns
 KT_PATTERN = re.compile(r"\b(\d{6}-?\d{4})\b")
+
+# Shared httpx client config
+_HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+}
+_HTTP_TIMEOUT = httpx.Timeout(60.0)
 
 
 @dataclass
@@ -66,200 +74,194 @@ class Company:
     available_reports: list[AnnualReport] = field(default_factory=list)
 
 
-async def get_company_info(page: Page, kennitala: str) -> Company | None:
+def _extract_hidden(html: str, name: str) -> str | None:
+    """Extract value of a named hidden input from HTML."""
+    esc = re.escape(name)
+    m = re.search(rf'name="{esc}"[^>]*value="([^"]*)"', html, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    m = re.search(rf'value="([^"]*)"[^>]*name="{esc}"', html, re.IGNORECASE)
+    return m.group(1) if m else None
+
+
+def _strip_html(html: str) -> str:
+    """Strip HTML tags, returning plain text."""
+    return re.sub(r"<[^>]+>", "", html).strip()
+
+
+async def get_company_info(kennitala: str) -> Company | None:
     """
-    Scrape company info from skatturinn.is company lookup page.
+    Scrape company info from skatturinn.is company lookup page using httpx.
 
     Args:
-        page: Playwright page object
         kennitala: Company kennitala (10 digits, no dash)
 
     Returns:
         Company object or None if not found
     """
-    import asyncio as aio
-    
-    # Go to search page and search by kennitala
     print(f"  Searching for {kennitala}...")
-    await page.goto("https://www.skatturinn.is/fyrirtaekjaskra/leit/", wait_until="networkidle", timeout=30000)
-    
-    # Fill kennitala field (id="kt")
-    await page.fill("#kt", kennitala)
-    await page.click('button[type="submit"]')
-    await page.wait_for_load_state("networkidle")
-    
-    # Check if no results
-    body_text = await page.inner_text("body")
-    if "engri niðurstöðu" in body_text:
-        print(f"  Company {kennitala} not found")
-        return None
-    
-    # Check if we need to click through to company page
-    # (search might return multiple results or direct to company)
-    if f"/kennitala/{kennitala}" not in page.url:
-        # Try to click the kennitala link in results
-        link = await page.query_selector(f'a:has-text("{kennitala}")')
-        if link:
-            await link.click()
-            await page.wait_for_load_state("networkidle")
-        else:
-            print(f"  Could not find link for {kennitala}")
+
+    async with httpx.AsyncClient(
+        timeout=_HTTP_TIMEOUT,
+        headers=_HTTP_HEADERS,
+        follow_redirects=True,
+    ) as http:
+        # Go directly to the company page by kennitala
+        url = f"https://www.skatturinn.is/fyrirtaekjaskra/leit/kennitala/{kennitala}"
+        r = await http.get(url)
+        r.raise_for_status()
+        html = r.text
+
+        # Check if not found
+        if "engri niðurstöðu" in html or "Engin fyrirtæki fundust" in html:
+            print(f"  Company {kennitala} not found")
             return None
-    
-    # Now on company page - extract info
-    # Extract company name from h1 (format: "Name (kennitala)")
-    try:
-        h1 = await page.query_selector("h1")
-        h1_text = await h1.inner_text() if h1 else ""
-        # Remove kennitala from name
-        name = re.sub(r"\s*\(\d{10}\)\s*$", "", h1_text).strip()
-        if not name:
-            name = "Unknown"
-    except Exception:
+
+        # Extract company name from h1 (format: "Name (kennitala)")
         name = "Unknown"
-    
-    print(f"  Found: {name}")
-    company = Company(kennitala=kennitala, name=name)
+        h1_match = re.search(r"<h1[^>]*>(.*?)</h1>", html, re.DOTALL)
+        if h1_match:
+            h1_text = _strip_html(h1_match.group(1))
+            name = re.sub(r"\s*\(\d{6}-?\d{4}\)\s*$", "", h1_text).strip()
+            if not name:
+                name = "Unknown"
 
-    # Extract beneficial owners from .collapsebox elements
-    # Structure: .collapsebox > span > h4 (name), then .annualTable with ownership %
-    try:
-        owner_boxes = await page.query_selector_all(".collapsebox")
-        for box in owner_boxes:
-            # Get owner name from h4
-            name_el = await box.query_selector("h4")
-            if not name_el:
-                continue
-            owner_name = (await name_el.inner_text()).strip()
+        print(f"  Found: {name}")
+        company = Company(kennitala=kennitala, name=name)
 
-            # Get ownership details from .annualTable
-            table = await box.query_selector(".annualTable")
-            if not table:
-                continue
+        # Extract beneficial owners from .collapsebox elements
+        # Each collapsebox has an h4 with the owner name and a table with ownership details
+        try:
+            # Find all collapsebox sections
+            collapsebox_pattern = re.compile(
+                r'<div[^>]*class="[^"]*collapsebox[^"]*"[^>]*>([\s\S]*?)</div>\s*</div>',
+                re.IGNORECASE,
+            )
+            # More robust: find sections between collapsebox markers
+            # The HTML structure has .collapsebox containing h4 + table
+            owner_sections = re.findall(
+                r'<div[^>]*class="[^"]*collapsebox[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*class="[^"]*collapsebox|$)',
+                html,
+                re.IGNORECASE,
+            )
 
-            # Check if this is an ownership table (has "Eignarhlutur" column)
-            table_text = await table.inner_text()
-            if "Eignarhlutur" not in table_text and "%" not in table_text:
-                continue
+            for section in owner_sections:
+                # Get owner name from h4
+                h4_match = re.search(r"<h4[^>]*>(.*?)</h4>", section, re.DOTALL)
+                if not h4_match:
+                    continue
+                owner_name = _strip_html(h4_match.group(1)).strip()
 
-            # Extract from table rows
-            rows = await table.query_selector_all("tbody tr")
-            for row in rows:
-                cells = await row.query_selector_all("td")
-                if len(cells) >= 4:
-                    # Column order: Fæðingarár/mán, Búsetuland, Ríkisfang, Eignarhlutur, Tegund
-                    birth_info = (await cells[0].inner_text()).strip()
-                    pct_text = (await cells[3].inner_text()).strip()
+                # Check if this section has ownership data
+                if "Eignarhlutur" not in section and "%" not in section:
+                    continue
 
-                    # Parse percentage
-                    pct = None
-                    pct_match = re.search(r"(\d+(?:[,\.]\d+)?)\s*%?", pct_text)
-                    if pct_match:
-                        pct = float(pct_match.group(1).replace(",", "."))
-
-                    # For individuals, we get birth year/month, not kennitala
-                    # We'll store birth_info as a pseudo-identifier
-                    # Note: Real kennitala not shown on page for privacy
-                    company.beneficial_owners.append(
-                        Owner(
-                            name=owner_name,
-                            kennitala=birth_info.replace(" ", ""),  # e.g., "1964-JÚNÍ"
-                            ownership_pct=pct,
-                        )
+                # Extract table rows
+                rows = re.findall(
+                    r"<tr[^>]*>([\s\S]*?)</tr>", section, re.IGNORECASE
+                )
+                for row_html in rows:
+                    cells = re.findall(
+                        r"<td[^>]*>([\s\S]*?)</td>", row_html, re.IGNORECASE
                     )
-    except Exception as e:
-        print(f"  Warning: Could not extract owners: {e}")
+                    if len(cells) >= 4:
+                        birth_info = _strip_html(cells[0]).strip()
+                        pct_text = _strip_html(cells[3]).strip()
 
-    # Extract available annual reports from "Gögn úr ársreikningaskrá" section
-    try:
-        # Click to expand the annual reports section
-        reports_header = await page.query_selector('text="Gögn úr ársreikningaskrá"')
-        if reports_header:
-            await reports_header.click()
-            await aio.sleep(1)
-            await page.wait_for_load_state("networkidle")
-        
-        # Parse reports from body text (not in HTML tables)
-        body_text = await page.inner_text("body")
-        
-        # Find the reports section between "Rek. ár" and "Raunverulegir eigendur"
-        if "Rek. ár" in body_text:
-            start = body_text.find("Rek. ár")
-            end = body_text.find("Raunverulegir eigendur", start)
-            if end == -1:
-                end = body_text.find("Leit í fyrirtækjaskrá", start)
-            reports_text = body_text[start:end] if end > start else body_text[start:start+3000]
-            
-            # Parse lines: "2024	Marel Iceland ehf.	30.09.2025	833793	Ársreikningur"
-            lines = reports_text.strip().split("\n")
-            for line in lines[1:]:  # Skip header
-                parts = line.split("\t")
-                if len(parts) >= 4 and parts[0].strip().isdigit():
-                    year_text = parts[0].strip()
-                    date_text = parts[2].strip() if len(parts) > 2 else ""
-                    report_num = parts[3].strip() if len(parts) > 3 else ""
-                    
+                        # Parse percentage
+                        pct = None
+                        pct_match = re.search(r"(\d+(?:[,\.]\d+)?)\s*%?", pct_text)
+                        if pct_match:
+                            pct = float(pct_match.group(1).replace(",", "."))
+
+                        company.beneficial_owners.append(
+                            Owner(
+                                name=owner_name,
+                                kennitala=birth_info.replace(" ", ""),
+                                ownership_pct=pct,
+                            )
+                        )
+        except Exception as e:
+            print(f"  Warning: Could not extract owners: {e}")
+
+        # Extract available annual reports from table rows with data-itemid
+        try:
+            # Find all table rows that have data-itemid (these are report rows)
+            for row_match in re.finditer(
+                r"<tr[^>]*>([\s\S]*?)</tr>", html, re.IGNORECASE
+            ):
+                row_html = row_match.group(1)
+                # Check if this row has data-itemid (report download cell)
+                if "data-itemid" not in row_html:
+                    continue
+
+                # Extract cells
+                cells = re.findall(
+                    r"<td[^>]*>([\s\S]*?)</td>", row_html, re.IGNORECASE
+                )
+                if len(cells) >= 4:
+                    year_text = _strip_html(cells[0]).strip()
+                    # cells[1] is typically company name
+                    date_text = _strip_html(cells[2]).strip()
+                    report_num = _strip_html(cells[3]).strip()
+
                     try:
-                        year = int(year_text)
+                        year_val = int(year_text)
                         company.available_reports.append(
                             AnnualReport(
-                                year=year,
+                                year=year_val,
                                 report_number=report_num,
                                 submission_date=date_text,
                             )
                         )
                     except ValueError:
                         continue
-        
-        # Fallback: try table-based extraction if text parsing failed
-        if not company.available_reports:
-            tables = await page.query_selector_all("table")
-            for table in tables:
-                header = await table.query_selector("th")
-                if header:
-                    header_text = await header.inner_text()
-                    if "Rek. ár" in header_text or "ársreikn" in header_text.lower():
-                        rows = await table.query_selector_all("tr")
-                        for row in rows[1:]:  # Skip header
-                            cells = await row.query_selector_all("td")
-                            if len(cells) >= 4:
-                                year_text = await cells[0].inner_text()
-                                date_text = await cells[2].inner_text()
-                                report_num = await cells[3].inner_text()
 
-                                try:
-                                    year = int(year_text.strip())
-                                    company.available_reports.append(
-                                        AnnualReport(
-                                            year=year,
-                                            report_number=report_num.strip(),
-                                            submission_date=date_text.strip(),
-                                        )
+            # Fallback: try parsing from text between known markers
+            if not company.available_reports:
+                # Look for tab-separated text blocks with year patterns
+                text = _strip_html(html)
+                lines = text.split("\n")
+                for line in lines:
+                    parts = line.split("\t")
+                    if len(parts) >= 4 and parts[0].strip().isdigit():
+                        year_text = parts[0].strip()
+                        date_text = parts[2].strip() if len(parts) > 2 else ""
+                        report_num = parts[3].strip() if len(parts) > 3 else ""
+                        try:
+                            year_val = int(year_text)
+                            if 1990 <= year_val <= 2030:
+                                company.available_reports.append(
+                                    AnnualReport(
+                                        year=year_val,
+                                        report_number=report_num,
+                                        submission_date=date_text,
                                     )
-                                except ValueError:
-                                    continue
-                        break
-    except Exception as e:
-        print(f"  Warning: Could not extract reports list: {e}")
+                                )
+                        except ValueError:
+                            continue
+        except Exception as e:
+            print(f"  Warning: Could not extract reports list: {e}")
 
     return company
 
 
 async def download_annual_report(
-    page: Page, kennitala: str, year: int, output_dir: Path
+    kennitala: str, year: int, output_dir: Path
 ) -> Path | None:
     """
-    Download annual report PDF using the shopping cart mechanism.
+    Download annual report PDF from skatturinn.is using plain HTTP.
 
     Flow:
-    1. Find td[data-itemid] for the target year
-    2. Click .tocart link (adds to cart via /da/CartService/addToCart)
-    3. Navigate to cart page at vefur.rsk.is
-    4. Click "Áfram" to proceed
-    5. Click download button to get PDF
+      1. GET company page -> find td[data-itemid] for target year
+      2. GET addToCart -> get cart kid
+      3. GET cart page -> extract ASP.NET viewstate
+      4. POST Afram (with hfKaupaMouseClicked=true) -> payment form fields
+      5. POST ReturnPage.aspx with payment fields -> download page
+      6. POST ReturnPage.aspx with Saekja oll -> ZIP containing PDF
+      7. Extract PDF from ZIP to disk
 
     Args:
-        page: Playwright page object
         kennitala: Company kennitala
         year: Operating year to download
         output_dir: Directory to save PDF
@@ -267,133 +269,230 @@ async def download_annual_report(
     Returns:
         Path to downloaded PDF or None if failed
     """
-    url = f"https://www.skatturinn.is/fyrirtaekjaskra/leit/kennitala/{kennitala}"
-    print(f"  Navigating to {url} for year {year}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{kennitala}_{year}.pdf"
 
-    await page.goto(url, wait_until="networkidle", timeout=30000)
-    await asyncio.sleep(1)  # Let JS initialize
+    print(f"  Downloading report for {kennitala} year {year}")
 
-    try:
-        # Find the row for target year and get itemid
-        # Reports are in table with td[data-itemid] containing .tocart link
-        # Prefer PDF types (1, 2) over electronic (4, 5, 6) which require email
-        item_id = None
-        type_id = None
-        report_cells = await page.query_selector_all("td[data-itemid]")
+    async with httpx.AsyncClient(
+        timeout=_HTTP_TIMEOUT,
+        headers=_HTTP_HEADERS,
+        follow_redirects=True,
+    ) as http:
+        cookies: dict[str, str] = {}
 
-        # Collect all reports for target year
-        year_reports = []
-        for cell in report_cells:
-            row = await cell.evaluate_handle("el => el.closest('tr')")
-            row_text = await row.evaluate("el => el.textContent")
+        try:
+            # Step 1: GET company page, find report items for target year
+            company_url = f"https://www.skatturinn.is/fyrirtaekjaskra/leit/kennitala/{kennitala}"
+            r1 = await http.get(company_url)
+            r1.raise_for_status()
+            cookies.update(dict(r1.cookies))
+            html1 = r1.text
 
-            if str(year) in row_text:
-                cell_item_id = await cell.get_attribute("data-itemid")
-                cell_type_id = await cell.get_attribute("data-typeid") or "1"
-                year_reports.append((cell_item_id, cell_type_id))
+            # Find td[data-itemid] rows matching the target year
+            year_items: list[tuple[str, str]] = []  # (itemId, typeId)
+            for row_match in re.finditer(
+                r"<tr[^>]*>([\s\S]*?)</tr>", html1, re.IGNORECASE
+            ):
+                row_html = row_match.group(1)
+                row_text = re.sub(r"<[^>]+>", " ", row_html)
+                if str(year) not in row_text:
+                    continue
+                item_match = re.search(
+                    r'data-itemid="(\d+)"[^>]*data-typeid="(\d+)"', row_html
+                )
+                if item_match:
+                    year_items.append((item_match.group(1), item_match.group(2)))
 
-        # Prefer PDF types (1, 2) over electronic (4, 5, 6)
-        pdf_types = ["1", "2"]
-        for item, typ in year_reports:
-            if typ in pdf_types:
-                item_id = item
-                type_id = typ
-                break
+            if not year_items:
+                print(f"  Could not find report for year {year}")
+                return None
 
-        # Fallback to first available if no PDF type found
-        if not item_id and year_reports:
-            item_id, type_id = year_reports[0]
+            # Prefer typeId 1 or 2 (PDF), warn about 4-7 (electronic/email-only)
+            chosen_item, chosen_type = year_items[0]
+            for item_id, type_id in year_items:
+                if type_id in ("1", "2"):
+                    chosen_item, chosen_type = item_id, type_id
+                    break
 
-        if not item_id:
-            print(f"  Could not find report for year {year}")
+            if chosen_type in ("4", "5", "6", "7"):
+                print(
+                    f"  Warning: Only electronic report available (typeId={chosen_type}). "
+                    "These are sent via email and may not download as PDF. Attempting anyway..."
+                )
+
+            print(f"  Found report: itemId={chosen_item} typeId={chosen_type}")
+
+            # Step 2: Add to cart
+            cart_url = f"https://www.skatturinn.is/da/CartService/addToCart?itemid={chosen_item}&typeid={chosen_type}"
+            r2 = await http.get(
+                cart_url,
+                headers={"X-Requested-With": "XMLHttpRequest"},
+                cookies=cookies,
+            )
+            r2.raise_for_status()
+            cookies.update(dict(r2.cookies))
+            cart_json = r2.json()
+
+            if not cart_json.get("addCartItemResult"):
+                print(f"  Failed to add to cart: {cart_json}")
+                return None
+
+            cart_page_url = cart_json["shoppingCartUrl"].replace(
+                "http://", "https://"
+            )
+            kid = cart_page_url.split("kid=")[1]
+            print(f"  Added to cart: kid={kid}")
+
+            # Step 3: GET cart page, extract viewstate
+            r3 = await http.get(cart_page_url, cookies=cookies)
+            r3.raise_for_status()
+            cookies.update(dict(r3.cookies))
+            html3 = r3.text
+
+            vs3 = _extract_hidden(html3, "__VIEWSTATE")
+            vsg3 = _extract_hidden(html3, "__VIEWSTATEGENERATOR")
+            ev3 = _extract_hidden(html3, "__EVENTVALIDATION")
+            if not vs3 or not ev3:
+                print("  Failed to extract viewstate from cart page")
+                return None
+
+            # Step 4: POST Afram (hfKaupaMouseClicked=true is required)
+            form4 = {
+                "__EVENTTARGET": "",
+                "__EVENTARGUMENT": "",
+                "__VIEWSTATE": vs3,
+                "__VIEWSTATEGENERATOR": vsg3 or "",
+                "__VIEWSTATEENCRYPTED": "",
+                "__EVENTVALIDATION": ev3,
+                "hfMouseClicked": "false",
+                "hfKaupaMouseClicked": "true",
+                "ctl00$MainContent$btnKaupa": "Áfram",
+            }
+            r4 = await http.post(
+                cart_page_url,
+                data=form4,
+                cookies=cookies,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            r4.raise_for_status()
+            cookies.update(dict(r4.cookies))
+            html4 = r4.text
+
+            # Extract payment gateway hidden fields from the Afram response
+            payment_fields: dict[str, str] = {}
+            for m in re.finditer(
+                r'<input[^>]*type="hidden"[^>]*>', html4, re.IGNORECASE
+            ):
+                tag = m.group(0)
+                name_m = re.search(r'name="([^"]+)"', tag)
+                value_m = re.search(r'value="([^"]*)"', tag)
+                if name_m:
+                    fname = name_m.group(1)
+                    fvalue = value_m.group(1) if value_m else ""
+                    if not fname.startswith("__") and not fname.startswith("hf"):
+                        payment_fields[fname] = fvalue
+
+            if not payment_fields:
+                # Check if this is an electronic report requiring email
+                if "Skráning netfangs" in html4 or "netfang" in html4.lower():
+                    print(
+                        f"  Electronic report (typeId={chosen_type}) requires email registration."
+                    )
+                    print(
+                        "  These cannot be downloaded directly. Try an older year with PDF format."
+                    )
+                    return None
+                print("  No payment form fields found after Afram")
+                return None
+
+            print(f"  Payment form: {len(payment_fields)} fields")
+
+            # Step 5: POST payment fields to ReturnPage.aspx
+            return_url = (
+                f"https://vefur.rsk.is/Vefverslun/ReturnPage.aspx?kid={kid}"
+            )
+            r5 = await http.post(
+                return_url,
+                data=payment_fields,
+                cookies=cookies,
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Referer": cart_page_url,
+                },
+            )
+            r5.raise_for_status()
+            cookies.update(dict(r5.cookies))
+            html5 = r5.text
+
+            if "download-button" not in html5:
+                print("  Download page not reached — no download button found")
+                return None
+
+            vs5 = _extract_hidden(html5, "__VIEWSTATE")
+            vsg5 = _extract_hidden(html5, "__VIEWSTATEGENERATOR")
+            ev5 = _extract_hidden(html5, "__EVENTVALIDATION")
+            if not vs5 or not ev5:
+                print("  Failed to extract viewstate from download page")
+                return None
+
+            # Step 6: POST "Saekja oll skjol" to download ZIP
+            form6 = {
+                "__EVENTTARGET": "",
+                "__EVENTARGUMENT": "",
+                "__VIEWSTATE": vs5,
+                "__VIEWSTATEGENERATOR": vsg5 or "",
+                "__VIEWSTATEENCRYPTED": "",
+                "__EVENTVALIDATION": ev5,
+                "hfMouseClicked": "true",
+                "ctl00$MainContent$ucVoruGrid$btnSaekjaAllarVorur": "Sækja öll skjöl",
+            }
+            r6 = await http.post(
+                return_url,
+                data=form6,
+                cookies=cookies,
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Referer": return_url,
+                    "Origin": "https://vefur.rsk.is",
+                },
+            )
+            r6.raise_for_status()
+
+            content_type = r6.headers.get("content-type", "")
+            if "zip" not in content_type and "octet-stream" not in content_type:
+                # Check if it's a direct PDF
+                if r6.content[:5] == b"%PDF-":
+                    output_path.write_bytes(r6.content)
+                    print(
+                        f"  Downloaded PDF: {output_path} ({output_path.stat().st_size} bytes)"
+                    )
+                    return output_path
+                print(
+                    f"  Expected ZIP/PDF, got {content_type}: {r6.text[:300]}"
+                )
+                return None
+
+            # Step 7: Extract PDF from ZIP
+            print(f"  ZIP downloaded: {len(r6.content)} bytes")
+            with zipfile.ZipFile(io.BytesIO(r6.content)) as zf:
+                pdf_names = [n for n in zf.namelist() if n.lower().endswith(".pdf")]
+                if not pdf_names:
+                    print(f"  No PDF in ZIP. Contents: {zf.namelist()}")
+                    return None
+                output_path.write_bytes(zf.read(pdf_names[0]))
+
+            print(
+                f"  Downloaded to {output_path} ({output_path.stat().st_size} bytes)"
+            )
+            return output_path
+
+        except Exception as e:
+            print(f"  Download failed: {e}")
+            import traceback
+
+            traceback.print_exc()
             return None
-
-        print(f"  Found report itemid={item_id}")
-
-        # Add to cart - use the API directly (more reliable than clicking hidden link)
-        add_cart_url = f"/da/CartService/addToCart?itemid={item_id}&typeid={type_id}"
-        print(f"  Adding to cart: {add_cart_url}")
-
-        response = await page.evaluate(f'''
-            async () => {{
-                const resp = await fetch("{add_cart_url}", {{
-                    headers: {{ "X-Requested-With": "XMLHttpRequest" }}
-                }});
-                return await resp.json();
-            }}
-        ''')
-        print(f"  Cart response: {response}")
-
-        if not response or not response.get("addCartItemResult"):
-            print("  Failed to add to cart")
-            return None
-
-        # Get the shopping cart URL from the response
-        cart_page_url = response.get("shoppingCartUrl")
-        if not cart_page_url:
-            print("  No cart URL in response")
-            return None
-
-        # Ensure HTTPS
-        cart_page_url = cart_page_url.replace("http://", "https://")
-        print(f"  Navigating to cart: {cart_page_url}")
-
-        await page.goto(cart_page_url, wait_until="networkidle")
-        await asyncio.sleep(2)
-
-        # Click "Áfram" button to proceed to download page
-        afram_btn = await page.query_selector('input[value="Áfram"], button:has-text("Áfram"), a:has-text("Áfram")')
-        if afram_btn:
-            await afram_btn.click()
-            await asyncio.sleep(2)
-
-        # Now we should be on the download page
-        # Set up download handler and click the download button
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"{kennitala}_{year}.pdf"
-
-        # Check if this is an electronic report requiring email
-        email_field = await page.query_selector('input[name*="netfang" i], input[id*="netfang" i], input[type="email"]')
-        page_content = await page.content()
-
-        if email_field or "Skráning netfangs" in page_content:
-            # Electronic report flow - requires email registration
-            print(f"  Electronic report (typeid={type_id}) - requires email registration")
-            print("  Note: Electronic reports are sent via email and cannot be downloaded directly.")
-            print("  Try an older year with typeid=1 (PDF format) or manually request via skatturinn.is")
-            await page.screenshot(path=output_dir / f"debug_{kennitala}_{year}.png")
-            return None
-
-        # Find download button - it's an input with class "download-button" or similar
-        download_btn = await page.query_selector(
-            'input.download-button, input[value="Sækja"], .btn.download-button, '
-            'input[name*="Saekja"], input[id*="Saekja"]'
-        )
-
-        if not download_btn:
-            # Try "Sækja öll skjöl" button
-            download_btn = await page.query_selector('input[value*="Sækja öll"]')
-
-        if not download_btn:
-            print("  Could not find download button on cart page")
-            # Take screenshot for debugging
-            await page.screenshot(path=output_dir / f"debug_{kennitala}_{year}.png")
-            return None
-
-        async with page.expect_download(timeout=60000) as download_info:
-            await download_btn.click()
-
-        download = await download_info.value
-        await download.save_as(output_path)
-
-        print(f"  Downloaded to {output_path}")
-        return output_path
-
-    except Exception as e:
-        print(f"  Download failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
 
 
 def extract_owners_from_pdf(pdf_path: Path) -> list[Owner]:
@@ -505,7 +604,6 @@ def extract_owners_from_pdf(pdf_path: Path) -> list[Owner]:
 
 
 async def map_ownership_chain(
-    browser: Browser,
     root_kennitala: str,
     max_depth: int = 5,
     visited: set[str] | None = None,
@@ -515,7 +613,6 @@ async def map_ownership_chain(
     Recursively map ownership chain starting from a company.
 
     Args:
-        browser: Playwright browser instance
         root_kennitala: Starting company kennitala
         max_depth: Maximum recursion depth
         visited: Set of already-visited kennitalas (to avoid cycles)
@@ -537,110 +634,91 @@ async def map_ownership_chain(
 
     visited.add(kt_clean)
 
-    # Create new page for this lookup
-    page = await browser.new_page()
+    company = await get_company_info(kt_clean)
 
-    try:
-        company = await get_company_info(page, kt_clean)
+    if company is None:
+        return {"kennitala": kt_clean, "not_found": True}
 
-        if company is None:
-            return {"kennitala": kt_clean, "not_found": True}
+    result = {
+        "kennitala": kt_clean,
+        "name": company.name,
+        "owners": [],
+    }
 
-        result = {
-            "kennitala": kt_clean,
-            "name": company.name,
-            "owners": [],
+    # Optionally download latest annual report and extract more detailed ownership
+    if download_pdfs and company.available_reports:
+        latest = max(company.available_reports, key=lambda r: r.year)
+        pdf_path = await download_annual_report(kt_clean, latest.year, RAW_DIR)
+        if pdf_path:
+            pdf_owners = extract_owners_from_pdf(pdf_path)
+            # Merge with page owners, preferring PDF data
+            for pdf_owner in pdf_owners:
+                existing = next(
+                    (
+                        o
+                        for o in company.beneficial_owners
+                        if o.kennitala == pdf_owner.kennitala
+                    ),
+                    None,
+                )
+                if existing:
+                    # Update with PDF data
+                    if pdf_owner.ownership_pct:
+                        existing.ownership_pct = pdf_owner.ownership_pct
+                else:
+                    company.beneficial_owners.append(pdf_owner)
+
+    # Recurse into company owners
+    for owner in company.beneficial_owners:
+        owner_data = {
+            "kennitala": owner.kennitala,
+            "name": owner.name,
+            "ownership_pct": owner.ownership_pct,
+            "type": "company" if owner.is_company else "person",
         }
 
-        # Optionally download latest annual report and extract more detailed ownership
-        if download_pdfs and company.available_reports:
-            latest = max(company.available_reports, key=lambda r: r.year)
-            pdf_path = await download_annual_report(page, kt_clean, latest.year, RAW_DIR)
-            if pdf_path:
-                pdf_owners = extract_owners_from_pdf(pdf_path)
-                # Merge with page owners, preferring PDF data
-                for pdf_owner in pdf_owners:
-                    existing = next(
-                        (
-                            o
-                            for o in company.beneficial_owners
-                            if o.kennitala == pdf_owner.kennitala
-                        ),
-                        None,
-                    )
-                    if existing:
-                        # Update with PDF data
-                        if pdf_owner.ownership_pct:
-                            existing.ownership_pct = pdf_owner.ownership_pct
-                    else:
-                        company.beneficial_owners.append(pdf_owner)
+        if owner.is_company:
+            # Recurse
+            await asyncio.sleep(REQUEST_DELAY)  # Rate limiting
+            child_chain = await map_ownership_chain(
+                owner.kennitala, max_depth - 1, visited, download_pdfs
+            )
+            owner_data["owners"] = child_chain.get("owners", [])
 
-        # Recurse into company owners
-        for owner in company.beneficial_owners:
-            owner_data = {
-                "kennitala": owner.kennitala,
-                "name": owner.name,
-                "ownership_pct": owner.ownership_pct,
-                "type": "company" if owner.is_company else "person",
-            }
+        result["owners"].append(owner_data)
 
-            if owner.is_company:
-                # Recurse
-                await asyncio.sleep(REQUEST_DELAY)  # Rate limiting
-                child_chain = await map_ownership_chain(
-                    browser, owner.kennitala, max_depth - 1, visited, download_pdfs
-                )
-                owner_data["owners"] = child_chain.get("owners", [])
-
-            result["owners"].append(owner_data)
-
-        return result
-
-    finally:
-        await page.close()
+    return result
 
 
 async def download_command(kennitala: str, year: int | None = None) -> None:
     """Download annual report(s) for a company."""
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+    company = await get_company_info(kennitala)
+    if company is None:
+        print(f"Company {kennitala} not found")
+        return
 
-        company = await get_company_info(page, kennitala)
-        if company is None:
-            print(f"Company {kennitala} not found")
-            await browser.close()
-            return
+    print(f"Company: {company.name}")
+    print(f"Available reports: {len(company.available_reports)}")
 
-        print(f"Company: {company.name}")
-        print(f"Available reports: {len(company.available_reports)}")
-
-        if year:
-            # Download specific year
-            await download_annual_report(page, kennitala, year, RAW_DIR)
-        else:
-            # Download all available
-            for report in company.available_reports:
-                print(f"Downloading {report.year}...")
-                await download_annual_report(page, kennitala, report.year, RAW_DIR)
-                await asyncio.sleep(REQUEST_DELAY)
-
-        await browser.close()
+    if year:
+        # Download specific year
+        await download_annual_report(kennitala, year, RAW_DIR)
+    else:
+        # Download all available
+        for report in company.available_reports:
+            print(f"Downloading {report.year}...")
+            await download_annual_report(kennitala, report.year, RAW_DIR)
+            await asyncio.sleep(REQUEST_DELAY)
 
 
 async def chain_command(kennitala: str, depth: int = 5, download: bool = False) -> None:
     """Map ownership chain for a company."""
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-
-        print(f"Mapping ownership chain for {kennitala} (depth={depth})")
-        chain = await map_ownership_chain(
-            browser, kennitala, max_depth=depth, download_pdfs=download
-        )
-
-        await browser.close()
+    print(f"Mapping ownership chain for {kennitala} (depth={depth})")
+    chain = await map_ownership_chain(
+        kennitala, max_depth=depth, download_pdfs=download
+    )
 
     # Save result
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
@@ -654,13 +732,7 @@ async def chain_command(kennitala: str, depth: int = 5, download: bool = False) 
 
 async def info_command(kennitala: str) -> None:
     """Get company info without downloading."""
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
-
-        company = await get_company_info(page, kennitala)
-
-        await browser.close()
+    company = await get_company_info(kennitala)
 
     if company is None:
         print(f"Company {kennitala} not found")
