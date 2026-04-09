@@ -16,8 +16,9 @@ __pycache__/
 # Playwright browsers
 .playwright/
 
-# HTML reports (self-contained, local only)
-reports/*.html
+# Reports (self-contained HTML + one-off report scripts, local only)
+reports/*
+!reports/.gitkeep
 
 # Claude plans
 .claude/plans/

@@ -120,4 +120,25 @@ uv run python scripts/nasdaq.py search --company "Arion banki hf." --category "�
 
 # Process Gasvaktin fuel prices
 uv run python scripts/fuel_prices.py
+
+# Hagstofan: CPI sub-components (headline + 12 COICOP groups + imported/domestic/services)
+# Chain-links VIS01304/01102 archive onto VIS01300/01101 current across the June 2024 break
+uv run python scripts/hagstofan_cpi.py
+
+# Hagstofan: population by citizenship (quarterly + annual by country), wages by private sector, immigrant labor share
+uv run python scripts/hagstofan_population_wages.py
+
+# Hagstofan: wage index (LAU04000) + labor/total income deciles (TEK01006/07) + PAYE by background (TEK02012)
+# Tidy long format with CPI-deflated real values
+uv run python scripts/hagstofan_income.py
+
+# HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
+# Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
+uv run python scripts/hms_indices.py
 ```
+
+## Scripts layout
+
+- `scripts/*.py` — fetchers/cleaners: hit an API or read raw files, write tidy CSVs to `data/processed/`
+- `scripts/analysis/*.py` — derivations: read from `data/processed/`, compute things, write back to `data/processed/` (never fetch)
+- `reports/*.py` — one-off report scripts (gitignored, local-only, sit next to the `.html` they emit)
