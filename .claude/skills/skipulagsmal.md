@@ -3,121 +3,161 @@
 Planitor aggregates municipal planning and building committee data across Iceland. Tracks cases, permits, meeting minutes, entities (applicants), and addresses.
 
 **Base URL:** `https://www.planitor.io`
-**Auth:** Public read API, no key needed
+**Auth:** Public read API (some endpoints require auth, noted below)
 **Rate limits:** Unknown — be polite
+**OpenAPI spec:** `https://www.planitor.io/openapi.json`
+**Enums:** `https://www.planitor.io/api/_enums`
 
-## Municipalities
+## Coverage
+
+96,835 minutes, 42,052 cases, 3,648 meetings across 3 municipalities:
+- Reykjavík: ~70k minutes
+- Hafnarfjörður: ~20k minutes
+- Árborg: ~6k minutes
+
+All minutes have Icelandic lemmas for text classification. No structured permit data in the public API — classification must be done via lemma/text matching on the `inquiry` field.
+
+## API Endpoints
+
+### Municipalities
 
 ```bash
 curl -s 'https://www.planitor.io/api/municipalities' | jq .
 ```
 
-Returns array of `{id, name, councils: [{id, name, council_type}]}`.
-Current municipalities: Reykjavík (0), Hafnarfjörður (1400), Árborg (8200), Seltjarnarnesbær (1100), Mosfellsbær (1604).
+3 active municipalities: Reykjavík (0), Hafnarfjörður (1400), Árborg (8200). Seltjarnarnesbær and Mosfellsbær listed but have no council data.
 
-## Nearby Cases
+### Search Minutes
 
-Find planning cases near a GPS coordinate:
+Full-text search across 96,835 minutes. **Supports Icelandic via URL encoding.**
+
+```bash
+curl -s 'https://www.planitor.io/api/minutes/search?q=hótel&limit=50' | jq .
+```
+
+**Params:** `q`, `after` (date), `before` (date), `council_type`, `entity` (kennitala), `limit` (max 200), `offset`
+
+**Key search counts:**
+| Term | Count |
+|------|-------|
+| `deiliskipulag` | 14,129 |
+| `íbúðir` | 13,396 |
+| `fjölbýlishús` | 6,222 |
+| `bílastæði` | 3,463 |
+| `hótel` | 2,207 |
+| `leiguíbúðir` | 89 |
+
+**Working filters:** `after`/`before` (dates), `council_type`, `entity` (kennitala), full pagination
+**Broken:** `municipality_id` (ignored)
+
+### Nearby Cases
 
 ```bash
 curl -s 'https://www.planitor.io/api/cases/nearby?lat=64.1466&lon=-21.9426&radius_m=500&limit=100' | jq .
 ```
 
-**Params:** `lat`, `lon`, `radius_m` (max 5000), `status`, `council_type`, `updated_after`, `limit` (max 500), `offset`
+**Params:** `lat`, `lon`, `radius_m` (max 5000), `updated_after`, `limit` (max 500), `offset`
 
-**Response:** `{items, total, limit, offset}` — each item has:
-- `id`, `serial` (e.g. "USK25120153"), `address`, `lat`, `lon`
-- `status`: `[code, display_text, color]` — e.g. `["samthykkt", "Samþykkt", "green"]`
-- `updated`, `council_type`
+Central Reykjavík (3km): 14,705 cases. Full pagination works.
 
-## Search Minutes
+Returns: `id`, `serial`, `address`, `lat`, `lon`, `status`, `updated`, `last_sale_price`, `last_sale_date`
 
-Full-text search across meeting minutes:
-
-```bash
-curl -s 'https://www.planitor.io/api/minutes/search?q=Laugavegur&limit=50' | jq .
-```
-
-**Params:** `q`, `lat`, `lon`, `radius_m`, `entity`, `address`, `council_type`, `status`, `after`, `before`, `limit` (max 200), `offset`
-
-**Response:** paginated `{items, total, limit, offset}` — each item:
-- `id`, `headline`, `inquiry` (application details), `remarks` (decision)
-- `status`: `[code, display_text, color]`
-- `meeting_date`, `council`, `case_serial`, `case_address`
-
-## Entity Search
-
-Find companies/individuals involved in planning cases:
-
-```bash
-curl -s 'https://www.planitor.io/api/entities/search?q=Byko' | jq .
-```
-
-**Params:** `q` (min 1 char), `limit` (max 100)
-**Response:** array of `{kennitala, name}`
-
-## Entity Minutes
-
-Get all minutes mentioning an entity:
-
-```bash
-curl -s 'https://www.planitor.io/api/entities/KENNITALA/minutes?limit=50' | jq .
-```
-
-**Params:** `council_type`, `after`, `before`, `limit` (max 200), `offset`
-
-## Case Detail
+### Case Detail
 
 ```bash
 curl -s 'https://www.planitor.io/api/cases/SERIAL' | jq .
 ```
 
-Returns `ExploreCaseDetail` with full case history.
+Returns full case with `minutes[]` (meeting history) and `transactions[]` (HMS property transactions with kaupverd, tegund, flatarmal, fjoldi_herbergja, byggingarar).
 
-## Address Lookup
-
-Find cases near a specific address (by hnitnum from Staðfangaskrá):
+### Entity Search
 
 ```bash
-curl -s 'https://www.planitor.io/api/addresses/HNITNUM/addresses?radius=300&days=365' | jq .
+curl -s 'https://www.planitor.io/api/entities/search?q=Reitir' | jq .
 ```
 
-## Web Search
+Key entities found:
+- **Reitir fasteignafélag hf.** (7112080700) — 282 minutes
+- **Bjarg íbúðafélag** (4909160670) — 117 minutes
+- **Gamma ehf.** (6507050410) — 38 minutes
 
-The `/leit` endpoint provides broader search (returns HTML page, not JSON):
+### Entity Minutes
 
+```bash
+curl -s 'https://www.planitor.io/api/entities/KENNITALA/minutes?limit=200' | jq .
 ```
-https://www.planitor.io/leit?q=Laugavegur+22&page=1
+
+Full permit history for any entity. Supports `council_type`, `after`, `before`, pagination.
+
+### Enums
+
+```bash
+curl -s 'https://www.planitor.io/api/_enums' | jq .
 ```
 
-## Enums
+#### Council Types
+`byggingarfulltrui`, `skipulagsfulltrui`, `skipulagsrad`, `borgarrad`, `borgarstjorn`
 
-### Council Types
-| Code | Name |
-|------|------|
-| `byggingarfulltrui` | Byggingarfulltrúi |
-| `skipulagsfulltrui` | Skipulagsfulltrúi |
-| `skipulagsrad` | Skipulagsráð |
-| `borgarrad` | Borgarráð |
-| `borgarstjorn` | Borgarstjórn |
+#### Building Types
+`einbylishus`, `fjolbylishus`, `gestahus`, `geymsluskur`, `hotel`, `idnadarhus`, `parhus`, `radhus`, `sumarhus`, `verslun_skrifstofur`
 
-### Case Statuses
-| Code | Color |
-|------|-------|
-| `samthykkt` | green (approved) |
-| `frestad` | yellow (deferred) |
-| Other codes | red (rejected), blue (neutral) |
-
-### Permit Types
+#### Permit Types
 `nybygging` (new build), `vidbygging` (extension), `breyting_inni` (interior change), `breyting_uti` (exterior change), `nidurrif` (demolition)
 
-### Building Types
-`einbylishus`, `fjolbylishus`, `gestahus`, `geymsluskur`, `hotel`, `idnadarhus`, `parhus`, `radhus`, `sumarhus`, `verslun_skrifstofur`
+#### Case Statuses
+`samthykkt` (approved/green), `jakvaett` (positive/green), `frestad` (postponed/yellow), `grenndarkynning` (yellow), `visad-til-*` (referred/yellow), `neikvaett` (negative/red), `neitad` (rejected/red), `visad-fra` (dismissed/red), `engar-athugasemdir` (no comments/blue)
+
+### Permits Endpoint (broken)
+
+`/api/permits` returns 500. Schema exists (`units`, `areaAdded`, `buildingType`, `permitType`, `approved`, `address`, `postcode`) but the underlying data is sparse (43 manually classified records).
+
+## Classification via Lemmas
+
+No structured building type or permit type in the public API. Classify by filtering the `inquiry` text or searching for Icelandic lemma keywords:
+
+**Building type keywords** (search via `q` parameter):
+- `hótel` → hotel
+- `fjölbýlishús` / `tvíbýlishús` → apartment building
+- `einbýlishús` → single-family house
+- `raðhús` → row house / `parhús` → semi-detached
+- `gestahús` → guesthouse / `sumarhús` → summer house
+- `verslunarhúsnæði` / `skrifstofuhúsnæði` / `veitingastaður` → commercial
+
+**Permit type keywords:**
+- `byggja` → new construction
+- `viðbygging` → extension
+- `innra skipulagi` / `baðherbergi` → interior modification
+- `gluggi` / `svalir` / `svalalokun` → exterior modification
+- `rífa` → demolition
+
+**Area extraction:** Inquiry text often contains `N ferm.` (square meters). Parse with regex.
+
+**Unit counts:** Inquiry text often contains `N íbúðum` or `N íbúðir`. Parse with regex.
+
+### Example: classify and count via API pagination
+
+```python
+# Paginate through all "fjölbýlishús" minutes in 2024
+import httpx, re
+url = "https://www.planitor.io/api/minutes/search"
+params = {"q": "fjölbýlishús", "after": "2024-01-01", "before": "2025-01-01", "limit": 200, "offset": 0}
+total_units = 0
+while True:
+    r = httpx.get(url, params=params).json()
+    for item in r["items"]:
+        m = re.search(r"(\d+) íbúð", item.get("inquiry") or "")
+        if m:
+            total_units += int(m.group(1))
+    if len(r["items"]) < 200:
+        break
+    params["offset"] += 200
+```
 
 ## Caveats
 
-- Only 5 municipalities indexed (Reykjavík, Hafnarfjörður, Árborg, Seltjarnarnesbær, Mosfellsbær)
-- `/api/permits` endpoint returns 500 — may be deprecated or require auth
-- Entity search returns empty for some queries — index may be partial
-- `council_type` often null in nearby-cases responses
-- Use `iceaddr` skill to convert street addresses → hnitnum for address lookup
+- Only 3 municipalities indexed — **Kópavogur, Mosfellsbær, Garðabær are NOT covered**
+- `municipality_id` filter on minutes search does not work (ignored)
+- Status filter on nearby endpoint returns 422
+- Hotel minutes ≠ hotel permits — many are modifications to existing hotels, not new builds
+- Address deduplication: same address appears in multiple minutes as a case progresses through councils
+- Planning throughput dropped ~50% from 2019 (5,695 minutes) to 2022 (2,692) — reflects both COVID and restructuring of the planning division
