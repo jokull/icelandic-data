@@ -37,6 +37,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | Skill | Source | Description |
 |-------|--------|-------------|
 | [hagstofan](/.claude/skills/hagstofan.md) | Statistics Iceland | PX-Web API for economic, demographic, trade data |
+| [sectoral_balances](/.claude/skills/sectoral_balances.md) | Analytical (Hagstofan + FSR) | Current account decomposition, NIIP attribution, pension fund foreign assets, Godley/MMT sectoral balances identity |
 | [sedlabanki](/.claude/skills/sedlabanki.md) | Central Bank of Iceland | SDMX API for monetary, financial, external sector data |
 | [reykjavik](/.claude/skills/reykjavik.md) | Reykjavík Municipality | CKAN + PX-Web APIs for municipal services, demographics, welfare, nationality data. **Opin Fjármál**: vendor-level spending by division/unit (2014–2025, ~94k rows/yr) — use for "what does Reykjavík buy/spend/pay" |
 | [skatturinn](/.claude/skills/skatturinn.md) | Iceland Tax Authority | Annual reports (ársreikningar), company registry, ownership chain mapping via Playwright |
@@ -58,6 +59,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [gengi](/.claude/skills/gengi.md) | Borgun | Currency exchange rates (card rates, not interbank) |
 | [laun](/.claude/skills/laun.md) | payday.is | Take-home salary calculator with tax/pension breakdown |
 | [maskina](/.claude/skills/maskina.md) | Maskína | Public opinion polls — structured data via Tableau Public VizQL + articles via WordPress API |
+| [liteparse](/.claude/skills/liteparse.md) | PDF Parsing | LlamaIndex local PDF parser — text with bounding box coordinates, page screenshots, visual element detection |
 
 ## Adding a New Skill
 
@@ -140,5 +142,6 @@ uv run python scripts/hms_indices.py
 ## Scripts layout
 
 - `scripts/*.py` — fetchers/cleaners: hit an API or read raw files, write tidy CSVs to `data/processed/`
-- `scripts/analysis/*.py` — derivations: read from `data/processed/`, compute things, write back to `data/processed/` (never fetch)
 - `reports/*.py` — one-off report scripts (gitignored, local-only, sit next to the `.html` they emit)
+
+Inflation-specific analysis (derivation scripts, research reports, the whodunit blog post) lives in [`~/Code/inflation-whodunit`](../inflation-whodunit). That repo reads processed data from here.

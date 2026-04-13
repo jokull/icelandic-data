@@ -26,3 +26,7 @@ financials = "scripts.financials:main"
 dev = [
     "ipython>=8.0",
 ]
+pdf = [
+    "docling>=2.74",
+    "liteparse>=1.2",
+]
