@@ -60,16 +60,20 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [laun](/.claude/skills/laun.md) | payday.is | Take-home salary calculator with tax/pension breakdown |
 | [maskina](/.claude/skills/maskina.md) | Maskína | Public opinion polls — structured data via Tableau Public VizQL + articles via WordPress API |
 | [liteparse](/.claude/skills/liteparse.md) | PDF Parsing | LlamaIndex local PDF parser — text with bounding box coordinates, page screenshots, visual element detection |
+| [lmi](/.claude/skills/lmi.md) | Landmælingar Íslands | Vector geodata via GeoServer WFS — landmask, coastline, roads, rivers, lakes, glaciers, municipalities, settlements |
+| [kortagerð](/.claude/skills/kortagerð.md) | Mapmaking | Iceland map generation from cached LMI data — static (matplotlib) and interactive (Leaflet) with templates for Python and R |
+| [new_data_source](/.claude/skills/new_data_source.md) | Methodology | How to learn and integrate a new data source — discovery, probing, skill authoring, script conventions, testing |
 
-## Adding a New Skill
+## Adding a New Data Source
 
-1. Research the data source API
-2. Create `/.claude/skills/{source}.md` with:
-   - API base URL and auth
-   - Available datasets and their codes
-   - Example queries
-   - Data caveats
-3. Update this file's "Active Skills" table
+Follow the methodology in [new_data_source](/.claude/skills/new_data_source.md) — covers discovery, probing, skill authoring, script conventions, testing, and visualization. Summary:
+
+1. **Discover** — find the API type (REST, WFS, Power BI, scraping), probe endpoints, document schema
+2. **Skill file** — create `/.claude/skills/{source}.md` with API, schema, request examples, caveats
+3. **Script** — create `scripts/{source}.py` with `list`/`fetch` subcommands (polars + httpx)
+4. **Test** — verify output with DuckDB, check Icelandic encoding, spot-check values
+5. **Visualize** — HTML report (Chart.js/Leaflet) or static map (geopandas + cached LMI layers)
+6. **Register** — update this file's Active Skills table and Quick Commands
 
 ## Tools
 
@@ -137,6 +141,14 @@ uv run python scripts/hagstofan_income.py
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
 # Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
 uv run python scripts/hms_indices.py
+
+# Download LMI geodata layers (~50 MB)
+uv run python scripts/lmi.py download
+
+# Generate Iceland maps
+uv run python scripts/kortagerð.py static -o reports/iceland-map.png
+uv run python scripts/kortagerð.py html -o reports/iceland-map.html
+uv run python scripts/kortagerð.py static --bounds capital --highlight "Reykjavíkurborg" -o reports/rvk.png
 ```
 
 ## Scripts layout
