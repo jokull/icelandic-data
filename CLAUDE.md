@@ -60,6 +60,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [laun](/.claude/skills/laun.md) | payday.is | Take-home salary calculator with tax/pension breakdown |
 | [maskina](/.claude/skills/maskina.md) | Maskína | Public opinion polls — structured data via Tableau Public VizQL + articles via WordPress API |
 | [liteparse](/.claude/skills/liteparse.md) | PDF Parsing | LlamaIndex local PDF parser — text with bounding box coordinates, page screenshots, visual element detection |
+| [maelabord_landbunadarins](/.claude/skills/maelabord_landbunadarins.md) | Ministry of Agriculture | Agricultural subsidies (búvörusamningar), market data, farm/livestock stats via 3 Power BI dashboards. Includes per-farm subsidy recipients and busnr→landsnr crosswalk. |
 
 ## Adding a New Skill
 
@@ -137,6 +138,12 @@ uv run python scripts/hagstofan_income.py
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
 # Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
 uv run python scripts/hms_indices.py
+
+# Mælaborð landbúnaðarins — cattle-subsidy recipients (Playwright scrape of "Eftir búi" matrix)
+uv run python scripts/maelabord_nautgripa.py fetch
+
+# Render cattle-subsidy farms on an Iceland map (depends on PR 1 LMI cache + PR 4 landeignaskra)
+uv run python scripts/nautgripa_map.py
 ```
 
 ## Scripts layout

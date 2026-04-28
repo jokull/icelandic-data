@@ -1,6 +1,7 @@
 # Data (large files, regenerable)
 data/raw/
 data/processed/
+data/geodata/
 
 # DuckDB
 *.duckdb
@@ -10,18 +11,32 @@ data/processed/
 __pycache__/
 *.py[cod]
 .venv/
-.python-version
 .uv/
 
 # Playwright browsers
 .playwright/
 
-# Reports (self-contained HTML + one-off report scripts, local only)
-reports/*
-!reports/.gitkeep
+# HTML reports (self-contained, local only)
+reports/*.html
+# Rendered report images (regenerable via scripts)
+reports/*.png
 
 # Claude plans
 .claude/plans/
+
+# Local Claude settings (machine-specific permission grants)
+.claude/settings.local.json
+
+# R
+.Rhistory
+.Rdata
+.Rproj.user/
+
+# Raw data downloads under non-standard paths
+data/logbyli/
+
+# Scratch metadata files written by scripts at runtime
+metadata/maelabord-ctx*.txt
 
 # OS
 .DS_Store
@@ -33,6 +48,3 @@ Thumbs.db
 
 # Logs
 *.log
-
-# Tesseract language data (downloaded on demand)
-*.traineddata
