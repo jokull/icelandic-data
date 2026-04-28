@@ -25,8 +25,15 @@ financials = "scripts.financials:main"
 [dependency-groups]
 dev = [
     "ipython>=8.0",
+    "pytest>=8.0",
 ]
 pdf = [
     "docling>=2.74",
     "liteparse>=1.2",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests that make network/browser calls (deselect with '-m \"not slow\"')",
+]
+testpaths = ["tests"]

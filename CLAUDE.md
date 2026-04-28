@@ -60,6 +60,12 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [laun](/.claude/skills/laun.md) | payday.is | Take-home salary calculator with tax/pension breakdown |
 | [maskina](/.claude/skills/maskina.md) | Maskína | Public opinion polls — structured data via Tableau Public VizQL + articles via WordPress API |
 | [liteparse](/.claude/skills/liteparse.md) | PDF Parsing | LlamaIndex local PDF parser — text with bounding box coordinates, page screenshots, visual element detection |
+| [landlaeknir](/.claude/skills/landlaeknir.md) | Directorate of Health | ~30 Power BI dashboards — mortality, medication, healthcare services, infectious disease; Talnabrunnur PDF archive |
+| [vinnumalastofnun](/.claude/skills/vinnumalastofnun.md) | Directorate of Labour | Registered unemployment, job seekers, work permits — Power BI mælaborð + monthly Excel |
+| [farsaeld_barna](/.claude/skills/farsaeld_barna.md) | Barna- og fjölskyldustofa | Child wellbeing dashboard (farsaeldbarna.is) — static-data Power BI scraped via modelsAndExploration |
+| [vernd](/.claude/skills/vernd.md) | Ríkislögreglustjóri | International-protection (asylum) monthly stats — Power BI dashboard, applicants by year/week/nationality/gender/age |
+| [byggdastofnun](/.claude/skills/byggdastofnun.md) | Byggðastofnun | Regional-development dashboards — 11 Tableau Public embeds (population, income, property tax, energy, grants, state employment) |
+| [tekjusagan](/.claude/skills/tekjusagan.md) | Forsætisráðuneytið | Income history dashboard (tekjusagan.is) — token-gated Power BI, 5 report routes, driven via Playwright |
 
 ## Adding a New Skill
 
@@ -137,6 +143,31 @@ uv run python scripts/hagstofan_income.py
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
 # Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
 uv run python scripts/hms_indices.py
+
+# Directorate of Health — list all dashboards, scrape one (Playwright)
+uv run python scripts/landlaeknir.py list
+uv run python scripts/landlaeknir.py fetch --slug mortis
+
+# Vinnumálastofnun — Excel + Power BI capture
+uv run python scripts/vinnumalastofnun.py fetch
+
+# Farsæld barna — child wellbeing Power BI capture
+uv run python scripts/farsaeld_barna.py fetch
+
+# Vernd — asylum / international-protection dashboard
+uv run python scripts/vernd.py info
+uv run python scripts/vernd.py fetch
+
+# Byggðastofnun — regional-development dashboard catalog (Tableau Public)
+uv run python scripts/byggdastofnun.py list
+uv run python scripts/byggdastofnun.py url tekjur
+
+# Tekjusagan — income history (token + Playwright drive)
+uv run python scripts/tekjusagan.py token
+uv run python scripts/tekjusagan.py fetch
+
+# Ferðamálastofa — Keflavík tourism Power BI
+uv run python scripts/ferdamalastofa.py --help
 ```
 
 ## Scripts layout
