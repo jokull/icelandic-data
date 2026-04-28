@@ -60,6 +60,10 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [laun](/.claude/skills/laun.md) | payday.is | Take-home salary calculator with tax/pension breakdown |
 | [maskina](/.claude/skills/maskina.md) | Maskína | Public opinion polls — structured data via Tableau Public VizQL + articles via WordPress API |
 | [liteparse](/.claude/skills/liteparse.md) | PDF Parsing | LlamaIndex local PDF parser — text with bounding box coordinates, page screenshots, visual element detection |
+| [velsaeldarvisar](/.claude/skills/velsaeldarvisar.md) | Hagstofa Íslands | Indicator catalogs on visar.hagstofa.is — well-being + social + cultural (88 indicators → ~77 PX-Web tables) |
+| [heimsmarkmid](/.claude/skills/heimsmarkmid.md) | Hagstofa Íslands | UN SDG national statistics (open-sdg) — 137 indicators across all 17 goals, ~10k rows, ZIP bundle from GitHub Pages |
+| [rikisreikningur](/.claude/skills/rikisreikningur.md) | Fjársýsla ríkisins | State accounts — yearly revenue/expense (2015+), málefnasvið breakdown (36 policy areas), 35 downloadable XLSX/CSV files via Azure Functions API |
+| [co2](/.claude/skills/co2.md) | Umhverfis-, orku- og loftslagsráðuneytið | Climate action plan (co2.is) — 106 numbered actions across 4 kerfi, status / ministry / start–end years, Webflow scrape |
 
 ## Adding a New Skill
 
@@ -137,6 +141,26 @@ uv run python scripts/hagstofan_income.py
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
 # Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
 uv run python scripts/hms_indices.py
+
+# Velsældarvísar + Félagsvísar + Menningarvísar — Hagstofa indicator catalog
+uv run python scripts/velsaeldarvisar.py fetch
+uv run python scripts/velsaeldarvisar.py list --section velsaeldarvisar
+uv run python scripts/velsaeldarvisar.py pxtables
+
+# Heimsmarkmið — UN SDG national statistics (open-sdg)
+uv run python scripts/heimsmarkmid.py fetch
+uv run python scripts/heimsmarkmid.py list --goal 4
+uv run python scripts/heimsmarkmid.py get 1-1-1
+
+# Ríkisreikningur — state accounts (Fjársýsla)
+uv run python scripts/rikisreikningur.py summary
+uv run python scripts/rikisreikningur.py malefni
+uv run python scripts/rikisreikningur.py files
+
+# CO2.is — climate action plan
+uv run python scripts/co2.py fetch
+uv run python scripts/co2.py list --kerfi S
+uv run python scripts/co2.py list --status "Í framkvæmd"
 ```
 
 ## Scripts layout
