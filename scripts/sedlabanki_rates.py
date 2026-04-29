@@ -10,6 +10,7 @@ Usage:
     uv run python scripts/sedlabanki_rates.py --json        # Output JSON to stdout
 """
 
+import argparse
 import asyncio
 import json
 import sys
@@ -229,13 +230,19 @@ def save_csv(rows: list[dict], path: Path):
 
 
 def main():
-    output_json = "--json" in sys.argv
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Write fetched rows as JSON to stdout instead of saving CSV.",
+    )
+    args = parser.parse_args()
 
     rows = asyncio.run(fetch_interest_rates())
     if not rows:
         sys.exit(1)
 
-    if output_json:
+    if args.json:
         print(json.dumps(rows, indent=2))
     else:
         out_path = PROCESSED_DIR / "sedlabanki_rates.csv"

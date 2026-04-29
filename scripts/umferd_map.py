@@ -5,15 +5,8 @@ Counters are colored and sized by daily traffic volume using a log-scale
 gradient from cool (low) to hot (high). The road network provides context.
 """
 
-import geopandas as gpd
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as pe
-import matplotlib.colors as mcolors
-from matplotlib.lines import Line2D
-from matplotlib.cm import ScalarMappable
+import argparse
 from pathlib import Path
-import numpy as np
-import polars as pl
 
 GEODATA = Path(__file__).parent.parent / "data" / "geodata"
 PROCESSED = Path(__file__).parent.parent / "data" / "processed"
@@ -45,6 +38,25 @@ def halo(color=None, width=2.5):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=OUT,
+        help=f"Output image path (default: {OUT})",
+    )
+    args = parser.parse_args()
+
+    global pe
+    import geopandas as gpd
+    import matplotlib.colors as mcolors
+    import matplotlib.patheffects as pe
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import polars as pl
+    from matplotlib.cm import ScalarMappable
+    from matplotlib.lines import Line2D
+
     # --- Load layers ---
     land     = gpd.read_file(GEODATA / "Landmask.geojson")
     islands  = gpd.read_file(GEODATA / "IslandArea.geojson")
@@ -277,11 +289,11 @@ def main():
 
     # --- Save ---
     plt.tight_layout(pad=0.5)
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(args.output, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
-    size_mb = OUT.stat().st_size / (1024 * 1024)
-    print(f"Map saved: {OUT} ({size_mb:.1f} MB)")
+    size_mb = args.output.stat().st_size / (1024 * 1024)
+    print(f"Map saved: {args.output} ({size_mb:.1f} MB)")
 
 
 if __name__ == "__main__":

@@ -35,7 +35,8 @@ pdf = [
 ]
 
 [tool.pytest.ini_options]
+addopts = ["-m", "not slow"]
 markers = [
-    "slow: marks tests that make network/browser calls (deselect with '-m \"not slow\"')",
+    "slow: marks tests that make network/browser calls",
 ]
 testpaths = ["tests"]

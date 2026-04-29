@@ -154,7 +154,6 @@ uv run python scripts/hagstofan_income.py
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
 # Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
 uv run python scripts/hms_indices.py
-<<<<<<< HEAD
 
 # Download LMI geodata layers (~50 MB)
 uv run python scripts/lmi.py download

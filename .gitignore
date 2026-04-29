@@ -11,15 +11,15 @@ data/geodata/
 __pycache__/
 *.py[cod]
 .venv/
+.python-version
 .uv/
 
 # Playwright browsers
 .playwright/
 
-# HTML reports (self-contained, local only)
-reports/*.html
-# Rendered report images (regenerable via scripts)
-reports/*.png
+# Reports (self-contained HTML + one-off report scripts, local only)
+reports/*
+!reports/.gitkeep
 
 # Claude plans
 .claude/plans/
@@ -37,6 +37,9 @@ data/logbyli/
 
 # Scratch metadata files written by scripts at runtime
 metadata/maelabord-ctx*.txt
+
+# Tesseract language data (downloaded on demand)
+*.traineddata
 
 # OS
 .DS_Store
