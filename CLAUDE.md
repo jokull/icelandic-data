@@ -75,6 +75,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [rikisreikningur](/.claude/skills/rikisreikningur.md) | Fjársýsla ríkisins | State accounts — yearly revenue/expense (2015+), málefnasvið breakdown (36 policy areas), 35 downloadable XLSX/CSV files via Azure Functions API |
 | [co2](/.claude/skills/co2.md) | Umhverfis-, orku- og loftslagsráðuneytið | Climate action plan (co2.is) — 106 numbered actions across 4 kerfi, status / ministry / start–end years, Webflow scrape |
 | [umferd](/.claude/skills/umferd.md) | Vegagerðin | Traffic counters — real-time 15-min counts, 7-day rolling daily totals, 168+ stations via GeoServer WFS |
+| [maelabord_landbunadarins](/.claude/skills/maelabord_landbunadarins.md) | Ministry of Agriculture | Agricultural subsidies (búvörusamningar), market data, farm/livestock stats via 3 Power BI dashboards. Includes per-farm subsidy recipients and busnr→landsnr crosswalk. |
 
 ## Adding a New Data Source
 
@@ -153,6 +154,7 @@ uv run python scripts/hagstofan_income.py
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
 # Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
 uv run python scripts/hms_indices.py
+<<<<<<< HEAD
 
 # Download LMI geodata layers (~50 MB)
 uv run python scripts/lmi.py download
@@ -230,6 +232,12 @@ uv run python scripts/umferd.py snapshot
 uv run python scripts/umferd.py collect
 uv run python scripts/umferd.py report
 uv run python scripts/umferd_map.py    # Iceland-wide traffic map (depends on LMI cache from PR 1)
+
+# Mælaborð landbúnaðarins — cattle-subsidy recipients (Playwright scrape of "Eftir búi" matrix)
+uv run python scripts/maelabord_nautgripa.py fetch
+
+# Render cattle-subsidy farms on an Iceland map (depends on PR 1 LMI cache + PR 4 landeignaskra)
+uv run python scripts/nautgripa_map.py
 ```
 
 ## Scripts layout
