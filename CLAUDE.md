@@ -62,6 +62,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [liteparse](/.claude/skills/liteparse.md) | PDF Parsing | LlamaIndex local PDF parser — text with bounding box coordinates, page screenshots, visual element detection |
 | [lmi](/.claude/skills/lmi.md) | Landmælingar Íslands | Vector geodata via GeoServer WFS — landmask, coastline, roads, rivers, lakes, glaciers, municipalities, settlements |
 | [kortagerð](/.claude/skills/kortagerð.md) | Mapmaking | Iceland map generation from cached LMI data — static (matplotlib) and interactive (Leaflet) with templates for Python and R |
+| [natt](/.claude/skills/natt.md) | Náttúrufræðistofnun | Habitat-type / species / geology open data via GeoServer WFS+WMS at gis.natt.is. Vistgerðir 25k 3rd-edition vector polygons (incl. L14.2 Tún og akurlendi cultivated land). |
 | [new_data_source](/.claude/skills/new_data_source.md) | Methodology | How to learn and integrate a new data source — discovery, probing, skill authoring, script conventions, testing |
 
 ## Adding a New Data Source
@@ -149,6 +150,14 @@ uv run python scripts/lmi.py download
 uv run python scripts/kortagerð.py static -o reports/iceland-map.png
 uv run python scripts/kortagerð.py html -o reports/iceland-map.html
 uv run python scripts/kortagerð.py static --bounds capital --highlight "Reykjavíkurborg" -o reports/rvk.png
+
+# Náttúrufræðistofnun: download habitat-type polygons via WFS
+# (vistgerðir 1:25.000 3rd ed.; DN=95 = L14.2 Tún og akurlendi, ~1,800 km²)
+uv run python scripts/natt.py habitat --dn 95
+uv run python scripts/natt.py inventory          # list all DN→htxt codes
+
+# Map of Iceland's agricultural land (PNG + single-file Leaflet HTML)
+uv run python reports/agricultural_land_map.py
 ```
 
 ## Scripts layout
