@@ -1,12 +1,57 @@
 # Seðlabanki Íslands (Central Bank of Iceland)
 
-Monetary and financial statistics for deposit institutions (banks).
+Monetary and financial statistics: interest rates, balance sheets, and new credit.
+
+**Important:** Both sedlabanki.is and gagnabanki.is are JavaScript SPAs (Blazor / Angular).
+Simple HTTP fetches return empty HTML shells. Use Playwright for data extraction.
 
 ## Data Scope
 
-Two core datasets covering Iceland's banking system:
+Three core datasets covering Iceland's monetary system:
 
-### 1. Balance Sheets (Efnahagur innlánsstofnana)
+### 0. Key Interest Rates (Meginvextir Seðlabankans)
+**Type:** Daily observations
+**Period:** Jan 2007 - present (18+ years)
+**Frequency:** Daily (business days)
+
+Central Bank policy rates:
+- **Meginvextir / Key rate** (7-day term deposit rate) — the main policy rate since 2014
+- **Vextir á daglánum / Overnight lending rate**
+- **Vextir á viðskiptareikningum / Current account rate**
+- Also: 7-day collateralised lending, 28-day CBI CDs, REIBOR rates
+
+**Source:** gagnabanki.is Power BI embed (report key: `interests`)
+
+### Data Portal: gagnabanki.is
+
+The Central Bank's data portal at `gagnabanki.is` is an Angular SPA wrapping Power BI reports.
+
+**Architecture:**
+- Config API: `GET https://gagnabanki.is/api/config` — returns all report IDs, time series keys, filters
+- Embed token: `GET https://gagnabanki.is/api/embed/{groupId}/{reportId}`
+- Group ID: `05060786-7f48-4442-8981-314b262d68a7`
+- Data flows through Power BI's WABI backend (`*.pbidedicated.windows.net`)
+
+**Interest Rate Report:**
+- Config key: `interests`
+- Report ID (live): `2b28c90f-7da7-4fd0-bd9b-f87ffeddbb07`
+- Dataset: `e75e5a3b-6118-4899-a266-62550d1b32e4`
+- Default series: keys 24, 28, 17923
+- All series keys: `[17923, 28, 75, 55, 24, 3459, 17922, 4125, 289, 3460, 3461, 3458]`
+
+**Extraction method:** Playwright intercepts Power BI `querydata` responses from `*.pbidedicated.windows.net`. Data arrives in DSR (DataShapeResult) format with compressed values.
+
+```bash
+# Fetch interest rates to CSV
+uv run python scripts/sedlabanki_rates.py
+
+# Output as JSON
+uv run python scripts/sedlabanki_rates.py --json
+```
+
+**Output:** `data/processed/sedlabanki_rates.csv` with columns: date, series, value
+
+### 1. Balance Sheets (Efnahagur innlánsstofnana) — via SDMX
 **Type:** Stock (end-of-month positions)
 **Period:** Sept 1993 - present (387+ months, 32 years)
 **Frequency:** Monthly
@@ -18,7 +63,7 @@ Full balance sheet of deposit-taking institutions:
 - **Liabilities** (Skuldir)
   - Deposits (demand/term), debt securities, borrowing, equity
 
-### 2. New Credit (Ný útlán)
+### 2. New Credit (Ný útlán) — via Library Download
 **Type:** Flow (net new lending minus prepayments)
 **Period:** Jan 2013 - present (155+ months, 13 years)
 **Frequency:** Monthly
@@ -141,6 +186,8 @@ uv run python scripts/sedlabanki.py
 4. **Units:** All values in M.kr. (million ISK)
 
 5. **Source:** Data collection per Act 92/2019 on the Central Bank of Iceland
+
+6. **Encoding.** Icelandic chars (þ, ð, æ, ö) appear in sector names (Heimili, Atvinnufyrirtæki, verðtryggð) across both SDMX exports and the gagnabanki Power BI payload. Read CSV with `encoding="utf-8"` (the Excel-derived files are `utf-8-sig`); write JSON with `ensure_ascii=False`.
 
 ## Evidence Integration
 

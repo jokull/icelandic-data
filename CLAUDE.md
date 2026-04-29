@@ -38,11 +38,11 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 |-------|--------|-------------|
 | [hagstofan](/.claude/skills/hagstofan.md) | Statistics Iceland | PX-Web API for economic, demographic, trade data |
 | [sectoral_balances](/.claude/skills/sectoral_balances.md) | Analytical (Hagstofan + FSR) | Current account decomposition, NIIP attribution, pension fund foreign assets, Godley/MMT sectoral balances identity |
-| [sedlabanki](/.claude/skills/sedlabanki.md) | Central Bank of Iceland | SDMX API for monetary, financial, external sector data |
+| [sedlabanki](/.claude/skills/sedlabanki.md) | Central Bank of Iceland | SDMX API (balance sheets, new credit) + gagnabanki.is Power BI for daily key interest rates 2007+ |
 | [reykjavik](/.claude/skills/reykjavik.md) | Reykjavík Municipality | CKAN + PX-Web APIs for municipal services, demographics, welfare, nationality data. **Opin Fjármál**: vendor-level spending by division/unit (2014–2025, ~94k rows/yr) — use for "what does Reykjavík buy/spend/pay" |
 | [skatturinn](/.claude/skills/skatturinn.md) | Iceland Tax Authority | Annual reports (ársreikningar), company registry, ownership chain mapping via Playwright |
 | [financials](/.claude/skills/financials.md) | PDF Extraction | Structured financial data from annual reports using Docling + Claude interpretation |
-| [hms](/.claude/skills/hms.md) | HMS Property Registry | Kaupskrá fasteigna - 222k property transactions 2006-present, geocoded |
+| [hms](/.claude/skills/hms.md) | HMS Property Registry | Kaupskrá fasteigna (222k property transactions, geocoded) + Landeignaskrá (89k land parcels with polygons, ESRI shapefile via Azure blob) |
 | [iceaddr](/.claude/skills/iceaddr.md) | Address Geocoding | Python library for Icelandic address lookup, reverse geocoding, postcodes |
 | [nasdaq](/.claude/skills/nasdaq.md) | Nasdaq Iceland | Exchange notices, annual reports, insider trading for listed companies |
 | [samgongustofa](/.claude/skills/samgongustofa.md) | Transport Authority | Vehicle registrations by make, fuel type, location via Power BI scraping |
@@ -74,6 +74,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [heimsmarkmid](/.claude/skills/heimsmarkmid.md) | Hagstofa Íslands | UN SDG national statistics (open-sdg) — 137 indicators across all 17 goals, ~10k rows, ZIP bundle from GitHub Pages |
 | [rikisreikningur](/.claude/skills/rikisreikningur.md) | Fjársýsla ríkisins | State accounts — yearly revenue/expense (2015+), málefnasvið breakdown (36 policy areas), 35 downloadable XLSX/CSV files via Azure Functions API |
 | [co2](/.claude/skills/co2.md) | Umhverfis-, orku- og loftslagsráðuneytið | Climate action plan (co2.is) — 106 numbered actions across 4 kerfi, status / ministry / start–end years, Webflow scrape |
+| [umferd](/.claude/skills/umferd.md) | Vegagerðin | Traffic counters — real-time 15-min counts, 7-day rolling daily totals, 168+ stations via GeoServer WFS |
 
 ## Adding a New Data Source
 
@@ -152,7 +153,6 @@ uv run python scripts/hagstofan_income.py
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
 # Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
 uv run python scripts/hms_indices.py
-<<<<<<< HEAD
 
 # Download LMI geodata layers (~50 MB)
 uv run python scripts/lmi.py download
@@ -214,6 +214,22 @@ uv run python scripts/rikisreikningur.py files
 uv run python scripts/co2.py fetch
 uv run python scripts/co2.py list --kerfi S
 uv run python scripts/co2.py list --status "Í framkvæmd"
+
+# HMS Landeignaskrá — download shapefile, build landsnr → lon/lat CSV
+uv run python scripts/landeignaskra.py download    # 25 MB Azure blob
+uv run python scripts/landeignaskra.py extract
+uv run python scripts/landeignaskra.py build       # data/processed/landeignaskra.csv
+uv run python scripts/landeignaskra.py lookup 0174540
+
+# Seðlabanki interest rates — Power BI scrape via gagnabanki.is
+uv run python scripts/sedlabanki_rates.py
+
+# Traffic counters (Vegagerðin) — list, snapshot, accumulate, render
+uv run python scripts/umferd.py stations
+uv run python scripts/umferd.py snapshot
+uv run python scripts/umferd.py collect
+uv run python scripts/umferd.py report
+uv run python scripts/umferd_map.py    # Iceland-wide traffic map (depends on LMI cache from PR 1)
 ```
 
 ## Scripts layout
