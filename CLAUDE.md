@@ -70,6 +70,10 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [vernd](/.claude/skills/vernd.md) | Ríkislögreglustjóri | International-protection (asylum) monthly stats — Power BI dashboard, applicants by year/week/nationality/gender/age |
 | [byggdastofnun](/.claude/skills/byggdastofnun.md) | Byggðastofnun | Regional-development dashboards — 11 Tableau Public embeds (population, income, property tax, energy, grants, state employment) |
 | [tekjusagan](/.claude/skills/tekjusagan.md) | Forsætisráðuneytið | Income history dashboard (tekjusagan.is) — token-gated Power BI, 5 report routes, driven via Playwright |
+| [velsaeldarvisar](/.claude/skills/velsaeldarvisar.md) | Hagstofa Íslands | Indicator catalogs on visar.hagstofa.is — well-being + social + cultural (88 indicators → ~77 PX-Web tables) |
+| [heimsmarkmid](/.claude/skills/heimsmarkmid.md) | Hagstofa Íslands | UN SDG national statistics (open-sdg) — 137 indicators across all 17 goals, ~10k rows, ZIP bundle from GitHub Pages |
+| [rikisreikningur](/.claude/skills/rikisreikningur.md) | Fjársýsla ríkisins | State accounts — yearly revenue/expense (2015+), málefnasvið breakdown (36 policy areas), 35 downloadable XLSX/CSV files via Azure Functions API |
+| [co2](/.claude/skills/co2.md) | Umhverfis-, orku- og loftslagsráðuneytið | Climate action plan (co2.is) — 106 numbered actions across 4 kerfi, status / ministry / start–end years, Webflow scrape |
 
 ## Adding a New Data Source
 
@@ -148,6 +152,7 @@ uv run python scripts/hagstofan_income.py
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
 # Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
 uv run python scripts/hms_indices.py
+<<<<<<< HEAD
 
 # Download LMI geodata layers (~50 MB)
 uv run python scripts/lmi.py download
@@ -189,6 +194,26 @@ uv run python scripts/tekjusagan.py fetch
 
 # Ferðamálastofa — Keflavík tourism Power BI
 uv run python scripts/ferdamalastofa.py --help
+
+# Velsældarvísar + Félagsvísar + Menningarvísar — Hagstofa indicator catalog
+uv run python scripts/velsaeldarvisar.py fetch
+uv run python scripts/velsaeldarvisar.py list --section velsaeldarvisar
+uv run python scripts/velsaeldarvisar.py pxtables
+
+# Heimsmarkmið — UN SDG national statistics (open-sdg)
+uv run python scripts/heimsmarkmid.py fetch
+uv run python scripts/heimsmarkmid.py list --goal 4
+uv run python scripts/heimsmarkmid.py get 1-1-1
+
+# Ríkisreikningur — state accounts (Fjársýsla)
+uv run python scripts/rikisreikningur.py summary
+uv run python scripts/rikisreikningur.py malefni
+uv run python scripts/rikisreikningur.py files
+
+# CO2.is — climate action plan
+uv run python scripts/co2.py fetch
+uv run python scripts/co2.py list --kerfi S
+uv run python scripts/co2.py list --status "Í framkvæmd"
 ```
 
 ## Scripts layout
