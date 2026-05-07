@@ -76,6 +76,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [co2](/.claude/skills/co2.md) | Umhverfis-, orku- og loftslagsráðuneytið | Climate action plan (co2.is) — 106 numbered actions across 4 kerfi, status / ministry / start–end years, Webflow scrape |
 | [umferd](/.claude/skills/umferd.md) | Vegagerðin | Traffic counters — real-time 15-min counts, 7-day rolling daily totals, 168+ stations via GeoServer WFS |
 | [maelabord_landbunadarins](/.claude/skills/maelabord_landbunadarins.md) | Ministry of Agriculture | Agricultural subsidies (búvörusamningar), market data, farm/livestock stats via 3 Power BI dashboards. Includes per-farm subsidy recipients and busnr→landsnr crosswalk. |
+| [eea_sdi](/.claude/skills/eea_sdi.md) | European Environment Agency | Geospatial-data catalogue (GeoNetwork 4.4) — Elasticsearch + CSW search, ISO 19115 records, OGC WMS/WFS/WCS + ArcGIS REST link discovery for ~10k Pan-European datasets (CORINE, HRL series, Natura 2000, …) |
 
 ## Adding a New Data Source
 
@@ -139,6 +140,12 @@ uv run python scripts/nasdaq.py search --company "Arion banki hf." --category "�
 
 # Process Gasvaktin fuel prices
 uv run python scripts/fuel_prices.py
+
+# EEA geospatial catalogue (sdi.eea.europa.eu, GeoNetwork 4.4)
+uv run python scripts/eea_sdi.py search "grassland" --iceland --size 10
+uv run python scripts/eea_sdi.py record   35a036bb-c027-401c-8625-2ecf722e8461
+uv run python scripts/eea_sdi.py links    35a036bb-c027-401c-8625-2ecf722e8461
+uv run python scripts/eea_sdi.py xml      35a036bb-c027-401c-8625-2ecf722e8461 -o data/raw/eea_sdi/grassland_2015.xml
 
 # Hagstofan: CPI sub-components (headline + 12 COICOP groups + imported/domestic/services)
 # Chain-links VIS01304/01102 archive onto VIS01300/01101 current across the June 2024 break
