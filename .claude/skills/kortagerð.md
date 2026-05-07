@@ -51,6 +51,66 @@ uv run python scripts/kortagerð.py static --points data/my_locations.csv -o rep
 | `Airport_Airfield_points.geojson` | Airports | Transport maps |
 | `Port.geojson` | Harbors | Maritime, transport maps |
 
+## Caching strategy (for raster-overlay maps)
+
+Vector layers are pre-cached at Tier 1 (`data/geodata/`). For maps that
+overlay rasters (e.g. Copernicus HRL Grassland), three more tiers exist
+under `data/cache/` to avoid re-downloading and re-projecting on every render.
+
+| Tier | Path | Built by | What | Speedup |
+|------|------|----------|------|--------:|
+| 1 | `data/geodata/*.geojson` | `scripts/lmi.py download` | LMI WFS vectors (~50 MB) | — |
+| 2 | `data/raw/lmi_hrl/*.tif` | `scripts/lmi_hrl.py fetch grassland` | Source HRL GeoTIFFs (~860 MB) | — |
+| 3 | `data/cache/rasters/*.tif` | `scripts/build_cache.py rasters` | LZW + ISN93-projected GeoTIFFs (~9 MB each — **98× smaller**) | skip 30 s reproject per render |
+| 4 | `data/cache/constants.json` | `scripts/build_cache.py constants` | Iceland total area + 4-CRS bbox + per-source SHA-256 + grassland area | skip 1.5 s polygon area + 826 MB scan per render |
+| 5 | `data/cache/arrays/*.npy` | written automatically on first map render | Decoded probability arrays (e.g. GRAVPI) | skip 5 s RGB-decode + reproject |
+
+Render scripts read these tiers via `scripts/utils/cache.py`:
+
+```python
+from scripts.utils.cache import iceland_constants, cached_raster, CacheMissingError
+
+try:
+    K = iceland_constants()
+    iceland_km2 = K["iceland_total_area_km2"]
+except CacheMissingError as e:
+    print(e.hint)         # tells you the build_cache.py command to run
+```
+
+Tier 3+4 are explicit (`build_cache.py all`); Tier 5 is opportunistic
+(populated on first render). Sources are SHA-256 fingerprinted in
+`constants.json` so `scripts/build_cache.py status` flags stale entries
+when an upstream raster changes.
+
+### Benchmark
+
+```bash
+# Cold (full re-download): ~120 s for grassland
+# Warm-raw (rebuild Tier 3+4): ~10 s for grassland
+# Warm (steady state): ~3-6 s
+uv run python scripts/bench_maps.py run --mode warm
+uv run python scripts/bench_maps.py history
+```
+
+Results land in `data/cache/benchmarks.json` with timestamps and a delta
+vs. the last `warm` baseline.
+
+### Tests
+
+```bash
+# Cache-source consistency + map-output smoke tests
+uv run pytest tests/test_cache_consistency.py tests/test_maps_render.py -v
+```
+
+### Troubleshooting
+
+- *"Missing data/cache/constants.json"* → run `scripts/build_cache.py all`
+- *"STALE — source changed"* in status → run `scripts/build_cache.py rasters`
+- Render is slow despite cache → check `scripts/build_cache.py status`; the
+  tier-5 `.npy` file may be missing for `grassland_probability_heatmap.py`
+  (auto-rebuilds on next run).
+
+
 ## Python Code Templates
 
 ### Load a layer with geopandas

@@ -169,7 +169,7 @@ uv run python scripts/eea_sdi.py xml 35a036bb-c027-401c-8625-2ecf722e8461 \
 4. **The bbox `coordinates` for `geo_shape`/`envelope` are `[[w,n],[e,s]]`** (top-left, bottom-right) — the *opposite* of the usual GIS minx/miny/maxx/maxy ordering. Easy to invert.
 5. **`WWW:DOWNLOAD` to land.copernicus.eu requires registration** — for unauthenticated bulk pulls use `image.discomap.eea.europa.eu` ArcGIS REST/WMS instead.
 6. **discomap WMS GetMap caps requests at ~10 M output pixels** — even though the GetCapabilities advertises `MaxWidth=4096` and `MaxHeight=4096`, requesting both at once returns HTTP 400. The largest aspect-correct frame is around 3500×2666.
-7. **discomap WMS returns *styled* RGB images, not raw raster values.** For raw probability / index pixel values, decode the legend swatch RGB → bin midpoint (see `reports/grassland_probability_heatmap.py` for an example) or use the matching WCS endpoint when available.
+7. **discomap WMS returns *styled* RGB images, not raw raster values.** For raw probability / index pixel values, decode the legend swatch RGB → bin midpoint (see `scripts/grassland_probability_heatmap.py` for an example) or use the matching WCS endpoint when available.
 8. **discomap MapServer `exportImage` with `pixelType=U8` still returns RGBA PNGs** for MapServers (vs. ImageServers, where raw values do come through). Single-band raw pulls work only when the metadata link is `ESRI:REST → ImageServer`.
 9. **Encoding** — all strings are UTF-8 in the JSON/XML responses. Icelandic characters (þ, ð, æ, ö) survive intact.
 10. **Native CRS varies per layer** — Pan-European HRL products are EPSG:5325 (LAEA Iceland) or EPSG:3035 (LAEA Europe); WMS endpoints additionally publish EPSG:3857, 4326. Reproject for area-correct stats.

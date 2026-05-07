@@ -2,6 +2,7 @@
 data/raw/
 data/processed/
 data/geodata/
+data/cache/
 
 # DuckDB
 *.duckdb
