@@ -94,7 +94,7 @@ def fetch_pm10_day(date_str: str, station: str = "STA-IS0005A") -> list[dict]:
 
 ### Pre-built script
 
-`uv run python scripts/air_quality.py` — downloads bulk CSVs + API for recent data, outputs `data/processed/reykjavik_pm10_daily.csv` with PM10 + wind + weather joined.
+`uv run python scripts/loftgaedi.py` — downloads bulk CSVs + API for recent data, outputs `data/processed/reykjavik_pm10_daily.csv` with PM10 + wind + weather joined.
 
 ## Reykjavik loftapi (alternative, currently down)
 

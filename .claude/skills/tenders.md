@@ -166,19 +166,19 @@ Common CPV codes for municipal services:
 
 ```bash
 # Download OCDS bulk data
-uv run python scripts/procurement.py download-ocds
+uv run python scripts/tenders.py download-ocds
 
 # Search TED for Reykjavik tenders
-uv run python scripts/procurement.py search --buyer "Reykjav" --limit 20
+uv run python scripts/tenders.py search --buyer "Reykjav" --limit 20
 
 # Search by CPV code (street cleaning)
-uv run python scripts/procurement.py search --cpv 90610000
+uv run python scripts/tenders.py search --cpv 90610000
 
 # Export awards with suppliers to CSV
-uv run python scripts/procurement.py awards --buyer "Reykjav" -o data/processed/reykjavik_awards.csv
+uv run python scripts/tenders.py awards --buyer "Reykjav" -o data/processed/reykjavik_awards.csv
 
 # List top buyers from OCDS data
-uv run python scripts/procurement.py buyers
+uv run python scripts/tenders.py buyers
 
 # Scrape reykjavik.is tender results (existing script)
 uv run python scripts/reykjavik_tenders.py

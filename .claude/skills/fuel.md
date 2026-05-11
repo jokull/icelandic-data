@@ -23,7 +23,7 @@ Skeljungur ehf. (`6309212010`) is the wholesale fuel company under Styrkás — 
 
 ### Processing
 ```bash
-uv run python scripts/fuel_prices.py
+uv run python scripts/fuel.py
 ```
 Outputs:
 - `data/processed/fuel_prices_daily.csv` — all observations

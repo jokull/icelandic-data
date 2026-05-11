@@ -111,7 +111,7 @@ uv run playwright install chromium   # Only if you plan to use Power BI / SPA sc
 ```bash
 # Process data
 uv run python scripts/sedlabanki.py
-uv run python scripts/fuel_prices.py
+uv run python scripts/fuel.py
 
 # Query with DuckDB
 duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"

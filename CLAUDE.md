@@ -140,7 +140,7 @@ uv run python scripts/nasdaq.py companies
 uv run python scripts/nasdaq.py search --company "Arion banki hf." --category "Ársreikningur"
 
 # Process Gasvaktin fuel prices
-uv run python scripts/fuel_prices.py
+uv run python scripts/fuel.py
 
 # EEA geospatial catalogue (sdi.eea.europa.eu, GeoNetwork 4.4)
 uv run python scripts/eea_sdi.py search "grassland" --iceland --size 10

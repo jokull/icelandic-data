@@ -43,7 +43,7 @@ def load_ocds():
     """Load OCDS JSONL file. Returns list of release dicts."""
     path = RAW_DIR / "ocds_iceland.jsonl"
     if not path.exists():
-        print(f"OCDS data not found at {path}. Run: uv run python scripts/procurement.py download-ocds", file=sys.stderr)
+        print(f"OCDS data not found at {path}. Run: uv run python scripts/tenders.py download-ocds", file=sys.stderr)
         sys.exit(1)
     records = []
     with open(path) as f:

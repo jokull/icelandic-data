@@ -9,7 +9,7 @@ where available.
 
 Output: data/processed/planitor_reykjavik_planning.csv
 
-Usage: uv run python scripts/planitor_planning_activity.py
+Usage: uv run python scripts/skipulagsmal.py
 """
 
 import re
