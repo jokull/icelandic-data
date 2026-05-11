@@ -61,7 +61,8 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [maskina](/.claude/skills/maskina.md) | Maskína | Public opinion polls — structured data via Tableau Public VizQL + articles via WordPress API |
 | [liteparse](/.claude/skills/liteparse.md) | PDF Parsing | LlamaIndex local PDF parser — text with bounding box coordinates, page screenshots, visual element detection |
 | [lmi](/.claude/skills/lmi.md) | Landmælingar Íslands | Vector geodata via GeoServer WFS — landmask, coastline, roads, rivers, lakes, glaciers, municipalities, settlements |
-| [kortagerð](/.claude/skills/kortagerð.md) | Mapmaking | Iceland map generation from cached LMI data — static (matplotlib) and interactive (Leaflet) with templates for Python and R |
+| [lmi_hrl](/.claude/skills/lmi_hrl.md) | LMI / Copernicus HRL | High Resolution Layer rasters (Grassland, Tree Cover, Imperviousness, Water & Wetness, Dominant Leaf Type) for Iceland 2015 at 20 m, EPSG:5325 |
+| [kortagerð](/.claude/skills/kortagerð.md) | Mapmaking | Iceland map generation from cached LMI data — static (matplotlib) and interactive (Leaflet); now includes Tier 3+4 derived-cache (ISN93-reprojected GeoTIFF + Iceland-constants JSON) for sub-10s warm renders |
 | [natt](/.claude/skills/natt.md) | Náttúrufræðistofnun | Habitat-type / species / geology open data via GeoServer WFS+WMS at gis.natt.is. Vistgerðir 25k 3rd-edition vector polygons (incl. L14.2 Tún og akurlendi cultivated land). |
 | [new_data_source](/.claude/skills/new_data_source.md) | Methodology | How to learn and integrate a new data source — discovery, probing, skill authoring, script conventions, testing |
 | [landlaeknir](/.claude/skills/landlaeknir.md) | Directorate of Health | ~30 Power BI dashboards — mortality, medication, healthcare services, infectious disease; Talnabrunnur PDF archive |
@@ -76,6 +77,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 | [co2](/.claude/skills/co2.md) | Umhverfis-, orku- og loftslagsráðuneytið | Climate action plan (co2.is) — 106 numbered actions across 4 kerfi, status / ministry / start–end years, Webflow scrape |
 | [umferd](/.claude/skills/umferd.md) | Vegagerðin | Traffic counters — real-time 15-min counts, 7-day rolling daily totals, 168+ stations via GeoServer WFS |
 | [maelabord_landbunadarins](/.claude/skills/maelabord_landbunadarins.md) | Ministry of Agriculture | Agricultural subsidies (búvörusamningar), market data, farm/livestock stats via 3 Power BI dashboards. Includes per-farm subsidy recipients and busnr→landsnr crosswalk. |
+| [eea_sdi](/.claude/skills/eea_sdi.md) | European Environment Agency | Geospatial-data catalogue (GeoNetwork 4.4) — Elasticsearch + CSW search, ISO 19115 records, OGC WMS/WFS/WCS + ArcGIS REST link discovery for ~10k Pan-European datasets (CORINE, HRL series, Natura 2000, …) |
 
 ## Adding a New Data Source
 
@@ -140,6 +142,12 @@ uv run python scripts/nasdaq.py search --company "Arion banki hf." --category "�
 # Process Gasvaktin fuel prices
 uv run python scripts/fuel_prices.py
 
+# EEA geospatial catalogue (sdi.eea.europa.eu, GeoNetwork 4.4)
+uv run python scripts/eea_sdi.py search "grassland" --iceland --size 10
+uv run python scripts/eea_sdi.py record   35a036bb-c027-401c-8625-2ecf722e8461
+uv run python scripts/eea_sdi.py links    35a036bb-c027-401c-8625-2ecf722e8461
+uv run python scripts/eea_sdi.py xml      35a036bb-c027-401c-8625-2ecf722e8461 -o data/raw/eea_sdi/grassland_2015.xml
+
 # Hagstofan: CPI sub-components (headline + 12 COICOP groups + imported/domestic/services)
 # Chain-links VIS01304/01102 archive onto VIS01300/01101 current across the June 2024 break
 uv run python scripts/hagstofan_cpi.py
@@ -169,7 +177,15 @@ uv run python scripts/natt.py habitat --dn 95
 uv run python scripts/natt.py inventory          # list all DN→htxt codes
 
 # Map of Iceland's agricultural land (PNG + single-file Leaflet HTML)
-uv run python reports/agricultural_land_map.py
+uv run python scripts/agricultural_land_map.py
+
+# Iceland grassland map (Copernicus HRL via LMI, 20 m raster) — uses Tier 3 cache
+uv run python scripts/lmi_hrl.py fetch grassland       # one-time, ~860 MB
+uv run python scripts/build_cache.py rasters           # one-time, → 9 MB ISN93 GeoTIFF
+uv run python scripts/grassland_map.py                 # ≈3 s warm
+
+# GRAVPI heatmap (Copernicus EEA discomap WMS — no LMI Iceland clip exists)
+uv run python scripts/grassland_probability_heatmap.py
 
 # Directorate of Health — list all dashboards, scrape one (Playwright)
 uv run python scripts/landlaeknir.py list
@@ -237,6 +253,18 @@ uv run python scripts/maelabord_nautgripa.py fetch
 
 # Render cattle-subsidy farms on an Iceland map (depends on PR 1 LMI cache + PR 4 landeignaskra)
 uv run python scripts/nautgripa_map.py
+
+# Map-construction caching (Tier 3+4; ISN93-reprojected raster + Iceland constants)
+uv run python scripts/build_cache.py all                 # build all derived caches
+uv run python scripts/build_cache.py status              # what is cached / stale / missing
+uv run python scripts/build_cache.py rasters --only grassland_isn93
+
+# Benchmark map-construction speed (cold|warm-raw|warm), JSON history
+uv run python scripts/bench_maps.py run --mode warm
+uv run python scripts/bench_maps.py history
+
+# Cache + render integration tests
+uv run pytest tests/test_cache_consistency.py tests/test_maps_render.py -v
 ```
 
 ## Scripts layout
