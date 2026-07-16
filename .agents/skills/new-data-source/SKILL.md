@@ -313,6 +313,18 @@ Rules:
 - Needs credentials? `pytest.importorskip`/`pytest.skip` — skipped reports as
   skipped, not failed.
 
+**Write failure messages the classifier can read.** `health_verdict.py` splits
+*structural* failures (service answered wrong → the skill is out of date, convict
+after 2) from *infra* failures (unreachable → could be a flake, convict after 3).
+It infers which from the message text, so:
+
+- Put the URL and status code in the assertion: `f"{r.request.url} -> {r.status_code}"`.
+  A `-> 503` is then read as infra, a `-> 404` as structural.
+- If you catch a transport error and re-raise via `pytest.fail`, **keep the
+  original exception class in the string** — `f"unreachable: {type(exc).__name__}: {exc}"`.
+  Drop it and a merely-unreachable host gets convicted as a broken skill after
+  two days.
+
 Verify it against the live source, then confirm it stays out of PR CI:
 
 ```bash

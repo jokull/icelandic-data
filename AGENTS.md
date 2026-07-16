@@ -257,9 +257,12 @@ uv run pytest -m "health and not browser and not degraded_ok"   # required lane
 uv run pytest -m "health and degraded_ok"      # staleness / known-soft lane
 uv run pytest -m browser                       # Playwright probes (manual only)
 
-# Render a health report from both lanes (exits non-zero only on a required failure)
+# Render today's snapshot from both lanes
 uv run python scripts/health_summary.py --required health-required.xml \
   --degraded health-degraded.xml --json health-results.json
+
+# Judge over history — this is what gates CI (a lone red is a flake)
+uv run python scripts/health_verdict.py --history .history/history.jsonl --window-days 30
 ```
 
 Health probes run daily in `.github/workflows/source-health.yml`. Browser probes
@@ -267,6 +270,56 @@ are manual-dispatch only — from a datacenter IP, Power BI/Tableau failures say
 more about bot detection than about the source being down.
 
 To add a probe for a new source, see the `new-data-source` skill.
+
+### Flake vs dead
+
+A single red means almost nothing, so nothing gates on one. Two mechanisms
+separate a blip from a corpse:
+
+**The exception class, free and immediate.** A *structural* failure (assertion,
+401, 404) means the service answered and answered **wrong** — schema drift, an
+expired dashboard id, a revoked key. That essentially never self-heals, so the
+skill is already out of date and needs updating. An *infra* failure (connect
+timeout, DNS, 5xx) means we could not reach it, which is genuinely ambiguous and
+needs history. `scripts/health_summary.py:classify()` makes this split.
+
+**History, for the ambiguous half.** Each run appends one JSONL observation per
+source to the orphan `health-history` branch — git scraping, in Simon Willison's
+sense: the file is the database, git is the retention policy, DuckDB is the query
+engine. `scripts/health_verdict.py` then judges:
+
+| Verdict | Rule | Gates CI |
+|---|---|---|
+| `broken` | 2+ consecutive **structural** failures — fix the skill | yes |
+| `dead` | 3+ consecutive failures | yes |
+| `flaky` | failed but recovered | no |
+| `healthy` | clean across the window | no |
+| `unknown` | fewer than 2 observations | no |
+
+Streaks count **consecutive observations, never calendar days**. GitHub documents
+that scheduled runs may be dropped entirely, so a gap in the history means *not
+observed*, not *down* — and uptime is `healthy/observed`, never `healthy/elapsed`.
+
+```bash
+# Uptime per source, straight off the JSONL — no ingest step
+git fetch origin health-history && git show origin/health-history:history.jsonl > /tmp/h.jsonl
+duckdb -c "
+SELECT source,
+       round(100.0 * count(*) FILTER (WHERE status='healthy') / count(*), 1) AS uptime_pct,
+       count(*) AS observations,
+       max(ts) FILTER (WHERE status='healthy')::date AS last_ok
+FROM read_json_auto('/tmp/h.jsonl')
+WHERE ts > now() - INTERVAL 30 DAY AND status != 'skipped'
+GROUP BY source ORDER BY uptime_pct;"
+```
+
+**Known blind spot:** GitHub cannot alert you that GitHub stopped. Scheduled runs
+can be dropped silently, and scheduled workflows in public repos are
+auto-disabled after 60 days of repository inactivity (GitHub never defines
+"activity"). Both fail closed and quiet. The daily history commits are genuine
+activity and plausibly hold the clock off, but that is inference, not a
+documented contract. The actual fix is a dead-man's-switch that alerts on the
+*absence* of a ping — see the commented-out step in `source-health.yml`.
 
 ## Scripts layout
 

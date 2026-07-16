@@ -21,12 +21,15 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from typing import Literal
 from xml.etree import ElementTree
 
 Status = Literal["healthy", "degraded", "failed", "skipped"]
+Kind = Literal["infra", "structural", ""]
 
 _RANK: dict[Status, int] = {"failed": 0, "degraded": 1, "skipped": 2, "healthy": 3}
 _LABEL: dict[Status, str] = {
@@ -36,6 +39,44 @@ _LABEL: dict[Status, str] = {
     "skipped": "SKIPPED",
 }
 
+# Transport-level exception names. Anywhere in the message, not just the prefix:
+# a probe may wrap the cause (pytest.fail("... ConnectTimeout: timed out")), and
+# the wrapper is less informative than what it wrapped.
+_INFRA = re.compile(
+    r"\b(ConnectTimeout|ConnectError|ReadTimeout|ReadError|WriteTimeout|PoolTimeout"
+    r"|RemoteProtocolError|ConnectionError|TransportError|ProxyError"
+    r"|NameResolutionError|SSLError|ServerDisconnected)\b"
+)
+# An upstream 5xx is the service being sick, not the contract having changed.
+_STATUS_5XX = re.compile(r"->\s*5\d\d\b")
+# Leading exception name, e.g. "AssertionError: ...", "httpx.ConnectError: ...".
+_EXC_PREFIX = re.compile(r"^([A-Za-z_][\w.]*(?:Error|Exception|Timeout|Failed))\b")
+
+
+def classify(message: str) -> tuple[str, Kind]:
+    """Return (error_class, kind) for a failure message.
+
+    The split that matters is *infra vs structural*, because it decides whether
+    history is needed at all:
+
+    - structural — the service answered and answered wrong (schema drift, expired
+      dashboard id, revoked key, moved endpoint). Essentially never transient, so
+      it is actionable on sight.
+    - infra — we could not reach it, or it was sick. Genuinely ambiguous between
+      a flake and a death; only repeated observations can tell them apart.
+    """
+    if not message:
+        return "", ""
+
+    if m := _INFRA.search(message):
+        return m.group(1), "infra"
+    if _STATUS_5XX.search(message):
+        return "HTTP5xx", "infra"
+
+    if m := _EXC_PREFIX.match(message):
+        return m.group(1), "structural"
+    return message.split(":")[0][:40], "structural"
+
 
 @dataclass
 class HealthResult:
@@ -43,6 +84,8 @@ class HealthResult:
     status: Status
     message: str
     duration_seconds: float
+    error_class: str = ""
+    kind: Kind = ""
     details: dict[str, object] = field(default_factory=dict)
 
 
@@ -103,12 +146,15 @@ def aggregate(cases: list[tuple[str, Status, str, float]]) -> list[HealthResult]
             (m for s, m, _ in entries if s == worst and m),
             f"{len(entries)} probe(s) passed",
         )
+        error_class, kind = classify(message) if worst in ("failed", "degraded") else ("", "")
         results.append(
             HealthResult(
                 source=source,
                 status=worst,
                 message=message,
                 duration_seconds=round(total, 2),
+                error_class=error_class,
+                kind=kind,
                 details={
                     "probes": len(entries),
                     "failed": sum(1 for s, _, _ in entries if s in ("failed", "degraded")),
@@ -116,6 +162,42 @@ def aggregate(cases: list[tuple[str, Status, str, float]]) -> list[HealthResult]
             )
         )
     return sorted(results, key=lambda r: (_RANK[r.status], r.source))
+
+
+def append_history(
+    path: pathlib.Path, results: list[HealthResult], run_url: str = "", ts: str = ""
+) -> int:
+    """Append one JSONL observation per source — the git-scraping substrate.
+
+    One line per source per run, appended forever. This is deliberately not a
+    metrics backend: the file is the database, git is the retention policy, and
+    DuckDB is the query engine. See AGENTS.md for the uptime query.
+
+    A *gap* in this file means no observation, not downtime — GitHub documents
+    that scheduled runs may be dropped entirely. Nothing here fabricates a row
+    for a run that never happened.
+    """
+    stamp = ts or datetime.now(timezone.utc).isoformat(timespec="seconds")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        for r in results:
+            fh.write(
+                json.dumps(
+                    {
+                        "ts": stamp,
+                        "source": r.source,
+                        "status": r.status,
+                        "error_class": r.error_class,
+                        "kind": r.kind,
+                        "duration_s": r.duration_seconds,
+                        "message": r.message[:300],
+                        "run_url": run_url,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+    return len(results)
 
 
 def counts(results: list[HealthResult]) -> dict[str, int]:
@@ -158,6 +240,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--degraded", type=pathlib.Path, help="JUnit XML from the degraded lane")
     ap.add_argument("--json", type=pathlib.Path, help="write JSON results here")
     ap.add_argument("--markdown", type=pathlib.Path, help="append a markdown summary here")
+    ap.add_argument(
+        "--history",
+        type=pathlib.Path,
+        help="append one JSONL observation per source here (git-scraping history)",
+    )
+    ap.add_argument("--run-url", default="", help="CI run URL, recorded in history rows")
     args = ap.parse_args(argv)
 
     cases = []
@@ -185,8 +273,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.markdown:
         with args.markdown.open("a", encoding="utf-8") as fh:
             fh.write(render_markdown(results))
+    if args.history:
+        n = append_history(args.history, results, run_url=args.run_url)
+        print(f"recorded {n} observation(s) -> {args.history}", file=sys.stderr)
 
-    # Only a required failure is worth waking someone for.
+    # Only a required failure is worth waking someone for. Note this is the
+    # *single-run* verdict; scripts/health_verdict.py makes the history-aware
+    # call (a lone red is a flake until proven otherwise) and is what gates CI.
     return 1 if counts(results)["failed"] else 0
 
 

@@ -126,7 +126,7 @@ def test_json_output_is_valid_and_shaped(tmp_path, capsys):
     assert payload["summary"] == {"healthy": 1, "degraded": 0, "failed": 0, "skipped": 0}
     assert payload["results"][0]["source"] == "hagstofan"
     assert set(payload["results"][0]) == {
-        "source", "status", "message", "duration_seconds", "details",
+        "source", "status", "message", "duration_seconds", "error_class", "kind", "details",
     }
 
 
@@ -157,6 +157,101 @@ def test_markdown_summary_is_appended(tmp_path):
     assert body.startswith("existing\n")          # appended, not clobbered
     assert "1 healthy, 1 degraded, 0 failed" in body
     assert "`landlaeknir`" in body
+
+
+# --------------------------------------------------------------------------
+# Classification — infra vs structural decides whether history is needed
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "message, expected_class, expected_kind",
+    [
+        # Structural: the service answered, and answered wrong.
+        ("AssertionError: expected 'Ár' dimension, got ['Man']", "AssertionError", "structural"),
+        ("AssertionError: https://x/y -> 404", "AssertionError", "structural"),
+        ("AssertionError: API key rejected — rotated or revoked upstream", "AssertionError", "structural"),
+        ("KeyError: 'dbid'", "KeyError", "structural"),
+        # Infra: could not reach it, or it was sick.
+        ("httpx.ConnectTimeout: timed out", "ConnectTimeout", "infra"),
+        ("httpx.ConnectError: [Errno 61] Connection refused", "ConnectError", "infra"),
+        ("ReadTimeout: The read operation timed out", "ReadTimeout", "infra"),
+        ("AssertionError: https://x/y -> 503", "HTTP5xx", "infra"),
+        ("AssertionError: https://x/y -> 500: upstream error", "HTTP5xx", "infra"),
+        ("", "", ""),
+    ],
+)
+def test_classify(message, expected_class, expected_kind):
+    assert hs.classify(message) == (expected_class, expected_kind)
+
+
+def test_classify_unwraps_a_pytest_fail_around_a_transport_error():
+    """Our sedlabanki probe wraps the cause in pytest.fail — the cause still wins.
+
+    Naively reading the leading token would classify this as 'Failed'/structural
+    and convict a merely-unreachable host after two observations.
+    """
+    msg = "Failed: SDMX host unreachable: ConnectTimeout: timed out. Verify the endpoint."
+    assert hs.classify(msg) == ("ConnectTimeout", "infra")
+
+
+def test_results_carry_classification(tmp_path):
+    results = hs.aggregate(hs.parse(_xml(tmp_path, "d.xml", _ERROR), "degraded"))
+    assert results[0].error_class == "ConnectTimeout"
+    assert results[0].kind == "infra"
+
+
+def test_healthy_results_carry_no_classification(tmp_path):
+    results = hs.aggregate(hs.parse(_xml(tmp_path, "r.xml", _PASS), "required"))
+    assert results[0].error_class == ""
+    assert results[0].kind == ""
+
+
+# --------------------------------------------------------------------------
+# History
+# --------------------------------------------------------------------------
+
+
+def test_append_history_writes_one_row_per_source(tmp_path):
+    cases = hs.parse(_xml(tmp_path, "r.xml", _PASS), "required")
+    cases += hs.parse(_xml(tmp_path, "d.xml", _ERROR), "degraded")
+    results = hs.aggregate(cases)
+
+    out = tmp_path / "nested" / "history.jsonl"
+    n = hs.append_history(out, results, run_url="https://ci/run/1", ts="2026-07-16T06:17:00+00:00")
+    assert n == 2
+
+    rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+    assert {r["source"] for r in rows} == {"hagstofan", "sedlabanki"}
+    sed = next(r for r in rows if r["source"] == "sedlabanki")
+    assert sed["kind"] == "infra"
+    assert sed["error_class"] == "ConnectTimeout"
+    assert sed["run_url"] == "https://ci/run/1"
+    assert sed["ts"] == "2026-07-16T06:17:00+00:00"
+
+
+def test_append_history_appends_rather_than_truncates(tmp_path):
+    results = hs.aggregate(hs.parse(_xml(tmp_path, "r.xml", _PASS), "required"))
+    out = tmp_path / "history.jsonl"
+    hs.append_history(out, results, ts="2026-07-15T06:17:00+00:00")
+    hs.append_history(out, results, ts="2026-07-16T06:17:00+00:00")
+
+    rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 2
+    assert [r["ts"] for r in rows] == ["2026-07-15T06:17:00+00:00", "2026-07-16T06:17:00+00:00"]
+
+
+def test_history_flag_is_wired_into_main(tmp_path):
+    out = tmp_path / "history.jsonl"
+    code = hs.main([
+        "--required", str(_xml(tmp_path, "r.xml", _PASS)),
+        "--history", str(out),
+        "--run-url", "https://ci/run/9",
+    ])
+    assert code == 0
+    rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+    assert rows[0]["source"] == "hagstofan"
+    assert rows[0]["status"] == "healthy"
 
 
 def test_headline_counts(tmp_path):

@@ -21,8 +21,11 @@ concurrency:
   group: source-health
   cancel-in-progress: true
 
+# contents: write is for appending an observation to the health-history branch.
+# A push using GITHUB_TOKEN does not trigger further workflow runs, so this
+# cannot loop.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   lightweight:
@@ -58,14 +61,92 @@ jobs:
           uv run pytest -m "health and degraded_ok" \
             --junit-xml=health-degraded.xml
 
-      # Owns the verdict: exits non-zero only when a required source failed.
-      - name: Report
+      # Today's snapshot. Reported for the eye, but it does NOT gate — a lone
+      # red is a flake until history says otherwise. See the verdict step.
+      - name: Report today
+        continue-on-error: true
         run: |
           uv run python scripts/health_summary.py \
             --required health-required.xml \
             --degraded health-degraded.xml \
             --json health-results.json \
             --markdown "$GITHUB_STEP_SUMMARY"
+
+      # Git scraping: the health-history branch is the time-series database.
+      # Artifacts cannot do this job — they expire after 90 days.
+      #
+      # Not shallow: pushing from a shallow clone can be rejected. The branch
+      # holds one small file, so a full clone of it is cheap regardless.
+      - name: Fetch history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git clone --quiet --single-branch --branch health-history "$REMOTE" .history 2>/dev/null; then
+            echo "history: $(wc -l < .history/history.jsonl) observation(s) so far"
+          else
+            echo "history: bootstrapping health-history branch"
+            mkdir -p .history
+            git -C .history init --quiet -b health-history
+            git -C .history remote add origin "$REMOTE"
+          fi
+
+      - name: Record observation
+        run: |
+          uv run python scripts/health_summary.py \
+            --required health-required.xml \
+            --degraded health-degraded.xml \
+            --history .history/history.jsonl \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            > /dev/null
+
+      # Push before judging, so a gating verdict never costs us the datapoint.
+      # These commits are also genuine repository activity, which plausibly
+      # holds off the 60-day auto-disable of scheduled workflows — GitHub does
+      # not define "activity", so this is a side benefit, not the safety net.
+      # The safety net is a dead-man's-switch (see below).
+      - name: Commit history
+        run: |
+          set -euo pipefail
+          cd .history
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history.jsonl
+          git commit --quiet -m "health: $(date -u +%Y-%m-%dT%H:%MZ)" || {
+            echo "nothing to commit"; exit 0;
+          }
+          for attempt in 1 2 3; do
+            if git push --quiet origin health-history 2>/dev/null; then
+              echo "pushed"; exit 0
+            fi
+            echo "push rejected (attempt $attempt) — rebasing on remote"
+            git pull --rebase --quiet origin health-history || true
+          done
+          echo "::warning::could not push health history after 3 attempts"
+
+      # The gate. Judges over the window, not over today:
+      #   dead   = 3+ consecutive failures
+      #   broken = 2+ consecutive structural failures (the skill needs updating)
+      #   flaky  = recovered on its own; recorded, not actionable
+      - name: Verdict
+        run: |
+          uv run python scripts/health_verdict.py \
+            --history .history/history.jsonl \
+            --window-days 30 \
+            --json health-verdicts.json \
+            --markdown "$GITHUB_STEP_SUMMARY"
+
+      # Dead-man's-switch. GitHub cannot alert you that GitHub stopped: runs can
+      # be dropped silently, and scheduled workflows are auto-disabled after 60
+      # days of repository inactivity. Both fail closed and quiet. Point this at
+      # anything that alerts on the *absence* of a ping (healthchecks.io free
+      # tier, or a cron on the mac-mini) and set HEALTH_PING_URL as a repo secret.
+      # - name: Ping dead-man's-switch
+      #   if: success() && env.HEALTH_PING_URL != ''
+      #   env:
+      #     HEALTH_PING_URL: ${{ secrets.HEALTH_PING_URL }}
+      #   run: curl -fsS --retry 3 --max-time 10 "$HEALTH_PING_URL" > /dev/null
 
       - name: Upload results
         if: always()
@@ -74,6 +155,7 @@ jobs:
           name: health-results
           path: |
             health-results.json
+            health-verdicts.json
             health-*.xml
           retention-days: 30
 
