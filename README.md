@@ -1,24 +1,29 @@
 # Icelandic Data
 
-Data toolkit for Icelandic public data, built around [Claude Code](https://claude.com/claude-code). The `.claude/skills/` files document each data source — API endpoints, series codes, encoding quirks, classification changes — and the `scripts/` directory has Python scripts that fetch, clean, and transform the data.
+Data toolkit for Icelandic public data, built around [Claude Code](https://claude.com/claude-code) and [Codex](https://developers.openai.com/codex). The `.agents/skills/` files document each data source — API endpoints, series codes, encoding quirks, classification changes — and the `scripts/` directory has Python scripts that fetch, clean, and transform the data.
 
-Not a portable skill library. The skills reference co-located scripts, assume local tooling (`uv`, `duckdb`, `playwright`), and work as a unit. Clone the repo, run setup, and use Claude Code to research questions, join data sources, or produce outputs — a gist, a CSV, an HTML report, whatever fits.
+Not a portable skill library. The skills reference co-located scripts, assume local tooling (`uv`, `duckdb`, `playwright`), and work as a unit. Clone the repo, run setup, and use an agent to research questions, join data sources, or produce outputs — a gist, a CSV, an HTML report, whatever fits.
 
 ## Structure
 
 ```
-.claude/skills/{source}.md   → Data source docs (API, endpoints, caveats)
-scripts/{source}.py           → Fetch + transform scripts
-data/raw/{source}/            → Raw downloads
-data/processed/               → Cleaned datasets
+.agents/skills/{source}/SKILL.md → Data source docs (API, endpoints, caveats)
+scripts/{source}.py              → Fetch + transform scripts
+tests/health/test_{source}.py    → Upstream health probes (marker: health)
+data/raw/{source}/               → Raw downloads
+data/processed/                  → Cleaned datasets
 ```
+
+Skills follow the [agentskills.io](https://agentskills.io) open standard. `.agents/skills/`
+is the real location (read natively by Codex); `.claude/skills` symlinks to it for Claude
+Code, and `CLAUDE.md` symlinks to `AGENTS.md`. One set of files, both agents.
 
 ## Data sources
 
-Currently ~30 skills covering national statistics, government dashboards
-(_mælaborð_), regulatory filings, and utility APIs. Full per-skill docs live in
-[`.claude/skills/`](.claude/skills/); [`CLAUDE.md`](CLAUDE.md) is the authoritative
-index and quick-commands reference.
+Currently 45 skills covering national statistics, government dashboards
+(_mælaborð_), regulatory filings, and utility APIs. Each skill's frontmatter
+`description` is its index entry — run `ls .agents/skills/` to enumerate them, and see
+[`AGENTS.md`](AGENTS.md) for the quick-commands reference.
 
 ### Statistics & macroeconomic
 
@@ -127,7 +132,7 @@ uv run python scripts/landlaeknir.py fetch --slug mortis
 uv run python scripts/velsaeldarvisar.py fetch
 ```
 
-See [CLAUDE.md](CLAUDE.md) for the full command catalog across every skill.
+See [AGENTS.md](AGENTS.md) for the full command catalog across every skill.
 
 ## Tests
 
@@ -138,6 +143,6 @@ uv run pytest -m slow         # network + Playwright tests (several minutes)
 
 ## Adding a new data source
 
-See [.claude/skills/new_data_source.md](.claude/skills/new_data_source.md) for
+See the [`new-data-source` skill](.agents/skills/new-data-source/SKILL.md) for
 the methodology — discovery, probing, skill authoring, script conventions,
 testing, and visualization.

@@ -11,7 +11,7 @@ import re
 
 BASE_URL = "https://px.hagstofa.is/pxis/api/v1/is"
 
-# Tariff code mappings - see .claude/skills/hagstofan.md
+# Tariff code mappings - see .agents/skills/hagstofan/SKILL.md
 TARIFF_CATEGORIES = {
     "87116010": "ebikes",     # Pre-2020: E-bikes + e-scooters combined
     "87116011": "ebikes",     # E-bikes (pedal-assist ≤25 km/h)

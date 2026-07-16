@@ -10,8 +10,8 @@ is world-readable, so we fetch that directly with httpx. If HMS ever moves the
 blob, run `landeignaskra.py discover` to re-scrape the landing page.
 
 Crosswalk: Ministry of Agriculture búsnúmer (8 digits) → landsnúmer (7 digits)
-by dropping the last digit. See .claude/skills/hms.md and
-.claude/skills/maelabord_landbunadarins.md.
+by dropping the last digit. See .agents/skills/hms/SKILL.md and
+.agents/skills/maelabord-landbunadarins/SKILL.md.
 """
 from __future__ import annotations
 

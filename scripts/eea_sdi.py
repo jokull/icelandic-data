@@ -2,7 +2,7 @@
 
 Reads the European Environment Agency's geospatial-data catalogue at
 ``https://sdi.eea.europa.eu/catalogue/`` (a GeoNetwork 4.4 instance).
-See ``.claude/skills/eea_sdi.md`` for the full API documentation.
+See ``.agents/skills/eea-sdi/SKILL.md`` for the full API documentation.
 
 Subcommands::
 

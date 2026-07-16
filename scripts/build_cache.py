@@ -10,7 +10,7 @@ Reads from the existing source tiers:
     data/cache/constants.json    (Iceland scalars + bboxes  — Tier 4)
     data/cache/rasters/*.tif     (LZW + EPSG:3057 reprojections — Tier 3)
 
-See ``scripts/utils/cache.py`` and ``.claude/skills/kortagerð.md`` for the
+See ``scripts/utils/cache.py`` and ``.agents/skills/kortagerd/SKILL.md`` for the
 full caching strategy.
 
 Subcommands::

@@ -2,7 +2,7 @@
 Landmælingar Íslands geodata — download and cache WFS layers.
 
 Data source: GeoServer WFS at gis.lmi.is
-See .claude/skills/lmi.md for full API documentation.
+See .agents/skills/lmi/SKILL.md for full API documentation.
 
 Usage:
     uv run python scripts/lmi.py list              # Show available layers and cache status

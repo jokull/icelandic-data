@@ -31,7 +31,7 @@ from rasterio.enums import Resampling
 from rasterio.warp import calculate_default_transform, reproject
 
 # scripts/utils/cache.py provides Tier 3+4 cache readers (see
-# .claude/skills/kortagerð.md "Caching strategy").
+# .agents/skills/kortagerd/SKILL.md "Caching strategy").
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from utils.cache import (  # noqa: E402
     CacheMissingError, cached_raster, iceland_constants,

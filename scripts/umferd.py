@@ -2,7 +2,7 @@
 Vegagerðin traffic counter data — fetch, accumulate, and report.
 
 Data source: GeoServer WFS at gagnaveita.vegagerdin.is
-See .claude/skills/umferd.md for full API documentation.
+See .agents/skills/umferd/SKILL.md for full API documentation.
 
 Usage:
     uv run python scripts/umferd.py stations   # List all counting stations
