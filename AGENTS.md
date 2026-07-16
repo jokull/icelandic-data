@@ -244,9 +244,35 @@ uv run python scripts/bench_maps.py history
 uv run pytest tests/test_cache_consistency.py tests/test_maps_render.py -v
 ```
 
+## Tests and source health
+
+```bash
+uv run pytest -m "not slow"            # fast, offline — what PR CI runs
+uv run pytest -m slow                  # network + Playwright integration tests
+
+# Upstream health probes (tests/health/) — smallest stable contract per source
+uv run pytest -m health                        # every probe
+uv run pytest -m health -k hagstofan           # one source by name
+uv run pytest -m "health and not browser and not degraded_ok"   # required lane
+uv run pytest -m "health and degraded_ok"      # staleness / known-soft lane
+uv run pytest -m browser                       # Playwright probes (manual only)
+
+# Render a health report from both lanes (exits non-zero only on a required failure)
+uv run python scripts/health_summary.py --required health-required.xml \
+  --degraded health-degraded.xml --json health-results.json
+```
+
+Health probes run daily in `.github/workflows/source-health.yml`. Browser probes
+are manual-dispatch only — from a datacenter IP, Power BI/Tableau failures say
+more about bot detection than about the source being down.
+
+To add a probe for a new source, see the `new-data-source` skill.
+
 ## Scripts layout
 
 - `scripts/*.py` — fetchers/cleaners: hit an API or read raw files, write tidy CSVs to `data/processed/`
+- `scripts/health_summary.py` — renders health results from pytest JUnit XML (not a fetcher)
+- `tests/health/test_{source}.py` — upstream health probes, auto-marked `slow` + `health`
 - `reports/*.py` — one-off report scripts (gitignored, local-only, sit next to the `.html` they emit)
 
 Inflation-specific analysis (derivation scripts, research reports, the whodunit blog post) lives in [`~/Code/inflation-whodunit`](../inflation-whodunit). That repo reads processed data from here.

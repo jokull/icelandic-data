@@ -1,0 +1,124 @@
+name: Source health
+
+# Probes upstream data sources for the smallest stable contract each script
+# depends on. Deliberately NOT a fetch run: no full datasets, no PDF
+# extraction, no geodata rebuilds.
+#
+# Lightweight probes run daily. Browser probes are manual-only — see the job
+# comment for why.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: "Also run browser/Playwright probes"
+        type: boolean
+        default: false
+
+concurrency:
+  group: source-health
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lightweight:
+    name: Lightweight probes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      # Two lanes, because pytest models pass/fail but health has three states.
+      # Required = hard invariants, gates the job. Degraded = staleness and
+      # known-soft probes, reported but never wakes anyone.
+      - name: Required probes
+        id: required
+        continue-on-error: true
+        run: |
+          uv run pytest -m "health and not browser and not degraded_ok" \
+            --junit-xml=health-required.xml
+
+      - name: Degraded probes
+        id: degraded
+        continue-on-error: true
+        run: |
+          uv run pytest -m "health and degraded_ok" \
+            --junit-xml=health-degraded.xml
+
+      # Owns the verdict: exits non-zero only when a required source failed.
+      - name: Report
+        run: |
+          uv run python scripts/health_summary.py \
+            --required health-required.xml \
+            --degraded health-degraded.xml \
+            --json health-results.json \
+            --markdown "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-results
+          path: |
+            health-results.json
+            health-*.xml
+          retention-days: 30
+
+  # Not scheduled, by design. These probes drive Power BI / Tableau / Playwright
+  # from a datacenter IP, where bot detection and headless fingerprinting cause
+  # failures that say nothing about whether the source is actually up. Running
+  # them nightly would mostly teach us that GitHub's IP ranges are blocked. Run
+  # on demand when a dashboard scraper is suspect.
+  browser:
+    name: Browser probes (manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Browser probes
+        continue-on-error: true
+        run: uv run pytest -m "health and browser" --junit-xml=health-browser.xml
+
+      - name: Report
+        run: |
+          uv run python scripts/health_summary.py \
+            --required health-browser.xml \
+            --json health-browser.json \
+            --markdown "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-browser
+          path: |
+            health-browser.json
+            health-browser.xml
+          retention-days: 30

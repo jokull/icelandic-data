@@ -91,9 +91,31 @@ Answer these questions before writing code:
 
 ## Phase 2: Build the Skill File
 
-**Create `.claude/skills/{source}.md`** following this structure:
+**Create `.agents/skills/{source}/SKILL.md`** — a directory with a `SKILL.md`
+inside, never a flat `.md`. Both Claude Code and Codex discover skills by
+directory ([agentskills.io](https://agentskills.io)); a flat file is invisible
+to both. `.claude/skills` is a symlink to `.agents/skills`, so one file serves
+both agents — do not create anything under `.claude/` directly.
+
+Naming: lowercase ASCII, hyphens only. No underscores, no `ð`/`æ`/`þ`
+(`kortagerð` → `kortagerd`, `eea_sdi` → `eea-sdi`). The directory name is the
+skill's identity; `name:` in the frontmatter must match it exactly.
+
+The `description` is the whole basis on which an agent decides to load your
+skill — it is the only part preloaded into context. Write it third-person,
+front-loaded with the trigger words someone would actually type (the agency
+name, the Icelandic term), saying what it covers *and when to reach for it*.
+
+**Keep it under ~160 characters.** Codex truncates once all descriptions
+combined exceed 8,000 characters; with 45 skills that budget, not the
+per-skill limit, is what binds.
 
 ```markdown
+---
+name: {source}
+description: {Agency/term} — {what data}. Use for {when}. Under ~160 chars.
+---
+
 # {Source Name} — {Agency}
 
 {One sentence: what data, from whom.}
@@ -247,20 +269,70 @@ If the data has a spatial or temporal dimension, create a report:
 
 **Static map** (for geo data): use cached LMI layers via `data/geodata/`
 - `geopandas` + `matplotlib` for publication quality
-- See `scripts/kortagerð.py` and `.claude/skills/kortagerð.md` for templates
+- See `scripts/kortagerð.py` and the `kortagerd` skill for templates
 
-## Phase 6: Register
+## Phase 6: Add a Health Probe
 
-1. **Update `CLAUDE.md`** — add a row to the Active Skills table:
-   ```
-   | [{source}](/.claude/skills/{source}.md) | {Agency} | {One-line description} |
-   ```
+Upstream sources change or vanish without anything in this repo changing. Add
+`tests/health/test_{source}.py` so that breakage surfaces on its own rather
+than the next time someone runs a fetch.
 
-2. **Add quick commands** to the Quick Commands section in `CLAUDE.md`
+Probe the **smallest stable contract** the script depends on — not the data:
+
+```python
+"""Health probe — {Agency}."""
+
+BASE = "https://..."
+
+def test_catalog_is_served(http):
+    r = http.get(f"{BASE}/...")
+    assert r.status_code == 200, f"{r.request.url} -> {r.status_code}"
+    assert r.headers["content-type"].startswith("application/json")
+
+    payload = r.json()
+    assert payload, "catalog is empty"
+    assert "expected_key" in payload[0], f"unexpected shape: {sorted(payload[0])}"
+```
+
+Rules:
+
+- Everything under `tests/health/` is auto-marked `slow` + `health` by the
+  local `conftest.py`. No decorators needed, and PR CI never touches it.
+- Use the `http` fixture — it carries explicit connect/read timeouts and
+  retries *connection* errors only, so a schema change reports on the first try.
+- **Never write to `data/`.** Import the script's constants and regexes, but do
+  not call fetch functions that cache raw responses as a side effect.
+- Keep payloads small: WFS `count`, PX-Web single-year queries, one sub-page.
+- Assert invariants that break loudly and rarely: status, content type, required
+  keys, non-empty, a known identifier still present, plausible types. Never exact
+  row counts, wording, or ordering.
+- Staleness is **degraded, not failed** — mark those `@pytest.mark.degraded_ok`
+  and use `assert_fresh()`. A source that is up but three days behind is a
+  different problem from one that is down, and only the second should go red.
+- Needs Playwright? Add `@pytest.mark.browser`. Those run manual-only.
+- Needs credentials? `pytest.importorskip`/`pytest.skip` — skipped reports as
+  skipped, not failed.
+
+Verify it against the live source, then confirm it stays out of PR CI:
+
+```bash
+uv run pytest -m health tests/health/test_{source}.py -q
+uv run pytest -m "not slow" -q     # must not include your probe
+```
+
+## Phase 7: Register
+
+1. **No index to update** — the skill's frontmatter `description` *is* its index
+   entry. Both agents preload it. Do not add a table anywhere.
+
+2. **Add quick commands** to the Quick Commands section in `AGENTS.md`
+   (`CLAUDE.md` is a symlink to it)
 
 3. **Update `.gitignore`** if adding a new data directory outside `data/raw/` or `data/processed/`
 
-4. **Add dependencies** to `pyproject.toml` if the source requires a new Python package
+4. **Add dependencies** to `pyproject.toml` if the source requires a new Python
+   package — and run `uv sync` so `uv.lock` stays in step, or CI's
+   `uv sync --locked` fails
 
 ## Common Pitfalls
 
@@ -279,11 +351,14 @@ If the data has a spatial or temporal dimension, create a report:
 
 Before considering a new data source complete:
 
-- [ ] Skill file in `.claude/skills/{source}.md` with API, schema, caveats
+- [ ] Skill at `.agents/skills/{source}/SKILL.md` with frontmatter, API, schema, caveats
+- [ ] `name:` matches the directory; both lowercase ASCII + hyphens
+- [ ] `description:` under ~160 chars, front-loaded with trigger words
 - [ ] Script in `scripts/{source}.py` with `list`/`fetch` subcommands
 - [ ] Raw data saved to `data/raw/{source}/`
 - [ ] Processed data saved to `data/processed/`
 - [ ] Output verified with DuckDB query
 - [ ] Icelandic characters confirmed working
-- [ ] CLAUDE.md Active Skills table updated
-- [ ] Quick commands added to CLAUDE.md
+- [ ] Health probe at `tests/health/test_{source}.py`, verified against the live source
+- [ ] `uv run pytest -m "not slow"` still green and still offline
+- [ ] Quick commands added to `AGENTS.md`

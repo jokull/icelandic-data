@@ -137,9 +137,15 @@ See [AGENTS.md](AGENTS.md) for the full command catalog across every skill.
 ## Tests
 
 ```bash
-uv run pytest -m "not slow"   # fast unit tests (~200ms)
+uv run pytest -m "not slow"   # fast unit tests (~0.5s) — what PR CI runs
 uv run pytest -m slow         # network + Playwright tests (several minutes)
+uv run pytest -m health       # upstream health probes
+uv run pytest -m health -k hagstofan   # probe one source
 ```
+
+Health probes check that each upstream source still serves the smallest contract
+its script depends on. They run daily in CI; browser-based probes are
+manual-dispatch only. See [`.github/workflows/source-health.yml`](.github/workflows/source-health.yml).
 
 ## Adding a new data source
 
