@@ -16,6 +16,8 @@ Probes must not write into data/ — they hold responses in memory.
 from __future__ import annotations
 
 import pathlib
+import re
+from datetime import datetime
 
 import httpx
 import pytest
@@ -60,6 +62,99 @@ def http() -> httpx.Client:
         follow_redirects=True,
     ) as client:
         yield client
+
+
+_FIXED_CLUSTER_RE = re.compile(r'"FixedClusterUri"\s*:\s*"https://([^"/]+)')
+
+
+class PowerBIPublicEmbed:
+    """Plain-HTTP client for the *public* ("publish to web") Power BI backend.
+
+    Six sources in this repo are `app.powerbi.com/view?r=<base64>` embeds that
+    the scripts scrape with Playwright. Those scrapes are not probeable daily —
+    from a datacenter IP a headless-Chromium failure says more about bot
+    detection than about the source. But the scrape's *precondition* is: the
+    report key still exists and the report still has the pages we query. That
+    is checkable over two plain GETs, exactly as the embed shell page itself
+    does it before booting any JavaScript:
+
+      1. GET the /view?r= shell. It is a static SPA page (a revoked key still
+         returns 200 with byte-identical HTML — do NOT probe it for liveness),
+         but the server stamps a per-tenant ``FixedClusterUri`` into it. That
+         is the only way to learn which wabi-* cluster serves this tenant; they
+         differ (west-europe, north-europe-q/-l/-n, europe-north-b …) and
+         guessing wrong returns a misleading 401.
+      2. GET ``/public/reports/<key>/modelsAndExploration`` on that cluster's
+         APIM host with an ``X-PowerBI-ResourceKey`` header. A live key returns
+         the model + the report's page list; an expired, revoked or
+         un-republished key returns **401 UnableToFindKeyInDBorCacheException**.
+
+    That 401 is the single most likely breakage for every one of these sources,
+    and this is how it surfaces without a browser.
+    """
+
+    def __init__(self, http: httpx.Client) -> None:
+        self._http = http
+
+    def cluster_api_host(self, view_url: str) -> str:
+        """Resolve the tenant's wabi-* APIM host from the embed shell page.
+
+        Mirrors the shell's own ``getAPIMUrl()``: drop ``-redirect``/``global-``
+        from the first label, append ``-api``.
+        """
+        r = self._http.get(view_url)
+        assert r.status_code == 200, f"{view_url} -> {r.status_code}"
+
+        match = _FIXED_CLUSTER_RE.search(r.text)
+        assert match, (
+            f"{view_url} -> 200 but no FixedClusterUri in the embed shell — "
+            f"Power BI changed the publish-to-web bootstrap; re-check how the "
+            f"cluster is resolved"
+        )
+        host = match.group(1)
+        label, _, domain = host.partition(".")
+        label = label.replace("-redirect", "").replace("global-", "") + "-api"
+        return f"{label}.{domain}"
+
+    def model(self, view_url: str, report_key: str) -> dict:
+        """Return modelsAndExploration for a public embed. Asserts the key lives."""
+        host = self.cluster_api_host(view_url)
+        url = (
+            f"https://{host}/public/reports/{report_key}"
+            f"/modelsAndExploration?preferReadOnlySession=true"
+        )
+        r = self._http.get(
+            url,
+            headers={"Accept": "application/json", "X-PowerBI-ResourceKey": report_key},
+        )
+        assert r.status_code == 200, (
+            f"{url} -> {r.status_code}: {r.text[:200]} "
+            f"(401 = report key {report_key} no longer published to web)"
+        )
+        payload = r.json()
+        assert payload.get("models"), f"{url} -> 200 but no models; got {sorted(payload)}"
+        return payload
+
+    @staticmethod
+    def sections(payload: dict) -> dict[str, str]:
+        """{sectionName: displayName} — the report's pages."""
+        return {
+            s["name"]: s.get("displayName", "")
+            for s in payload.get("exploration", {}).get("sections", [])
+        }
+
+    @staticmethod
+    def last_refresh(payload: dict) -> datetime:
+        """When the embedded dataset last refreshed (naive UTC)."""
+        stamp = payload["models"][0].get("LastRefreshTime")
+        assert stamp, f"model has no LastRefreshTime; got {sorted(payload['models'][0])}"
+        return datetime.fromisoformat(stamp)
+
+
+@pytest.fixture(scope="session")
+def powerbi(http) -> PowerBIPublicEmbed:
+    """Plain-HTTP probe helper for public Power BI embeds — see the class."""
+    return PowerBIPublicEmbed(http)
 
 
 def assert_fresh(observed, max_age, *, label: str) -> None:

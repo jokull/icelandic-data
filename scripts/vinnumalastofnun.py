@@ -29,9 +29,15 @@ POWERBI_TENANT = "764a306d-0a68-45ad-9f07-6f1804447cd4"
 POWERBI_REPORT_KEY = "e74521bb-e501-4b02-8aa2-08a8bb84d087"
 POWERBI_PAGE = "ReportSection7e7dca64570c18a74eb9"
 
+# Contentful serves each upload at a fresh, content-addressed asset URL — the
+# old one keeps working forever, so a stale constant here silently pins us to an
+# old workbook rather than 404ing. The current URL is the one linked from
+# LANDING; tests/health/test_vinnumalastofnun.py compares the two and reports
+# degraded when they drift apart.
+LANDING = "https://island.is/s/vinnumalastofnun/maelabord-og-toelulegar-upplysingar"
 EXCEL_URL = (
-    "https://assets.ctfassets.net/8k0h54kbe6bj/688FRtXuoA4qkPXerKcuMT/"
-    "e6b9794d1bdfcf5cb5747a46b9b3d836/Talnagogn_atvinnuleysi.xlsm"
+    "https://assets.ctfassets.net/8k0h54kbe6bj/6X68LGOlf4zSrosSlpBnEV/"
+    "a52ab7855e63039569523b912cd005b3/Talnagogn_atvinnuleysi.xlsm"
 )
 
 

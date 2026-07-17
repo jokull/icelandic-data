@@ -118,7 +118,9 @@ def search_ted(args):
     data = resp.json()
 
     notices = data.get("notices", [])
-    total = data.get("total", 0)
+    # TED v3 calls this totalNoticeCount, not total — reading "total" silently
+    # reported "Found 0" on every search.
+    total = data.get("totalNoticeCount", 0)
     print(f"Found {total} total, showing {len(notices)}", file=sys.stderr)
 
     if not notices:
