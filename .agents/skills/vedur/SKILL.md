@@ -1,31 +1,92 @@
 ---
 name: vedur
-description: Icelandic Meteorological Office (Veðurstofa) XML API — weather observations, forecasts, climatological data.
+description: Icelandic Met Office (Veðurstofa) — weather observations, stations, forecasts and earthquakes via the modern JSON API at api.vedur.is.
 ---
 
 # Veðurstofa Íslands (Icelandic Meteorological Office)
 
-Weather observations, forecasts, and climatological data for Iceland.
+Weather observations, forecasts, climatological data and **earthquakes** for Iceland.
 
-## API
+## API — use `api.vedur.is` (JSON, OpenAPI)
 
-**Base URL:** `https://xmlweather.vedur.is/`
+**Base URLs:** `https://api.vedur.is/weather` · `https://api.vedur.is/quakes`
 
-No authentication required. Returns XML.
+No authentication. JSON. Both are OpenAPI-described and browsable:
 
-**Do NOT use `apis.is`** — SSL certificate expired. Use `xmlweather.vedur.is` directly.
+| | |
+|---|---|
+| Swagger UI | `https://api.vedur.is/weather/` · `https://api.vedur.is/quakes/` |
+| Spec | `https://api.vedur.is/weather/openapi.json` (274 KB) · `.../quakes/openapi.json` |
+| Versions seen | Weather `2026-02-17`, Quakes `2026-07-01` |
 
-## Fetching Data
+**The spec is authoritative, the summaries are not.** `GET /quakes/events` is
+summarised "Returns Quake Information As Geojson Or Csv", but `format` only
+accepts `csv|json` — and `json` returns GeoJSON anyway. Read `openapi.json`
+before believing prose.
 
-### Current observations
+### Weather
+
 ```bash
-curl -s "https://xmlweather.vedur.is/?op_w=xml&type=obs&lang=en&view=xml&ids=1&params=T;F;FX;FG;D;R;RH;P;N;TD;V&time=1h"
+# The cheapest liveness/shape check — 2.9 KB, lists every observation type
+curl -s "https://api.vedur.is/weather/capabilities"
+
+# Stations (776 of them, ~150 KB)
+curl -s "https://api.vedur.is/weather/stations"
+curl -s "https://api.vedur.is/weather/stations/1"
+
+# Latest automatic-weather-station observations
+curl -s "https://api.vedur.is/weather/observations/aws/10min/latest"
+curl -s "https://api.vedur.is/weather/observations/aws/hour/latest"
+
+# Parameter descriptions (what T, F, FX… mean)
+curl -s "https://api.vedur.is/weather/parameters"
 ```
 
-### Forecasts
+Aggregations: `10min`, `hour`, `day`, `month`, `year`. There is also an OGC
+**EDR** interface under `/weather/rodeo/collections/{aggregation}/` with
+`locations`, `area` and `cube` queries — worth reaching for if you want
+standards-based spatial/temporal slicing rather than the bespoke endpoints.
+
+### Quakes (new — no equivalent in the old XML API)
+
 ```bash
+# Events since a timestamp, magnitude filtered -> GeoJSON FeatureCollection
+curl -s "https://api.vedur.is/quakes/events?start_time=2026-07-16T00:00:00&size_min=1"
+
+# Just the count — returns a bare number, ideal for a cheap check
+curl -s "https://api.vedur.is/quakes/events/count?start_time=2026-07-16T00:00:00"
+
+curl -s "https://api.vedur.is/quakes/events/IMO2026nwqkrn"   # one event
+curl -s "https://api.vedur.is/quakes/regions"                # seismic regions
+```
+
+Each feature carries `event_id`, `time`, `magnitude`, `depth`, `region`,
+`type`, `evaluation_mode` (`manual`|`automatic`), `updated_time`.
+
+Filters: `start_time`, `end_time`, `depth_min/max`, `size_min/max`, `lat`,
+`lon`, `type`, `evaluation_mode`, `system`. Times are `yyyy-mm-ddTHH:MM:SS`.
+There is **no `limit`** — bound queries with `start_time`, or you will pull the
+lot (`limit` returns 422 `extra_forbidden`).
+
+`system` defaults to `seiscomp`; `sil` is the legacy IMO system and the spec
+says it "will eventually be phased out" — don't build on `sil`.
+
+## Legacy: `xmlweather.vedur.is` (still up, but outdated)
+
+The old XML endpoint still responds and is what this repo probed first, but
+Veðurstofa now offers the API above and it should be preferred for anything new
+([#9](https://github.com/jokull/icelandic-data/issues/9), thanks @thordurka).
+It has no earthquake data at all.
+
+```bash
+# Current observations
+curl -s "https://xmlweather.vedur.is/?op_w=xml&type=obs&lang=en&view=xml&ids=1&params=T;F;FX;FG;D;R;RH;P;N;TD;V&time=1h"
+
+# Forecasts — still the simplest source for these
 curl -s "https://xmlweather.vedur.is/?op_w=xml&type=forec&lang=en&view=xml&ids=1"
 ```
+
+**Do NOT use `apis.is`** — SSL certificate expired. Use `api.vedur.is`.
 
 ### Available parameters
 
