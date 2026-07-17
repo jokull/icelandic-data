@@ -39,7 +39,7 @@ PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 # ai.openclaw.gateway.plist itself uses — that invocation is proven under
 # launchd. Keep these in step with the gateway plist on openclaw upgrades;
 # `notify` fails loudly (and refuses to stamp the cooldown) if they drift.
-NODE_BIN="${NODE_BIN:-/Users/jokull/.local/share/fnm/node-versions/v24.12.0/installation/bin/node}"
+NODE_BIN="${NODE_BIN:-/Users/jokull/.local/share/fnm/node-versions/v24.15.0/installation/bin/node}"
 OPENCLAW_JS="${OPENCLAW_JS:-/Users/jokull/openclaw/dist/index.js}"
 
 ROOT="/Users/jokull/clawd"
