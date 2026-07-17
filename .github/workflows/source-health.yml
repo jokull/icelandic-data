@@ -97,15 +97,39 @@ jobs:
             git -C .history remote add origin "$REMOTE"
           fi
 
+      # Recording must never gate on SOURCE health. health_summary.py exits
+      # non-zero when a required source failed — which is exactly when we most
+      # need the observation written and pushed. Left unhandled, the first
+      # genuinely dead source kills this step, skips the commit, and throws away
+      # the very datapoint that proves it died. (Found the hard way: natt went
+      # red and took the whole run with it, discarding all 36 observations.)
+      #
+      # So: swallow the verdict exit code, then assert on what this step is
+      # actually responsible for — that rows were appended. It fails only if
+      # nothing got recorded, which is a real problem.
+      #
+      # Not `continue-on-error`: that would leave steps.record.outcome ==
+      # 'failure' whenever a source is red, and the dead-man's-switch pings on
+      # that outcome. A red source would silence the switch — conflating "a
+      # source is down" with "nobody is watching", the exact thing the switch
+      # exists to keep separate.
       - name: Record observation
         id: record
         run: |
+          set -uo pipefail
+          before=$(wc -l < .history/history.jsonl 2>/dev/null || echo 0)
           uv run python scripts/health_summary.py \
             --required health-required.xml \
             --degraded health-degraded.xml \
             --history .history/history.jsonl \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            > /dev/null
+            > /dev/null || true
+          after=$(wc -l < .history/history.jsonl 2>/dev/null || echo 0)
+          if [ "$after" -le "$before" ]; then
+            echo "::error::no observations recorded — did the probes run?"
+            exit 1
+          fi
+          echo "recorded $((after - before)) observation(s)"
 
       # Badge + light panel. Both are written onto the health-history branch, and
       # the README only ever holds URLs pointing at them — so they refresh daily
