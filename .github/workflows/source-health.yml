@@ -32,6 +32,11 @@ jobs:
     name: Lightweight probes
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Job-level so the ping step can test it in `if:` — the secrets context is
+    # not available there, but the env context is. Unset secret -> empty string
+    # -> the ping step skips, and everything else still works.
+    env:
+      HEALTH_PING_URL: ${{ secrets.HEALTH_PING_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -93,6 +98,7 @@ jobs:
           fi
 
       - name: Record observation
+        id: record
         run: |
           uv run python scripts/health_summary.py \
             --required health-required.xml \
@@ -137,16 +143,27 @@ jobs:
             --json health-verdicts.json \
             --markdown "$GITHUB_STEP_SUMMARY"
 
-      # Dead-man's-switch. GitHub cannot alert you that GitHub stopped: runs can
-      # be dropped silently, and scheduled workflows are auto-disabled after 60
-      # days of repository inactivity. Both fail closed and quiet. Point this at
-      # anything that alerts on the *absence* of a ping (healthchecks.io free
-      # tier, or a cron on the mac-mini) and set HEALTH_PING_URL as a repo secret.
-      # - name: Ping dead-man's-switch
-      #   if: success() && env.HEALTH_PING_URL != ''
-      #   env:
-      #     HEALTH_PING_URL: ${{ secrets.HEALTH_PING_URL }}
-      #   run: curl -fsS --retry 3 --max-time 10 "$HEALTH_PING_URL" > /dev/null
+      # Dead-man's-switch. GitHub cannot alert you that GitHub stopped: scheduled
+      # runs can be dropped silently, and scheduled workflows in public repos are
+      # auto-disabled after 60 days of repository inactivity. Both fail closed and
+      # quiet, so the absence of a run produces no failure and no email. Only
+      # something outside GitHub can notice that.
+      #
+      # Inactive until HEALTH_PING_URL is set as a repo secret; until then this
+      # step simply skips. Point it at anything that alerts when pings STOP
+      # (healthchecks.io free tier, or a cron on the mac-mini):
+      #   gh secret set HEALTH_PING_URL --body "https://hc-ping.com/<uuid>"
+      #
+      # Deliberately NOT `if: success()`. This switch answers "is the monitor
+      # alive?", not "are the sources healthy?". Gating on success would let a
+      # legitimately dead source silence the switch — conflating "a source is
+      # down" (already reported, with detail) with "the monitor stopped" (nobody
+      # is watching at all). It fires whenever we actually observed and recorded,
+      # whatever the verdict; and it does not fire when we never got that far,
+      # which is exactly when you want the silence to be noticed.
+      - name: Ping dead-man's-switch
+        if: always() && steps.record.outcome == 'success' && env.HEALTH_PING_URL != ''
+        run: curl -fsS --retry 3 --max-time 10 "$HEALTH_PING_URL" > /dev/null
 
       - name: Upload results
         if: always()

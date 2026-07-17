@@ -83,12 +83,31 @@ New lending by sector and index type:
 **Portal:** `https://gagnabanki.is/report/monetary`
 **Download Proxy:** `https://gagnabanki.is/api/download` (POST)
 
+> ### ⚠️ `fr.sedlabanki.is` is not fetchable directly — the proxy is mandatory
+>
+> The SDMX host resolves (`217.151.180.10`, a Vodafone Iceland xDSL pool address)
+> but **black-holes on both 80 and 443** from the public internet: connections
+> hang until timeout rather than being refused. It has never been publicly
+> reachable — archive.org has zero captures of it, ever.
+>
+> The server itself is alive and serving current data. Seðlabanki's own backend
+> reaches it, so **every SDMX fetch must go through
+> `POST https://gagnabanki.is/api/download`**, which performs the GET from inside
+> their network. This is a hard requirement, not a convenience wrapper.
+>
+> The SDMX URL below is therefore a **proxy payload, not a URL you can curl**.
+> If you `curl` it directly you will get a `ConnectTimeout` and conclude the
+> service is dead. It isn't.
+>
+> The block mechanism (geo-restriction, source-IP allowlist, or a public A record
+> fronting a firewalled host) is **unverified** — only the effect is established.
+
 ## Download URLs
 
-| Dataset | URL Type | Download URL |
-|---------|----------|--------------|
-| Balance Sheets | SDMX | `https://fr.sedlabanki.is/sdmx/v2/table/IS2_EXT/INN_BALANCE_SHEETS_TOTAL/1.0?format=xlsx` |
-| New Credit | Library | `https://sedlabanki.is/library?itemid=b73e42d6-ba32-4eb3-b39e-1c70d2e45aec` |
+| Dataset | URL Type | Direct? | URL |
+|---------|----------|---------|-----|
+| Balance Sheets | SDMX | ❌ **proxy only** | `https://fr.sedlabanki.is/sdmx/v2/table/IS2_EXT/INN_BALANCE_SHEETS_TOTAL/1.0?format=xlsx` |
+| New Credit | Library | ✅ direct | `https://sedlabanki.is/library?itemid=b73e42d6-ba32-4eb3-b39e-1c70d2e45aec` |
 
 ## Fetching Data
 

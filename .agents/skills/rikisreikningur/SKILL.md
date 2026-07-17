@@ -36,6 +36,17 @@ throttling key, not a secret.
 
 Auth header: `X-Api-Key: 6d4d7394-2992-473d-9ea7-45946b39ad9d`
 
+**This is not a secret — do not move it to an env var or a repo secret.** It is a
+static public key shipped in the SPA's own JS bundle (verified: it appears in
+`https://www.rikisreikningur.is/static/js/main.*.chunk.js`), so every visitor to
+the site already has it. Hardcoding it is correct; hiding it would only break
+`scripts/rikisreikningur.py` for anyone cloning the repo.
+
+If the API starts returning 401 the key was rotated: re-read it from the bundle
+above. `tests/health/test_rikisreikningur.py` asserts `status != 401` precisely
+so that rotation surfaces as its own finding rather than as a confusing failure
+inside a fetch run.
+
 ### Double-encoded payloads
 
 The `/api/FJS/Data/*` endpoints return a **single-element list containing a

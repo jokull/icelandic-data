@@ -313,13 +313,28 @@ WHERE ts > now() - INTERVAL 30 DAY AND status != 'skipped'
 GROUP BY source ORDER BY uptime_pct;"
 ```
 
-**Known blind spot:** GitHub cannot alert you that GitHub stopped. Scheduled runs
-can be dropped silently, and scheduled workflows in public repos are
-auto-disabled after 60 days of repository inactivity (GitHub never defines
-"activity"). Both fail closed and quiet. The daily history commits are genuine
-activity and plausibly hold the clock off, but that is inference, not a
-documented contract. The actual fix is a dead-man's-switch that alerts on the
-*absence* of a ping — see the commented-out step in `source-health.yml`.
+### The blind spot: GitHub cannot alert you that GitHub stopped
+
+Scheduled runs can be dropped silently, and scheduled workflows in public repos
+are auto-disabled after 60 days of repository inactivity (GitHub never defines
+"activity"). Both fail closed and quiet: no run, no failure, no email. The daily
+history commits are genuine activity and plausibly hold that clock off, but
+that is inference, not a documented contract — so it is not the safety net.
+
+The safety net is a dead-man's-switch: something *outside* GitHub that alerts on
+the **absence** of a ping. `source-health.yml` has the step wired; it stays
+inert (skipped) until the secret exists:
+
+```bash
+# healthchecks.io free tier: create a check, period 1 day, grace ~2h
+gh secret set HEALTH_PING_URL --body "https://hc-ping.com/<uuid>"
+```
+
+It fires whenever the probes **ran and recorded**, whatever the verdict — not on
+job success. Those are different questions: a legitimately dead source failing
+the job must not silence the switch, or "a source is down" (already reported,
+with detail) gets conflated with "the monitor stopped" (nobody is watching at
+all). Silence should mean exactly one thing.
 
 ## Scripts layout
 
