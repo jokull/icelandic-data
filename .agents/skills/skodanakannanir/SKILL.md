@@ -1,23 +1,25 @@
 ---
 name: skodanakannanir
-description: RÚV + Vísir opinion-poll aggregators (skoðanakannanir) — national Alþingi and Reykjavík city party support across pollsters (Maskína, Prósent, Gallup).
+description: RÚV + Vísir + Heimildin opinion-poll aggregators (skoðanakannanir) — national Alþingi and Reykjavík city party support across pollsters (Maskína, Prósent, Gallup).
 ---
 
-# Skoðanakannanir — RÚV + Vísir Opinion-Poll Aggregators
+# Skoðanakannanir — RÚV + Vísir + Heimildin Opinion-Poll Aggregators
 
-Two outlets' tag pages, each aggregating news coverage of opinion polls from
-every major Icelandic pollster — not just one firm's own dashboard. Use this
-skill for "what's the latest party support / fylgi flokka" questions, at
-either national (Alþingi) or Reykjavík city (borgarstjórn) level.
+Three outlets' discovery mechanisms, each surfacing news coverage of opinion
+polls from every major Icelandic pollster — not just one firm's own
+dashboard. Use this skill for "what's the latest party support / fylgi
+flokka" questions, at either national (Alþingi) or Reykjavík city
+(borgarstjórn) level.
 
-**Use Vísir for discovery, RÚV for numbers.** Verified: RÚV's tag page holds
-only ~51 recent items with no working pagination (see Caveat 7), while
-Vísir's is genuinely paginated back to at least September 2021. `list
---source visir --since 2025 --scope reykjavik` alone found 40 Reykjavík polls
-against RÚV's 4 — including the entire Feb–May 2026 city-election polling
-season RÚV's own tag had already dropped. But only RÚV articles are wired
-into `fetch`'s chart/prose number-extraction so far (see Vísir Discovery
-below) — Vísir is list/discovery-only for now.
+**Use Vísir/Heimildin for discovery, RÚV for numbers.** Verified: RÚV's tag
+page holds only ~51 recent items with no working pagination (see Caveat 7),
+while Vísir's is genuinely paginated back to at least September 2021 and
+Heimildin's search goes back to 2019+ for this query. `list --source visir
+--since 2025 --scope reykjavik` alone found 40 Reykjavík polls against RÚV's
+4 — including the entire Feb–May 2026 city-election polling season RÚV's own
+tag had already dropped. But only RÚV articles are wired into `fetch`'s
+chart/prose number-extraction so far (see the Vísir/Heimildin Discovery
+sections below) — the other two sources are list/discovery-only for now.
 
 **Related but different scope:** the [`maskina`](../maskina/SKILL.md) skill
 covers Maskína's own structured Tableau dashboard directly — one pollster,
@@ -211,36 +213,100 @@ walking all ~35+ pages every time).
   aggregated model. Shows up correctly under this skill's scope/pollster
   guessing as `pollster: null` (no known-pollster name in the text) since
   it isn't a single firm's poll.
-- The same underlying poll is frequently reported by **both** RÚV and Vísir.
-  `cross_reference_duplicates()` (run automatically when `--source all`)
-  flags this: a Vísir article gets `duplicate_of: "<ruv-id>"` and the
-  matched RÚV article gets `also_reported_by: [{source, id, url}, ...]`
-  when — and only when — all three hold: same non-null pollster (exact
-  string match), same scope, and published within 48 hours of each other.
-  `list`'s printed view and its distinct-article count exclude anything
-  with `duplicate_of` set; the saved `articles.json` keeps every row either
-  way, so nothing is lost, just marked. Verified match (2026-03-24): RÚV's
-  "Samfylkingin dalar enn" and Vísir's "Fylgi Samfylkingar ekki verið minna
-  í eitt ár", ~15 hours apart, both Maskína, both national — genuinely the
-  same poll release covered two ways.
-  **When there's more than one same-pollster/same-scope Vísir candidate in
-  the window, nothing is merged** — logged as `ambiguous, N Vísir
-  candidates` instead. This is common and expected, not a bug: Vísir
-  regularly runs a follow-up angle piece on the same poll a day or two after
-  the first report (verified: 4 ambiguous cases in the 2025–2026 window,
-  each with 2-3 genuinely distinct Vísir stories about one poll release).
-  Picking the "closest in time" candidate would be a guess dressed up as a
-  match — left for manual reconciliation instead.
+- The same underlying poll is frequently reported by **both** RÚV and
+  Vísir/Heimildin. `cross_reference_duplicates()` (run automatically when
+  `--source all`) flags this: a Vísir or Heimildin article gets
+  `duplicate_of: "<ruv-id>"` and the matched RÚV article gets
+  `also_reported_by: [{source, id, url}, ...]` when — and only when — all
+  three hold: same non-null pollster (exact string match), same scope, and
+  published within 48 hours of each other. RÚV is always the anchor side of
+  the match (it's the only source with number-extraction wired up — see
+  Extraction Status below). `list`'s printed view and its distinct-article
+  count exclude anything with `duplicate_of` set; the saved `articles.json`
+  keeps every row either way, so nothing is lost, just marked. Verified
+  match (2026-03-24): RÚV's "Samfylkingin dalar enn" and Vísir's "Fylgi
+  Samfylkingar ekki verið minna í eitt ár", ~15 hours apart, both Maskína,
+  both national — genuinely the same poll release covered two ways.
+  **When there's more than one same-pollster/same-scope candidate in the
+  window, nothing is merged** — logged as `ambiguous, N candidates` instead.
+  This is common and expected, not a bug: Vísir regularly runs a follow-up
+  angle piece on the same poll a day or two after the first report (verified
+  across RÚV+Vísir+Heimildin combined, 2024–2026: 7 ambiguous cases, each
+  with 2-5 genuinely distinct stories about one poll release). Picking the
+  "closest in time" candidate would be a guess dressed up as a match — left
+  for manual reconciliation instead.
+
+## Heimildin Discovery
+
+`https://heimildin.is/leit/?q=<query>&page=<n>` (search, default query
+`"skoðanakönnun"`) — **not** a tag page, Heimildin has no equivalent to
+RÚV/Vísir's. The trailing slash on `/leit/` matters: `heimildin.is/leit`
+(no slash) 301-redirects to `/leit/`, and query params on the *original*
+URL are preserved through that redirect, so either form works via `httpx`
+(which follows redirects) — but hitting `/leit/` directly skips a hop.
+Server-rendered HTML, genuinely paginated via `&page=N`: verified fetching
+pages 1 and 2 of the default query and finding zero overlapping article
+IDs, with page 1 spanning Nov 2024 and page 2 jumping to 2019 — a real
+content gap for this specific query on this outlet, not a pagination bug
+(the "Niðurstöður eru í tímaröð" / "results are in chronological order"
+label on the search page is accurate).
+
+```html
+<article class="article-item ...">
+  <a href="/grein/23196/sjalfstaedisflokkurinn-sigur-sosialistaflokkurinn-saekir-a/">
+    <div class="article-item__headlines">
+      <h1 class="article-item__headline">Sjálf&shy;stæð&shy;is&shy;flokk&shy;ur&shy;inn síg&shy;ur, ...</h1>
+    </div>
+    <div class="article-item__subhead">
+      <time class="article-item__pubdate" datetime="2024-11-08 15:06">8. nóvember 2024</time>
+      Fylgi Sjálf&shy;stæð&shy;is&shy;flokks&shy;ins mæl&shy;ist rétt rúm tólf pró&shy;sent ...
+    </div>
+  </a>
+</article>
+```
+
+- `datetime="2024-11-08 15:06"` is already ISO-shaped (space instead of
+  `T`) — `fetch_heimildin_article_list()` just replaces the space and
+  appends `:00`, no Icelandic-date parsing needed (unlike Vísir).
+- Titles/subheads use `&shy;` (soft hyphen) entities mid-word, same
+  strip-after-unescape requirement as Vísir's `\xad` — `&shy;` decodes to
+  `\xad` via `html.unescape`, then gets stripped the same way.
+- IDs are the numeric segment of `/grein/<id>/<slug>/`, stored as
+  `heimildin-<id>`.
+- The default search query is literally `"skoðanakönnun"` — broadening it
+  (e.g. adding `"kosningaspá"` or running multiple queries and merging) is
+  a plausible way to widen coverage further; not done here, single-query
+  is what's verified.
+
+## Extraction Status by Source
+
+| Source | Discovery (`list`) | Numbers (`fetch`) |
+|---|---|---|
+| RÚV | ✅ `__NEXT_DATA__` JSON | ✅ chart `aria-label` + prose fallback |
+| Vísir | ✅ paginated HTML | ❌ not built — `fetch visir-...` errors with the URL to read by hand |
+| Heimildin | ✅ paginated search HTML | ❌ not built — same as Vísir |
+
+**Heimildin's paywall is per-article, not per-outlet — do not assume every
+article is free just because some were.** Verified on only 3 articles (2
+poll stories + the Samherji investigation), all fully open logged-out; a
+larger sample would very likely turn up truncated ones needing the stored
+`heimildin-is-credentials` login to read past the teaser, the same pattern
+confirmed on VB. Treat "some Heimildin poll articles may be paywalled" as
+the working assumption until `fetch` is actually built for this source and
+that gets tested at scale, not "Heimildin poll articles are free" as
+previously (over-)stated after too small a sample.
 
 ## Script Usage
 
 ```bash
 uv run python scripts/skodanakannanir.py list                                  # RÚV only (default) -> data/raw/skodanakannanir/articles.json
 uv run python scripts/skodanakannanir.py list --source visir --since 2025      # Vísir only, paginated back to a year cutoff
+uv run python scripts/skodanakannanir.py list --source heimildin --since 2020  # Heimildin only, search-based
 uv run python scripts/skodanakannanir.py list --source all --since 2025 --scope reykjavik --limit 30
 uv run python scripts/skodanakannanir.py fetch 479261                          # bare int = RÚV, backward-compatible
 uv run python scripts/skodanakannanir.py fetch ruv-479261                      # equivalent, explicit
 uv run python scripts/skodanakannanir.py fetch visir-20262904348               # errors clearly: not implemented yet, prints the URL to read by hand
+uv run python scripts/skodanakannanir.py fetch heimildin-23196                 # same — errors clearly, not implemented yet
 uv run python scripts/skodanakannanir.py fetch --all --limit 20                # batch over cached RÚV articles only
 ```
 
@@ -308,21 +374,14 @@ uv run python scripts/skodanakannanir.py fetch --all --limit 20                #
    skill documents for `/sok`) remains a fine one-off check, just not the
    first move anymore.
 
-8. **Heimildin was checked as a possible fourth source — turns out its
-   regular articles need no paywall workaround at all.** Verified against 3
-   full articles (2 poll stories + one major investigative piece, the
-   Samherji fishing-corruption case): all three rendered complete,
-   full-length, with comments sections, to a logged-out request. A real
-   login was tested anyway (Playwright, stored `heimildin-is-credentials`)
-   and confirmed working — active paid subscription, "Þú ert með áskrift að
-   Heimildinni" — but it changed nothing for this content type; the actual
-   subscriber-only product is `Útgáfa` (the digital magazine-issue
-   archive), not ordinary web articles. **Discovery works well without any
-   auth**: `heimildin.is/leit/?q=<query>` (note the trailing slash — the
-   no-slash form 301-redirects there) returns real `/grein/<id>/<slug>/`
-   article links, paginated (`&page=2` seen in results). Not wired into
-   `list`/`fetch` yet — same reasoning as VB, this is a documented,
-   verified-working path for a future addition, not a built one.
+8. **Heimildin discovery is built (`--source heimildin`); a real login was
+   also tested and works.** Playwright login against the stored
+   `heimildin-is-credentials` was confirmed working — active paid
+   subscription, "Þú ert með áskrift að Heimildinni." See Heimildin
+   Discovery and Extraction Status above for what's actually wired up
+   versus documented-only, and the paywall-is-per-article correction
+   (initial 3-article sample all happened to be open; don't generalize
+   that to "Heimildin is unpaywalled").
 
 9. **VB (Viðskiptablaðið) has no discovery mechanism found so far, but its
    own commissioned Gallup polls are genuinely valuable and the paywall

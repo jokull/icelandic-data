@@ -386,6 +386,82 @@ def fetch_visir_article_list(max_pages: int = 40, stop_before_year: int | None =
     return sorted(seen.values(), key=lambda r: r["published_at"] or "", reverse=True)
 
 
+# --- Heimildin --------------------------------------------------------------
+# No tag page — verified no discovery mechanism exists (no equivalent to
+# RÚV/Vísir's tag pages). But heimildin.is/leit/ (search) works well as one:
+# server-rendered HTML, real <article class="article-item"> cards, genuinely
+# paginated via ?page=N. Regular articles need no auth at all — verified on 3
+# full articles (2 poll stories + the Samherji investigation) rendering
+# complete, comments and all, to a logged-out request. The trailing slash on
+# /leit/ matters: the no-slash form 301-redirects there, and query params on
+# the redirect target still work.
+HEIMILDIN_SEARCH_URL = "https://heimildin.is/leit/"
+
+_HEIMILDIN_ARTICLE_RE = re.compile(r'<article class="article-item[^"]*">(.*?)</article>', re.S)
+_HEIMILDIN_LINK_RE = re.compile(r'href="(/grein/\d+/[^"]+)"')
+_HEIMILDIN_TITLE_RE = re.compile(r'<h1 class="article-item__headline">([^<]+)</h1>')
+_HEIMILDIN_TIME_RE = re.compile(r'<time class="article-item__pubdate" datetime="([^"]+)"')
+_HEIMILDIN_SUBHEAD_RE = re.compile(
+    r'<div class="article-item__subhead">.*?</time>\s*(.+?)\s*</div>', re.S
+)
+
+
+def _heimildin_id(url_path: str) -> str:
+    # /grein/23196/sjalfstaedisflokkurinn-.../ -> heimildin-23196
+    m = re.search(r"/grein/(\d+)/", url_path)
+    return f"heimildin-{m.group(1)}" if m else f"heimildin-{url_path}"
+
+
+def fetch_heimildin_article_list(
+    query: str = "skoðanakönnun", max_pages: int = 20, stop_before_year: int | None = None
+) -> list[dict]:
+    from html import unescape
+
+    seen = {}
+    for page in range(1, max_pages + 1):
+        params = {"q": query, "page": page} if page > 1 else {"q": query}
+        resp = httpx.get(HEIMILDIN_SEARCH_URL, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
+        resp.raise_for_status()
+        blocks = _HEIMILDIN_ARTICLE_RE.findall(resp.text)
+        if not blocks:
+            break  # end of results
+
+        page_had_recent_enough = False
+        for block in blocks:
+            link_m = _HEIMILDIN_LINK_RE.search(block)
+            title_m = _HEIMILDIN_TITLE_RE.search(block)
+            time_m = _HEIMILDIN_TIME_RE.search(block)
+            if not (link_m and title_m and time_m):
+                continue  # non-article card (ad slot, etc.) — skip, don't guess
+
+            published_at = time_m.group(1).strip().replace(" ", "T") + ":00"
+            if stop_before_year and int(published_at[:4]) < stop_before_year:
+                continue
+            if not stop_before_year or int(published_at[:4]) >= stop_before_year:
+                page_had_recent_enough = True
+
+            subhead_m = _HEIMILDIN_SUBHEAD_RE.search(block)
+            title = unescape(title_m.group(1)).replace("\xad", "").strip()
+            subtitle = unescape(subhead_m.group(1)).replace("\xad", "").strip() if subhead_m else None
+            url = "https://heimildin.is" + link_m.group(1)
+            article_id = _heimildin_id(link_m.group(1))
+            seen[article_id] = {
+                "id": article_id,
+                "source": "heimildin",
+                "title": title,
+                "subtitle": subtitle,
+                "url": url,
+                "published_at": published_at,
+                "scope": _guess_scope(title, subtitle),
+                "pollster": _guess_pollster(title, subtitle),
+            }
+
+        if stop_before_year and not page_had_recent_enough:
+            break  # pages are date-descending, so a whole stale page means we're done
+
+    return sorted(seen.values(), key=lambda r: r["published_at"] or "", reverse=True)
+
+
 def _hours_apart(a: str | None, b: str | None) -> float:
     from datetime import datetime
 
@@ -400,48 +476,53 @@ def _hours_apart(a: str | None, b: str | None) -> float:
 
 
 def cross_reference_duplicates(articles: list[dict], window_hours: float = 48) -> list[str]:
-    """Flag RÚV/Vísir articles that almost certainly cover the same poll.
+    """Flag Vísir/Heimildin articles that almost certainly cover the same poll as a RÚV one.
 
     Deliberately conservative — the same discipline as the prose parser:
     when a match is ambiguous, leave both records alone rather than guess.
     Matches require *all three* of: same non-null pollster (exact string —
     "Maskína" only matches "Maskína", not a null-pollster article that might
     coincidentally be about the same poll), same scope, and published within
-    `window_hours` of each other. A RÚV article with more than one Vísir
-    candidate in that window is left unmerged and logged, not merged onto
-    whichever happens to be closest in time — ambiguity here means a real
-    editorial judgment call (which Vísir story is actually the RÚV twin?),
-    not a `min()` away.
+    `window_hours` of each other. A RÚV article with more than one candidate
+    (from either other source) in that window is left unmerged and logged,
+    not merged onto whichever happens to be closest in time — ambiguity here
+    means a real editorial judgment call (which story is actually the RÚV
+    twin?), not a `min()` away.
 
-    Mutates matched Vísir records in place, adding `duplicate_of` (the RÚV
+    RÚV is the anchor because it's the only source with actual number
+    extraction wired up (see `fetch`) — Vísir and Heimildin are
+    discovery-only, so "which article to treat as canonical" isn't a choice
+    yet, it's just "the one we can extract from."
+
+    Mutates matched records in place, adding `duplicate_of` (the RÚV
     article's id) and adds `also_reported_by` (a list of {source, id, url})
     on the matched RÚV article. Returns log lines for cases considered but
     not merged.
     """
     ruv_articles = [a for a in articles if a["source"] == "ruv" and a["pollster"]]
-    visir_articles = [a for a in articles if a["source"] == "visir" and a["pollster"]]
+    other_articles = [a for a in articles if a["source"] != "ruv" and a["pollster"]]
     skipped = []
 
     for ruv in ruv_articles:
         candidates = [
             v
-            for v in visir_articles
+            for v in other_articles
             if v["pollster"] == ruv["pollster"]
             and v["scope"] == ruv["scope"]
             and _hours_apart(ruv["published_at"], v["published_at"]) <= window_hours
-            and "duplicate_of" not in v  # a Vísir article matches at most one RÚV article
+            and "duplicate_of" not in v  # an article matches at most one RÚV article
         ]
         if len(candidates) == 1:
-            visir = candidates[0]
-            visir["duplicate_of"] = ruv["id"]
+            other = candidates[0]
+            other["duplicate_of"] = ruv["id"]
             ruv.setdefault("also_reported_by", []).append(
-                {"source": "visir", "id": visir["id"], "url": visir["url"]}
+                {"source": other["source"], "id": other["id"], "url": other["url"]}
             )
         elif len(candidates) > 1:
             skipped.append(
-                f"[ambiguous, {len(candidates)} Vísir candidates] {ruv['id']} {ruv['title']!r} "
+                f"[ambiguous, {len(candidates)} candidates] {ruv['id']} {ruv['title']!r} "
                 f"({ruv['pollster']}, {ruv['published_at']}) matches: "
-                + ", ".join(f"{c['id']} ({c['published_at']})" for c in candidates)
+                + ", ".join(f"{c['source']}:{c['id']} ({c['published_at']})" for c in candidates)
             )
 
     return skipped
@@ -453,6 +534,8 @@ def cmd_list(args):
         articles += fetch_article_list()
     if args.source in ("visir", "all"):
         articles += fetch_visir_article_list(stop_before_year=args.since)
+    if args.source in ("heimildin", "all"):
+        articles += fetch_heimildin_article_list(stop_before_year=args.since)
 
     dedupe_skipped = []
     if args.source == "all":
@@ -469,7 +552,7 @@ def cmd_list(args):
     n_cross_reported = sum(1 for a in articles if "duplicate_of" in a)
     summary = f"{len(shown)} distinct poll articles"
     if n_cross_reported:
-        summary += f" ({n_cross_reported} Vísir articles merged as cross-reports of a RÚV poll)"
+        summary += f" ({n_cross_reported} articles merged as cross-reports of a RÚV poll)"
     if dedupe_skipped:
         summary += f", {len(dedupe_skipped)} ambiguous cross-reference(s) left unmerged (see below)"
     print(f"{summary} ({out_file} holds all {len(articles)})")
@@ -545,9 +628,10 @@ def cmd_fetch(args):
         if article_id not in by_id:
             print(f"Unknown article id {article_id} — run `list` first", file=sys.stderr)
             sys.exit(1)
-        if article_id.startswith("visir-"):
+        source = by_id[article_id]["source"]
+        if source != "ruv":
             print(
-                "Vísir article number-extraction isn't implemented yet — "
+                f"{source.capitalize()} article number-extraction isn't implemented yet — "
                 "list/discovery only for now. Read the article directly:\n"
                 f"  {by_id[article_id]['url']}",
                 file=sys.stderr,
@@ -608,7 +692,7 @@ def main():
 
     p_list = sub.add_parser("list", help="List poll articles from RÚV and/or Vísir")
     p_list.add_argument("--scope", choices=["national", "reykjavik"], default=None)
-    p_list.add_argument("--source", choices=["ruv", "visir", "all"], default="ruv")
+    p_list.add_argument("--source", choices=["ruv", "visir", "heimildin", "all"], default="ruv")
     p_list.add_argument(
         "--since", type=int, default=None,
         help="Earliest year to keep (Vísir only — paginates back through 2021; RÚV's tag window is already short)",

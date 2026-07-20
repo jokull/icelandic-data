@@ -197,9 +197,10 @@ uv run python scripts/byggdastofnun.py url tekjur
 uv run python scripts/tekjusagan.py token
 uv run python scripts/tekjusagan.py fetch
 
-# Skoðanakannanir — RÚV + Vísir opinion-poll tag-page aggregators (national + Reykjavík, all pollsters)
+# Skoðanakannanir — RÚV + Vísir + Heimildin opinion-poll aggregators (national + Reykjavík, all pollsters)
 uv run python scripts/skodanakannanir.py list
 uv run python scripts/skodanakannanir.py list --source visir --since 2025 --scope reykjavik
+uv run python scripts/skodanakannanir.py list --source heimildin --since 2020
 uv run python scripts/skodanakannanir.py list --source all --since 2025
 uv run python scripts/skodanakannanir.py fetch 479261
 
