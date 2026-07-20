@@ -80,9 +80,20 @@ _PARTY_STEMS = [
     # the short form — the dash-separated "hreyfingin ... grænt framboð"
     # span doesn't satisfy the original "Vinstri" + optional-whitespace +
     # "græn" adjacency requirement, so it silently failed to canonicalize
-    # (see the Chart Label Canonicalization note further down).
-    ("Vinstri græn", r"Vinstri\s*g?ræn\w*|\bVG\b|Vinstrihreyfingin\s*[-–]\s*grænt\s+framboð"),
-    ("Píratar", r"Píra\w*"),
+    # (see the Chart Label Canonicalization note further down). Stem is
+    # "Vinstrihreyfing" (not "...hreyfingin") — checked the full BÍN
+    # declension table (reference/party-inflections-bin.json) after an
+    # earlier version of this fix only covered the bare nominative
+    # "Vinstrihreyfingin," missing accusative/dative/genitive
+    # ("Vinstrihreyfinguna"/"-unni"/"-arinnar") entirely; the shorter stem
+    # + \w* covers all four via BÍN's own case suffixes.
+    ("Vinstri græn", r"Vinstri\s*g?ræn\w*|\bVG\b|Vinstrihreyfing\w*\s*[-–]\s*grænt\s+framboð"),
+    # BÍN (reference/party-inflections-bin.json): "Píratar" undergoes
+    # u-umlaut (a→ö) in the dative plural — "Pírötum"/"Pírötunum" don't
+    # contain the substring "Píra" at all, so the original "Píra\w*" would
+    # silently miss a real, plausible construction like "fylgi hjá
+    # Pírötum" ("support among Pirates").
+    ("Píratar", r"Pír(?:a|ö)t\w*"),
     ("Miðflokkur", r"Miðflokk\w*"),
     ("Flokkur fólksins", r"Flokk\w*\s+fólksins"),
     ("Sósíalistaflokkur", r"Sósíalist\w*"),
@@ -105,7 +116,14 @@ _PARTY_STEMS = [
     # sentence-initial *generic* use of the word carries the same risk. Not
     # as clean a fix as "Prósent" vs "prósent" for that reason; worth
     # rechecking if false positives show up in a Reykjavík-scope skip log.
-    ("Vinstrið", r"Vinstrið\w*"),
+    # BÍN (reference/party-inflections-bin.json): this word is always
+    # definite, with a genuine stem change per case, not just an appended
+    # suffix — nf/þf "Vinstrið", þgf "Vinstrinu", ef "Vinstrisins". The
+    # original "Vinstrið\w*" only matched the first of those three (dative
+    # and genitive contain no "ð" at all) — explicit enumeration instead
+    # of a wildcard, word-bounded so it doesn't also match as a prefix of
+    # "Vinstrihreyfingin"/"Vinstri græn".
+    ("Vinstrið", r"\bVinstri(?:ð|nu|sins)\b"),
 ]
 _PARTY_RE = re.compile("|".join(f"(?P<p{i}>{pat})" for i, (_, pat) in enumerate(_PARTY_STEMS)))
 _PARTY_CANONICAL = {i: name for i, (name, _) in enumerate(_PARTY_STEMS)}

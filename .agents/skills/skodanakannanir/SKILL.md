@@ -377,6 +377,45 @@ RÚV chart, 0.2%, and Heimildin prose, 1.4%, from a different poll — not a
 one-off), and the **Vinstri græn** regex was extended to also match its own
 full legal name (see above).
 
+## Party Regex Verified Against BÍN, Not Assumed From `\w*`
+
+**The `stem\w*` pattern silently assumes a party's stem never changes across
+Icelandic's four grammatical cases — usually true, but not always.**
+Rather than keep discovering gaps one real sentence at a time, every entity
+in `_PARTY_STEMS` was looked up on
+[málið.is](https://malid.is)/BÍN (*Beygingarlýsing íslensks nútímamáls*,
+Iceland's authoritative inflection database) and checked case-by-case.
+Full tables, per party: `reference/party-inflections-bin.json`.
+
+8 of 11 needed no change — Icelandic's regular masculine/feminine nouns
+mostly do keep the stem fixed and just append a case suffix, which `\w*`
+correctly absorbs. **Three real gaps found and fixed:**
+
+1. **Vinstrið** (nf/þf) → **Vinstrinu** (þgf) → **Vinstrisins** (ef) — this
+   is a genuine stem-and-suffix change (the neuter always-definite pattern,
+   same shape as *veðrið*/*veðrinu*/*veðrisins*), not just appending to a
+   fixed stem. The original `Vinstrið\w*` matched only the first form —
+   dative and genitive contain no `ð` at all. Fixed:
+   `\bVinstri(?:ð|nu|sins)\b`.
+2. **Vinstrihreyfingin** (nf-only) vs. the full case range
+   (**Vinstrihreyfinguna**/**-unni**/**-arinnar**) — the original fix for
+   the full-legal-name gap (see above) only covered the bare nominative.
+   Shortened the anchor to the invariant stem `Vinstrihreyfing` so `\w*`
+   absorbs all four suffixes.
+3. **Píratar** → **Pírötum**/**Pírötunum** (þgf, dative plural) — a
+   genuine u-umlaut (a→ö), the standard Icelandic sound change before a
+   following *u*. `Píra\w*` doesn't contain the substring needed to match
+   the umlauted forms at all. Fixed: `Pír(?:a|ö)t\w*`.
+
+All three verified against the literal BÍN-confirmed word forms, not just
+theorized:
+
+```python
+_PARTY_RE.search("fylgi Vinstrinu jókst")            # -> matches, canonicalizes to "Vinstrið"
+_PARTY_RE.search("árangur Vinstrisins var slakur")    # -> matches, canonicalizes to "Vinstrið"
+_PARTY_RE.search("fylgi hjá Pírötum jókst")           # -> matches, canonicalizes to "Píratar"
+```
+
 ## `--all` Batch Reliability
 
 **A single article's fetch failure must not lose the whole batch's data.**
