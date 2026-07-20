@@ -56,6 +56,61 @@ bars = await page.eval_on_selector_all(
 
 Parse with `r"^(.+?),\s*([\d.,]+)\s*%\.?$"`.
 
+### Prose Fallback — When There's No Chart
+
+Verified: articles 451831 and 428434 (both real Reykjavík polls, ~5,900+
+chars each) have **zero** chart `<path>` elements. The numbers only exist in
+prose, and extracting them correctly needs three Icelandic-grammar signals,
+not proximity alone — verified against two full real articles end-to-end
+(hand-traced, then run through Playwright, then cross-checked against a
+manual reading of the rendered page):
+
+1. **Verb mood distinguishes a current poll figure from a historical
+   election result.** `mælist`/`mælast`/`fengi`/`fengju`/`stæði`/`stæðu`/
+   `stendur` (conditional/present — "if the election were held now") mark a
+   poll number; `fékk`/`fengu` (simple past) mark a result from an actual
+   past election mentioned for comparison. These are genuinely distinct word
+   forms in Icelandic, not a fuzzy heuristic.
+2. **"nú" (now) beats verb-cue proximity when both appear in one sentence.**
+   Historical baselines get phrased too many ways to enumerate as a verb
+   list — `"fékk þá 19 prósent"`, `"tæp tólf í síðasta mánuði"`, `"hafa
+   verið stöðugir í tæplega tólf prósent frá kosningum"` — but the *current*
+   number is consistently marked `nú` whenever a sentence states both. When
+   `nú` is present with 2+ percent numbers, it wins outright over the
+   verb-proximity check.
+3. **Nearest-party-to-number pairing, not first-party-in-sentence.**
+   Comparison sentences ("Sjálfstæðisflokkurinn er langstærstur austan
+   Elliðaáa með 39%, ... Samfylkingin mælist með 19%") name two parties —
+   pairing every number in the sentence with whichever party is named first
+   silently reattributes the second party's number to the first. Distance
+   must be measured edge-to-edge (`min` over the four start/end
+   combinations), not start-to-start — start-to-start systematically
+   penalizes a long party name immediately before the number in favor of a
+   short one further away.
+4. **First mention per party wins; later re-mentions are ignored, not
+   merged.** A party's topline citywide number is always stated once, early.
+   Later re-mentions in the same article are sub-group breakdowns — verified
+   example: article 451831 restates "Sjálfstæðisflokkurinn ... 39%" in a
+   district-level paragraph ("east of Elliðaá") *after* already stating the
+   citywide 29% earlier. Overwriting on second mention would silently
+   replace the correct citywide topline with a geographic subset.
+
+`extract_prose_poll_figures()` implements all four and returns
+`(results, skipped)` — every sentence it declines to use is logged with a
+reason (`no poll cue`, `historical, no poll cue`, `<party> already recorded,
+later mention ignored`, `no party in context`, `unparsed number`), printed
+via `fetch`'s `prose_skipped` count and saved in the raw `{id}.json`. Nothing
+is silently dropped or guessed — a skip means "read this one by hand."
+
+**Known residual gap:** constructions with no recognized poll-cue verb at
+all — e.g. `"Fylgi Sósíalistaflokksins er farið úr 7,8 í 10,4 prósent"`
+("went from X to Y") — are correctly skipped rather than mis-parsed, but
+that also means they're **not extracted**. Verified on article 428434: 7 of
+9 parties resolved automatically, 2 (Sósíalistaflokkur, Vinstri græn) needed
+manual reading of the skipped-sentence log. Extending the cue-verb list is
+possible but each new construction is a real (if small) NLP-scope increase
+— weigh against just reading the skip log for the rare case.
+
 ## Article JSON Shape (from `__NEXT_DATA__`)
 
 ```json
@@ -126,12 +181,9 @@ uv run python scripts/skodanakannanir.py fetch --all --limit 20    # batch (slow
 
 ## Caveats
 
-1. **Not every poll article has a chart.** Some report numbers in prose only
-   (verified: article 428434, a Reykjavík poll, has 0 chart `<path>`
-   elements despite being a real ~5,900-character article). `fetch` prints
-   "no chart found" and skips cleanly rather than guessing from text —
-   there is no prose-number extraction here, by design; read those
-   manually.
+1. **Not every poll article has a chart** — see Prose Fallback above.
+   `fetch` tries the chart first, falls back to prose, and reports which
+   source it used (`chart`/`prose`/`none`).
 2. **`list`'s cache file always holds the full unfiltered set.** `--scope`
    only filters what's printed to the terminal, not what's written to
    `articles.json` — so `fetch` can resolve any article id regardless of
@@ -141,10 +193,41 @@ uv run python scripts/skodanakannanir.py fetch --all --limit 20    # batch (slow
    chart. Treat as expected, not a parsing bug.
 4. **`nyr.ruv.is` vs `www.ruv.is`** — the embedded JSON's `url` field points
    at the `nyr.` staging host; `_article_url()` rewrites it to `www.` before
-   fetching. Same content either way, but `www.` is the citable public URL.
+   fetching. Same content either way, but `www.` is the citable public URL
+   and still current as of the most recent articles checked (June 2026).
 5. **`--all` launches one headless Chromium per article** — no batching
    inside a single browser session. Fine for a handful of articles; expect
    several seconds each for 20+.
+6. **The prose fallback is scoped to `.article-body`, not all of `<main>`.**
+   RÚV embeds "related article" teaser cards inline as `<aside>` elements
+   between an article's own paragraphs — the `<aside>` itself only holds the
+   kicker+title link, but the *excerpt paragraph* that follows it sits in a
+   sibling `<div>` styled identically to the article's own paragraphs (same
+   `.article-body .maincontent` class), so there is no DOM-level way to tell
+   them apart by selector alone. That's exactly what item 4 of the Prose
+   Fallback section (first-mention-per-party-wins) guards against — a
+   teaser's re-mention of a party already recorded from the real article
+   text is ignored rather than overwriting the correct number. `.article-body`
+   only trims unrelated page chrome (nav, "most read," footer); it does not
+   and cannot exclude the embedded teasers by itself.
+7. **RÚV's own topic tagging is inconsistent — the `skodanakonnun` tag is
+   not a complete index of poll articles.** Verified: a February 2026
+   Reykjavík poll article (id 468121, found via a general web search) is
+   tagged with every party name plus `Reykjavíkurborg`, but carries **no**
+   `Skoðanakönnun` tag at all — most likely because party-name/location tags
+   are auto-applied (entity detection over the content) while the topical
+   `Skoðanakönnun` tag is set by a human editor and gets missed. Compounding
+   this: **every RÚV tag page — `skodanakonnun`, `borgarstjorn`, and
+   `reykjavikurborg` were all checked — caps at the ~51 most recent tagged
+   items, with no working pagination** (`?page=2`/`?page=3` return byte-
+   identical content to page 1). During a high-volume period (city-election
+   season, Feb–May 2026 in this case) that window can be as short as a few
+   weeks, silently dropping older-but-still-recent articles regardless of
+   which tag you use. `list` surfaces only what's inside that live window —
+   there is no way to page back further via any `frettir/tag/*` endpoint
+   found so far. For a specific gap, `WebSearch` with `site:ruv.is` (the
+   same fallback the [`ruv`](../ruv/SKILL.md) skill documents for `/sok`)
+   reliably finds articles the tag pages have already dropped.
 
 ## Related Skills
 
