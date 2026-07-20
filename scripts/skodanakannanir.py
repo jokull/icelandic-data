@@ -80,6 +80,22 @@ _PARTY_STEMS = [
     ("Miðflokkur", r"Miðflokk\w*"),
     ("Flokkur fólksins", r"Flokk\w*\s+fólksins"),
     ("Sósíalistaflokkur", r"Sósíalist\w*"),
+    # A distinct 2026 Reykjavík electoral alliance (Vinstri græn + Vor til
+    # vinstri, formally named 2026-02-23), NOT a nickname for Vinstri græn —
+    # confirmed against Wikipedia before adding this (see
+    # reference/party-ontology-2026.json), after an initial wrong guess that
+    # it was just VG's colloquial name almost got aliased in. It genuinely
+    # polls differently from VG alone once the alliance existed. Verified
+    # bug this stem fixes: a real Vísir sentence naming only "Vinstrið" and
+    # "Viðreisn" together had its Vinstrið number silently misattributed to
+    # Viðreisn (the only *recognized* party in the sentence). Case-sensitive
+    # (no re.IGNORECASE on _PARTY_RE) is the only disambiguation from the
+    # ordinary lowercase word "vinstrið" ("the left [wing]") — imperfect,
+    # since Icelandic capitalizes sentence-initial words too, so a
+    # sentence-initial *generic* use of the word carries the same risk. Not
+    # as clean a fix as "Prósent" vs "prósent" for that reason; worth
+    # rechecking if false positives show up in a Reykjavík-scope skip log.
+    ("Vinstrið", r"Vinstrið\w*"),
 ]
 _PARTY_RE = re.compile("|".join(f"(?P<p{i}>{pat})" for i, (_, pat) in enumerate(_PARTY_STEMS)))
 _PARTY_CANONICAL = {i: name for i, (name, _) in enumerate(_PARTY_STEMS)}

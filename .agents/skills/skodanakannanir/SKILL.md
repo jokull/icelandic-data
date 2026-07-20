@@ -492,14 +492,17 @@ uv run python scripts/skodanakannanir.py fetch --all --limit 20                #
      different embed (`e.infogram.com` iframe) if chart-based extraction is
      ever built for this source. Not investigated further (no aria-label
      equivalent confirmed).
-   - **A one-off election alliance surfaced that isn't in the standing
-     party list**: "Vor til vinstri" — VG running a joint 2026 Reykjavík
-     city-council list with Vor, led by Sanna Magdalena Mörtudóttir
-     (ex-Sósíalistaflokkur city councillor) after she left that party's
-     leadership in 2025. Deliberately **not** added to `_PARTY_STEMS` —
-     it's a single-election joint list, not a standing national party, and
-     hardcoding election-specific alliances into the general regex would
-     misfire on other elections.
+   - **Correction to an earlier note in this file:** "Vor til vinstri" was
+     first flagged here as "a one-off alliance, deliberately not added." That
+     was wrong — it's the *working name* of what became **Vinstrið**, a
+     formally-named 2026 Reykjavík electoral alliance (VG + Vor til vinstri,
+     renamed 2026-02-23), which *is* now in `_PARTY_STEMS` as its own entry
+     (not merged with Vinstri græn — they poll differently once the alliance
+     exists). Full research trail, timeline, and the Wikipedia sources used
+     to sort this out: `reference/party-ontology-2026.json`. Led by Sanna
+     Magdalena Mörtudóttir (ex-Sósíalistaflokkur political leader, who
+     resigned that role 2025-05-26 but stayed a city councillor for the
+     party for a time). Won ~9.4%, 2 seats, in the actual 2026 election.
    - **Net assessment: extraction is solved (once you have the real URL and
      a session), discovery is not.** Until a real discovery path is found —
      candidates not yet tried: an actual XHR-based search API distinct from
