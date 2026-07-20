@@ -79,6 +79,14 @@ curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_search?fq=organizat
 curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_search?fq=groups:ibuar&rows=10" | jq
 ```
 
+**⚠️ Search gotcha:** CKAN's `package_search` does **not** handle Icelandic stems or characters well — a search for `bílastæ` or `bilasta` returns 0 hits even though `lykiltolur_bilastaedasjods` exists. Always fall back to `package_list` + local grep when looking for a topic:
+```bash
+# Discover datasets the reliable way
+curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_list" \
+  | jq -r '.result[]' \
+  | grep -iE 'bilasta|uppgjor|reikning'
+```
+
 ### Get dataset details
 ```bash
 curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_show?id=arsuppgjor-a-hluta-reykjavikurborgar" | jq
@@ -124,11 +132,16 @@ curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_show?id=arsuppgjor-
 
 ### Financial — Opin Fjármál (Annual Accounts with Vendor Detail)
 
-**Use this for:** "What does Reykjavík spend on X?", "Who are Reykjavík's biggest vendors?", "How much does Reykjavík pay Strætó/SORPA/etc?"
+**Use this for:** "What does Reykjavík spend on X?", "Who are Reykjavík's biggest vendors?", "How much does Reykjavík pay Strætó/SORPA/etc?", **or any post-2017 fund-level P&L question** (e.g., Bílastæðasjóður surplus by year — must be reconstructed from transactions since the fund lost separate-fund status).
 
 **Dataset:** `arsuppgjor` on gagnagatt — CSV files per year, semicolon-delimited, 2014–2025.
 
-**Coverage:** A-part only (tax-funded). Three funds: Reykjavíkurborg (Aðalsjóður), Eignasjóður fasteignastofa, Bílastæðasjóður. B-part entities (OR, Strætó, Félagsbústaðir, SORPA, etc.) are **not** included as buyers — but they appear as vendors when the A-part pays them.
+**Coverage:** A-part only (tax-funded). B-part entities (OR, Strætó, Félagsbústaðir, SORPA, etc.) are **not** included as buyers — but they appear as vendors when the A-part pays them.
+
+**Fund structure changed over time (`fyrirtaeki` column):**
+- 2014–2016: Three funds — `Reykjavíkurborg`, `Eignasjóður Reykjavíkurborgar`, `Bílastæðasjóður` (codes `RK`, `ES`, `BS`).
+- 2017 onwards: Two funds — `Reykjavíkurborg` and `Eignasjóður fasteignastofa`. Bílastæðasjóður was absorbed and now appears only as a division label (`samtala3='Bílastæðasjóður'` or `samtala0` starting with `Bílastæðasjóður …`). Filter on those fields to reconstruct post-2017 BS figures.
+- Schema change 2018: column names switched from UPPERCASE (`AR`, `FYRIRTAEKI`, `XFYRIRTAEKI`, `XTGR3`, `XEINING1`, `RAUN`, …) to lowercase `samtala*`/`tegund*`/`raun`. Queries spanning pre/post-2018 must handle both schemas.
 
 **Download URLs (latest years):**
 ```bash
@@ -202,6 +215,25 @@ ORDER BY raun DESC
 |------------|-------------|
 | `arsuppgjor` | Annual accounts A-part with vendor detail (2014-2025) |
 | `arsuppgjor-b-hluta-reykjavikurborgar` | Annual accounts section B (enterprises, no vendor detail) |
+
+### Financial — Aggregated Statements (older / frozen datasets)
+
+**Use this for:** Municipal income statements, balance sheets, and fund-specific KPIs before consolidation. **Note:** most of these STOP at 2017–2019 (when Bílastæðasjóður was merged into USK and reporting structure changed). For years after, compute aggregates from `arsuppgjor` transaction data.
+
+| Dataset ID | Description | Range | Notes |
+|------------|-------------|-------|-------|
+| `rekstrarreikningar` | City operating statements (tekjur/gjöld samtals, Sveitasjóður + Samantekin reikningsskil, in þús. kr.) | 2002–2017 | No sub-fund breakdown — city-level only. |
+| `efnahagsreikningar` | City balance sheets (eignir/skuldir, in þús. kr.) | 2002–2019 | City-level only. |
+| `lykiltolur_bilastaedasjods` | **Bílastæðasjóður key figures**: number of parking spots, fines issued, objections, avg revenue per spot, avg cost per spot, weekly chargeable hours | 2000–2017 | **Dataset frozen at 2017 — literal "revenue silence" on parking KPIs since the fund merged into USK.** |
+
+**Heads-up:** When someone asks about parking fund revenue, fines, or per-spot economics after 2017, these aggregated datasets **do not help**. Use `arsuppgjor` and filter where `samtala3='Bílastæðasjóður'` or `samtala0` contains 'Bílastæðasjóður', then sum `raun` (negative = revenue, positive = expense) to reconstruct the P&L yourself.
+
+**Example — Bílastæðasjóður P&L 2018–2024 from `arsuppgjor`:**
+```python
+# For each year's CSV, filter rows where any samtala*/tegund* field contains 'Bílastæð'
+# Sum raun where raun < 0 → revenue; raun > 0 → expense; diff → surplus
+# 2024 result: 3.113 M revenue − 1.265 M expense = 1.848 M surplus
+```
 
 ### Population & Demographics
 | Dataset ID | Description | Verified |
