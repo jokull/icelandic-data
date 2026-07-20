@@ -17,9 +17,12 @@ while Vísir's is genuinely paginated back to at least September 2021 and
 Heimildin's search goes back to 2019+ for this query. `list --source visir
 --since 2025 --scope reykjavik` alone found 40 Reykjavík polls against RÚV's
 4 — including the entire Feb–May 2026 city-election polling season RÚV's own
-tag had already dropped. But only RÚV articles are wired into `fetch`'s
-chart/prose number-extraction so far (see the Vísir/Heimildin Discovery
-sections below) — the other two sources are list/discovery-only for now.
+tag had already dropped. RÚV and Vísir are both wired into `fetch`'s
+chart/prose number-extraction (see Vísir Extraction below) — Heimildin is
+still discovery-only. Vísir is actually the *simpler* of the two to fetch:
+its article bodies are server-rendered, so `fetch_visir_article()` is plain
+`httpx`, no Playwright, no browser at all (RÚV needs one — see the RÚV
+`fetch` section).
 
 **Related but different scope:** the [`maskina`](../maskina/SKILL.md) skill
 covers Maskína's own structured Tableau dashboard directly — one pollster,
@@ -236,6 +239,68 @@ walking all ~35+ pages every time).
   "closest in time" candidate would be a guess dressed up as a match — left
   for manual reconciliation instead.
 
+## Vísir Extraction
+
+`fetch_visir_article(url)` — plain `httpx`, no browser. Verified against a
+real article (visir-20262904348): the full prose, including the methodology
+paragraph, is present in a `curl`-only fetch. No Highcharts/`aria-label`
+chart was found on that article either (the chart check still runs first,
+in case some Vísir articles do embed one) — Vísir's house style leans on
+thorough prose instead, and `extract_prose_poll_figures()` (the exact same
+function RÚV's prose fallback uses — this is Icelandic-grammar logic, not
+RÚV-specific) is the primary path here, not a fallback.
+
+**Locating the real content:** the article body spans two HTML regions that
+both have to be captured — a lead `<p>` right after an
+`<!-- ARTICLE SUMMARY -->` comment (sits *outside* the body div, and is
+often where the headline number lives — verified: "Sjálfstæðisflokkurinn
+mælist með 24,9 prósenta fylgi..." is the very first sentence), followed by
+`<div itemprop="articleBody">` containing the rest as `<p>` tags. Both
+regions run up to the first `<hr>` after the summary marker, which reliably
+follows the last real paragraph (share buttons and "RELATED NEWS" come
+after it) — verified: exactly 10 `<p>` tags in that span, matching a full
+manual read including the closing methodology sentence.
+
+**Two bugs caught during verification, both real, neither hypothetical —
+found by fetching this one real article and checking the output against a
+manual read before trusting the extraction at all:**
+
+1. **`<p class="">` doesn't match a literal `<p>` regex.** One of the
+   article's ten paragraphs (Miðflokkur's, "mælist nú 15,1 prósent") used
+   `<p class="">` instead of bare `<p>` — an empty but present attribute.
+   The paragraph-extraction regex must be `<p[^>]*>`, not `<p>`, or that
+   paragraph silently vanishes with no error, no skip log entry, nothing —
+   it's just never seen.
+2. **A stale `current_party` can attach to an aggregate sentence that names
+   no party at all.** "Samanlagt fylgi ríkisstjórnarflokkanna dregst þó
+   saman um eitt prósentustig og mælist 42 prósent..." ("Combined support
+   for the governing coalition parties... polls at 42%") has a poll-cue verb
+   (`mælist`) and a number, but names no single party — `_PARTY_RE` doesn't
+   match "ríkisstjórnarflokkanna." The pronoun-carry design (`current_party`
+   persisting across sentences for "Flokkurinn fékk X en fengi nú Y") wrongly
+   inherited whichever party was named two sentences earlier and recorded
+   "um eitt prósentustig" (1%, approx) as if it were that party's number.
+   Fixed with `_AGGREGATE_RE` (`samanlagt`/`flokkanna`) — a sentence matching
+   it gets `party = None` unconditionally, skipping the `current_party`
+   fallback rather than guessing an owner for a number that has none.
+
+**A third gap found and left unfixed, deliberately:** "úr X í Y" ("from X to
+Y") is a common current-value marker with no recognized verb at all —
+"Fylgi Framsóknarflokksins ... fór úr 6,7 prósentum í 5,3 prósent",
+"Stuðningur við Sósíalistaflokkinn eykst ... úr 2,4 prósentum í 4,3
+prósent" — both appeared in the same single article. `_TREND_CUE_RE` handles
+this and stands in for a poll-cue verb on its own (see
+`extract_prose_poll_figures`'s docstring) — but when the "from" number's
+`prósent`/`prósentum` word is dropped for the "from" side (verified: the
+live article literally has the typo "úr 2, prósentum í 4,3 prósent" — a
+missing digit after the comma, `_PERCENT_RE` never matches "2," at all), only
+one `_PERCENT_RE` match exists in the sentence and there's nothing to rank it
+against. That case is logged (`trend cue but no verb, single number,
+ambiguous`) and skipped rather than assumed to be the "Y" value — right call
+even though in this specific instance it happened to be correct, because the
+rule can't tell "single leftover Y with a botched X" apart from "single
+number that's actually the historical X, with Y omitted by the writer."
+
 ## Heimildin Discovery
 
 `https://heimildin.is/leit/?q=<query>&page=<n>` (search, default query
@@ -282,9 +347,9 @@ label on the search page is accurate).
 
 | Source | Discovery (`list`) | Numbers (`fetch`) |
 |---|---|---|
-| RÚV | ✅ `__NEXT_DATA__` JSON | ✅ chart `aria-label` + prose fallback |
-| Vísir | ✅ paginated HTML | ❌ not built — `fetch visir-...` errors with the URL to read by hand |
-| Heimildin | ✅ paginated search HTML | ❌ not built — same as Vísir |
+| RÚV | ✅ `__NEXT_DATA__` JSON | ✅ chart `aria-label` + prose fallback (needs Playwright — client-rendered) |
+| Vísir | ✅ paginated HTML | ✅ chart check + prose fallback (plain `httpx` — server-rendered, no browser) |
+| Heimildin | ✅ paginated search HTML | ❌ not built — `fetch heimildin-...` errors with the URL to read by hand |
 
 **Heimildin's paywall is per-article, not per-outlet — do not assume every
 article is free just because some were.** Verified on only 3 articles (2
@@ -305,9 +370,9 @@ uv run python scripts/skodanakannanir.py list --source heimildin --since 2020  #
 uv run python scripts/skodanakannanir.py list --source all --since 2025 --scope reykjavik --limit 30
 uv run python scripts/skodanakannanir.py fetch 479261                          # bare int = RÚV, backward-compatible
 uv run python scripts/skodanakannanir.py fetch ruv-479261                      # equivalent, explicit
-uv run python scripts/skodanakannanir.py fetch visir-20262904348               # errors clearly: not implemented yet, prints the URL to read by hand
-uv run python scripts/skodanakannanir.py fetch heimildin-23196                 # same — errors clearly, not implemented yet
-uv run python scripts/skodanakannanir.py fetch --all --limit 20                # batch over cached RÚV articles only
+uv run python scripts/skodanakannanir.py fetch visir-20262904348               # Vísir works too — plain httpx, no browser
+uv run python scripts/skodanakannanir.py fetch heimildin-23196                 # errors clearly: not implemented yet, prints the URL to read by hand
+uv run python scripts/skodanakannanir.py fetch --all --limit 20                # batch over cached RÚV + Vísir articles (Heimildin excluded, not built)
 ```
 
 ## Data Files
@@ -315,8 +380,8 @@ uv run python scripts/skodanakannanir.py fetch --all --limit 20                #
 | Path | Format | Description |
 |------|--------|-------------|
 | `data/raw/skodanakannanir/articles.json` | JSON | Article listing from whichever `--source` was last run (id prefixed `ruv-`/`visir-`, title, subtitle, url, published_at, scope, pollster, source) |
-| `data/raw/skodanakannanir/{id}.json` | JSON | Raw scrape result for one RÚV article (page title + party/pct pairs) |
-| `data/processed/skodanakannanir.csv` | CSV | Long-format party support, RÚV only so far: article_id, published_at, scope, pollster, title, party, pct |
+| `data/raw/skodanakannanir/{id}.json` | JSON | Raw scrape result for one RÚV or Vísir article (page title + party/pct pairs) |
+| `data/processed/skodanakannanir.csv` | CSV | Long-format party support, RÚV + Vísir: article_id, published_at, scope, pollster, title, party, pct, approx, source |
 
 ## Caveats
 
@@ -337,9 +402,10 @@ uv run python scripts/skodanakannanir.py fetch --all --limit 20                #
    at the `nyr.` staging host; `_article_url()` rewrites it to `www.` before
    fetching. Same content either way, but `www.` is the citable public URL
    and still current as of the most recent articles checked (June 2026).
-5. **`--all` launches one headless Chromium per article** — no batching
-   inside a single browser session. Fine for a handful of articles; expect
-   several seconds each for 20+.
+5. **`--all` launches one headless Chromium per *RÚV* article** — no batching
+   inside a single browser session. Fine for a handful; expect several
+   seconds each for 20+. Vísir articles in the same `--all` batch are much
+   cheaper — plain `httpx` GETs, no browser launch at all.
 6. **The prose fallback is scoped to `.article-body`, not all of `<main>`.**
    RÚV embeds "related article" teaser cards inline as `<aside>` elements
    between an article's own paragraphs — the `<aside>` itself only holds the

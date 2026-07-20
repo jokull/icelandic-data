@@ -203,6 +203,7 @@ uv run python scripts/skodanakannanir.py list --source visir --since 2025 --scop
 uv run python scripts/skodanakannanir.py list --source heimildin --since 2020
 uv run python scripts/skodanakannanir.py list --source all --since 2025
 uv run python scripts/skodanakannanir.py fetch 479261
+uv run python scripts/skodanakannanir.py fetch visir-20262904348    # Vísir works too, no browser needed
 
 # Ferðamálastofa — Keflavík tourism Power BI
 uv run python scripts/ferdamalastofa.py --help

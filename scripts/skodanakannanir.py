@@ -86,6 +86,18 @@ _PARTY_CANONICAL = {i: name for i, (name, _) in enumerate(_PARTY_STEMS)}
 
 _APPROX_RE = re.compile(r"\b(rúm(?:t|lega)?|tæp(?:t|lega)?|um)\s+$")
 
+# A sentence with no explicit party name and no aggregate marker inherits
+# current_party (pronoun reference — "Flokkurinn fékk X en fengi nú Y").
+# But "Samanlagt fylgi ríkisstjórnarflokkanna mælist 42 prósent" ALSO has no
+# explicit single-party match (_PARTY_RE doesn't match "ríkisstjórnarflokkanna"
+# or "flokkanna") and a poll-cue verb ("mælist") — verified this exact
+# sentence, on a real Vísir article, wrongly inherited a stale current_party
+# from two sentences earlier and got recorded as that party's number. Both
+# "samanlagt" (combined/aggregate) and "flokkanna" (parties, genitive plural
+# — "of the parties") are explicit signals that the number belongs to no
+# single party, so the current_party fallback must not apply.
+_AGGREGATE_RE = re.compile(r"\b(samanlagt|flokkanna)\b", re.IGNORECASE)
+
 _ONES = {
     "núll": 0, "eitt": 1, "einn": 1, "tvö": 2, "tveir": 2, "þrjú": 3, "þrír": 3,
     "fjögur": 4, "fjórir": 4, "fimm": 5, "sex": 6, "sjö": 7, "átta": 8, "níu": 9,
@@ -102,6 +114,19 @@ _NUMBER_WORD_RE = re.compile(
     re.IGNORECASE,
 )
 _DIGIT_NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?")
+# "úr X í Y" ("from X to Y") is a second, independently reliable current-value
+# marker — verified on a real Vísir article comparing Gallup's new þjóðarpúls
+# against Maskína's prior poll, sentence-by-sentence: "fór úr 6,7 prósentum í
+# 5,3 prósent", "eykst ... úr 2,x prósentum í 4,3 prósent". Neither sentence
+# contains any _POLL_CUE_RE word ("fór"/"eykst"/"minnkaði" aren't in that
+# list) — so on their own they'd be silently skipped as "no poll cue" even
+# though Y is unambiguous. Unlike "nú", this pattern also stands in for a
+# poll cue by itself (see the has_poll_cue check in extract_prose_poll_figures),
+# not just a tie-breaker between two already-cued numbers.
+_TREND_CUE_RE = re.compile(
+    r"úr\s+(?:\d+(?:[.,]\d+)?|" + "|".join(list(_TENS) + list(_ONES)) + r")"
+    r"\s*,?\s*(?:prósent\w*\s+)?í\b"
+)
 # "NN prósent" or "NN%" — the number-word or digit immediately preceding
 # "prósent"/"%", with an optional "rúm/tæp/um" approximation marker before it.
 _PERCENT_RE = re.compile(
@@ -147,7 +172,10 @@ def extract_prose_poll_figures(paragraphs: list[str]) -> tuple[list[dict], list[
     entirely, even if it has a percent number — that number belongs to a
     past election, not this poll. `current_party` carries the most recently
     named party across sentences (and paragraphs) so pronoun-only sentences
-    ("Flokkurinn fékk X í kosningum en fengi nú Y") still resolve.
+    ("Flokkurinn fékk X í kosningum en fengi nú Y") still resolve. "úr X í Y"
+    (see `_TREND_CUE_RE`) is a second cue class entirely — trend framing
+    ("fór úr 6,7 í 5,3 prósent") rather than a verb, and stands in for a poll
+    cue on its own when no recognized verb is present.
     """
     results = []
     skipped = []
@@ -168,31 +196,49 @@ def extract_prose_poll_figures(paragraphs: list[str]) -> tuple[list[dict], list[
 
             poll_cue_matches = list(_POLL_CUE_RE.finditer(sentence))
             historical_cue_matches = list(_HISTORICAL_CUE_RE.finditer(sentence))
-            if not poll_cue_matches:
+            trend_cue_matches = list(_TREND_CUE_RE.finditer(sentence))
+            if not poll_cue_matches and not trend_cue_matches:
                 skipped.append(
                     f"[{'historical, no poll cue' if historical_cue_matches else 'no poll cue'}] {sentence}"
                 )
                 continue
 
-            # "nú" (now) is a more specific and more reliably present marker
-            # for the current figure than any fixed verb list — historical
-            # baselines get phrased too many distinct ways ("fékk þá X",
-            # "X frá kosningum", "hafa verið stöðugir í X frá kosningum") to
-            # enumerate, but the current number is consistently "nú" when a
-            # sentence states both. When present with 2+ numbers, it wins
-            # outright; the other numbers in that sentence are not
-            # considered at all, regardless of verb-cue proximity.
-            nu_matches = [m for m in re.finditer(r"\bnú\b", sentence)]
+            # "nú" (now) and "úr X í Y" (see _TREND_CUE_RE) are both more
+            # specific and more reliably present markers for the current
+            # figure than any fixed verb list — historical baselines and
+            # trend framings get phrased too many distinct ways to enumerate
+            # as verbs, but these two constructions are unambiguous wherever
+            # they appear. When either is present with 2+ numbers, the
+            # nearest number to the nearest such marker wins outright; the
+            # other numbers in that sentence are not considered at all,
+            # regardless of verb-cue proximity. `úr X í Y` always implies 2+
+            # numbers by construction, so it's the sole cue for a sentence
+            # with no recognized verb at all (e.g. "fór úr 6,7 í 5,3 prósent"
+            # — "fór" isn't in _POLL_CUE_RE).
+            current_value_markers = [m.start() for m in re.finditer(r"\bnú\b", sentence)]
+            current_value_markers += [m.end() for m in trend_cue_matches]
             preferred = None
-            if nu_matches and len(percent_matches) > 1:
-                nu_pos = nu_matches[0].start()
-                preferred = min(percent_matches, key=lambda m: abs(m.start() - nu_pos))
+            if current_value_markers and len(percent_matches) > 1:
+                preferred = min(
+                    percent_matches,
+                    key=lambda m: min(abs(m.start() - p) for p in current_value_markers),
+                )
 
             for pm in percent_matches:
                 if preferred is not None and pm is not preferred:
                     continue
 
                 if preferred is None:
+                    if not poll_cue_matches:
+                        # Only reachable via a trend_cue-only sentence
+                        # ("fór úr X í Y") where _PERCENT_RE didn't pick up
+                        # both numbers (e.g. "prósent" wasn't repeated on the
+                        # first one) — so len(percent_matches) never grew
+                        # past 1 and `preferred` never got set. There's no
+                        # verb to fall back on; without a second number to
+                        # rank against, don't guess which lone number this is.
+                        skipped.append(f"[trend cue but no verb, single number, ambiguous] {sentence}")
+                        continue
                     # A number belongs to a poll figure only if it's nearer a
                     # poll-cue verb ("fengi"/"mælist") than a historical-cue
                     # verb ("fékk"/"fengu") — distinguishes "fékk fimm... en
@@ -219,11 +265,14 @@ def extract_prose_poll_figures(paragraphs: list[str]) -> tuple[list[dict], list[
                     party_match = min(party_matches, key=_gap)
                     idx = next(i for i, g in party_match.groupdict().items() if g)
                     party = _PARTY_CANONICAL[int(idx[1:])]
+                elif _AGGREGATE_RE.search(sentence):
+                    party = None  # aggregate figure ("samanlagt fylgi flokkanna") — no single party owns it
                 else:
                     party = current_party
 
                 if not party:
-                    skipped.append(f"[no party in context] {sentence}")
+                    reason = "aggregate, no single party" if _AGGREGATE_RE.search(sentence) else "no party in context"
+                    skipped.append(f"[{reason}] {sentence}")
                     continue
 
                 if party in seen_parties:
@@ -384,6 +433,70 @@ def fetch_visir_article_list(max_pages: int = 40, stop_before_year: int | None =
             break  # every item on this page is older than the cutoff — pages are date-descending, so done
 
     return sorted(seen.values(), key=lambda r: r["published_at"] or "", reverse=True)
+
+
+# Vísir article bodies are server-rendered — verified against a real article
+# (visir-20262904348): plain httpx sees the full text, no Playwright needed
+# (unlike RÚV, whose article bodies are client-side rendered and need a
+# browser). No Highcharts/aria-label chart was found on that article either —
+# just thorough, fully-written prose including methodology, so the prose
+# path (reused as-is from extract_prose_poll_figures — it's Icelandic-grammar
+# logic, not RÚV-specific) is the primary path here, not a fallback. The
+# chart check runs first anyway in case some Vísir articles do embed one.
+#
+# The real content spans two HTML regions that must both be captured: a lead
+# <p> right after an "<!-- ARTICLE SUMMARY -->" comment (outside the body
+# div — verified this is where the headline number often lives, e.g.
+# "Sjálfstæðisflokkurinn mælist með 24,9 prósenta fylgi..."), followed by
+# <div itemprop="articleBody">, containing the rest as <p> tags. Both regions
+# run up to the first <hr> after the summary marker, which reliably follows
+# the last real paragraph (share buttons and the "RELATED NEWS" section come
+# after it) — verified against the same article: exactly 10 <p> tags in that
+# span, matching a full manual read.
+_VISIR_SUMMARY_MARKER_RE = re.compile(r"ARTICLE SUMMARY.{0,20}-->", re.S)
+_VISIR_PARA_RE = re.compile(r"<p[^>]*>(.*?)</p>", re.S)
+_VISIR_CHART_RE = re.compile(r'path[^>]*aria-label="([^"]*%[^"]*)"')
+
+
+def fetch_visir_article(url: str) -> dict:
+    from html import unescape
+
+    resp = httpx.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
+    resp.raise_for_status()
+    html = resp.text
+
+    parties = []
+    source = "chart"
+    for label in _VISIR_CHART_RE.findall(html):
+        m = re.match(r"^(.+?),\s*([\d.,]+)\s*%\.?$", label.strip())
+        if m:
+            parties.append({"party": m.group(1).strip(), "pct": float(m.group(2).replace(",", "."))})
+
+    skipped: list[str] = []
+    if not parties:
+        start_m = _VISIR_SUMMARY_MARKER_RE.search(html)
+        if start_m:
+            hr_m = re.search(r"<hr\s*/?>", html[start_m.end():])
+            body_html = html[start_m.end():start_m.end() + hr_m.start()] if hr_m else html[start_m.end():]
+        else:
+            body_html = html  # marker missing (layout changed?) — fall back to whole page, worse but not silent
+
+        paragraphs = []
+        for raw_p in _VISIR_PARA_RE.findall(body_html):
+            text = re.sub(r"<[^>]+>", " ", raw_p)
+            text = unescape(text).replace("\xad", "").strip()
+            if text:
+                paragraphs.append(text)
+
+        prose_results, skipped = extract_prose_poll_figures(paragraphs)
+        for r in prose_results:
+            parties.append({"party": r["party"], "pct": r["pct"], "approx": r["approx"]})
+        source = "prose" if prose_results else "none"
+
+    title_m = re.search(r"<title>([^<]*)</title>", html)
+    page_title = unescape(title_m.group(1)).strip() if title_m else url
+
+    return {"url": url, "page_title": page_title, "parties": parties, "source": source, "prose_skipped": skipped}
 
 
 # --- Heimildin --------------------------------------------------------------
@@ -619,7 +732,7 @@ def cmd_fetch(args):
     by_id = {a["id"]: a for a in articles}
 
     if args.all:
-        targets = [a for a in articles if a["source"] == "ruv"][: args.limit]
+        targets = [a for a in articles if a["source"] in ("ruv", "visir")][: args.limit]
     elif args.article_id:
         # Accept a bare RÚV numeric id ("479261") for backwards compatibility
         # with every command documented before Vísir support existed, as
@@ -629,7 +742,7 @@ def cmd_fetch(args):
             print(f"Unknown article id {article_id} — run `list` first", file=sys.stderr)
             sys.exit(1)
         source = by_id[article_id]["source"]
-        if source != "ruv":
+        if source not in ("ruv", "visir"):
             print(
                 f"{source.capitalize()} article number-extraction isn't implemented yet — "
                 "list/discovery only for now. Read the article directly:\n"
@@ -645,7 +758,9 @@ def cmd_fetch(args):
     rows = []
     for meta in targets:
         print(f"  fetching [{meta['id']}] {meta['title']} ...")
-        result = asyncio.run(_scrape_article(meta["url"]))
+        # Vísir is server-rendered (plain httpx, see fetch_visir_article);
+        # RÚV needs a browser (client-side rendered, see _scrape_article).
+        result = fetch_visir_article(meta["url"]) if meta["source"] == "visir" else asyncio.run(_scrape_article(meta["url"]))
         if not result["parties"]:
             print(f"    no chart and no prose figures extracted ({len(result['prose_skipped'])} sentences skipped)")
             continue
