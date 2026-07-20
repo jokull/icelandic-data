@@ -1,0 +1,202 @@
+{
+  "run_date": "2026-07-20",
+  "against_commit": "dd794ed",
+  "method": "Each question answered using only scripts/skodanakannanir.py's actual output — the cached data/raw/skodanakannanir/articles.json (470 articles, list --source all --since 2024) and data/processed/skodanakannanir.csv (3 fetched RÚV articles) from this session, plus a handful of new duckdb/python queries against that same cache. No new network fetches were made beyond what's already documented in the SKILL.md caveats. 'unable' means the current tooling has no path to the answer, not that the answer is unknowable in principle.",
+  "summary": {
+    "total": 30,
+    "answered": 6,
+    "partial": 13,
+    "unable": 11
+  },
+  "results": [
+    {
+      "id": 1,
+      "status": "partial",
+      "answer": "Samfylking polled at 25.2% in the most recent fully-extracted poll (ruv-479261, Maskína, 2026-06-24).",
+      "gap": "A newer national poll exists (visir-20262904348, Gallup, 2026-07-01) but its Vísir fetch isn't built, so only Sjálfstæðisflokkur's number from its subtitle is known — Samfylking's July figure is unreachable. The answer given is 1 week stale relative to the true latest poll."
+    },
+    {
+      "id": 2,
+      "status": "partial",
+      "answer": "Likely Sjálfstæðisflokkurinn, per the July 1 Gallup poll subtitle (\"Fylgi Sjálfstæðisflokks ekki meira í sex ár\", 24.9%) — but this is inferred from wording, not a clean structured comparison against the other parties' numbers in that same poll.",
+      "gap": "Same root cause as Q1: the true-latest poll's full breakdown isn't extracted (Vísir fetch not built)."
+    },
+    {
+      "id": 3,
+      "status": "partial",
+      "answer": "From the most recent fully-extracted poll (ruv-479261): Píratar 3.5%, Sósíalistaflokkur 3.9%, Flokkur fólksins 4.1% would all miss the 5% threshold.",
+      "gap": "No '5% threshold' feature exists — this required manually filtering the raw party/pct rows. Also 1 week stale (see Q1)."
+    },
+    {
+      "id": 4,
+      "status": "answered",
+      "answer": "2026-07-01 (visir-20262904348, \"Fylgi Sjálfstæðisflokks ekki meira í sex ár\") — found by filtering the cached article list for pollster=Gallup, most recent published_at."
+    },
+    {
+      "id": 5,
+      "status": "partial",
+      "answer": "2.5 percentage points (Samfylking 25.2% vs Sjálfstæðisflokkur 22.7%, both from ruv-479261, 2026-06-24).",
+      "gap": "Same staleness as Q1 — the true latest poll's Samfylking figure is unknown."
+    },
+    {
+      "id": 6,
+      "status": "unable",
+      "answer": null,
+      "gap": "The most recent Reykjavík article in the cache (visir-20262885606, 2026-05-19) is Vísir — fetch not built. The most recent article with an ACTUAL extracted party breakdown is 9 months older (article 451831, 2025-08-26, prose fallback) — from before the entire Feb–May 2026 city-election polling season that RÚV's own tag had already dropped and Vísir fetch can't reach. A user asking this today would get either nothing current or a badly stale answer."
+    },
+    {
+      "id": 7,
+      "status": "partial",
+      "answer": "Yes — confirmed via VB's full article read manually this session (\"Meirihlutinn í borginni er fallinn\", \"þriðja könnunin í röð sem meirihlutinn er fallinn\").",
+      "gap": "This answer exists only because of ad-hoc browser investigation this session, not because the script can retrieve it. VB isn't wired into list/fetch at all (Caveat 9)."
+    },
+    {
+      "id": 8,
+      "status": "unable",
+      "answer": null,
+      "gap": "Mayoral-candidate personal popularity is a different metric (individual approval, not party vote-share) that the extraction machinery (chart aria-label parser, prose party-name regex) has no path to — it's built exclusively around _PARTY_RE matches."
+    },
+    {
+      "id": 9,
+      "status": "unable",
+      "answer": null,
+      "gap": "Only one Reykjavík article (451831, Aug 2025) has Sósíalistaflokkur extracted at all — one data point, no trend computable. Even with 2+ points, there's no trend/delta feature, just raw per-article rows."
+    },
+    {
+      "id": 10,
+      "status": "partial",
+      "answer": "Mechanically possible: fetch every national poll in the window, then a duckdb GROUP BY on the resulting CSV.",
+      "gap": "No dedicated trend command — requires N manual `fetch <id>` calls (one per poll in the window) plus a hand-written query. Not a one-command answer."
+    },
+    {
+      "id": 11,
+      "status": "partial",
+      "answer": "Same mechanism as Q10 — answerable with multiple fetches + a manual comparison, not automated.",
+      "gap": "Same as Q10."
+    },
+    {
+      "id": 12,
+      "status": "unable",
+      "answer": null,
+      "gap": "The processed CSV currently has zero Prósent-sourced rows (only Maskína-poll and prose-fallback data fetched this session) — would need new targeted fetches of Prósent-pollster articles first, which exist in the discovery cache but haven't been fetched."
+    },
+    {
+      "id": 13,
+      "status": "unable",
+      "answer": null,
+      "gap": "No polling-average / aggregation feature exists anywhere in the script — would need both a fetch-everything-in-window step (see Q10) and new averaging logic that doesn't exist yet."
+    },
+    {
+      "id": 14,
+      "status": "unable",
+      "answer": null,
+      "gap": "Sample size (e.g. \"1.029 tóku þátt\") is present in article prose but is not a structured extraction target — only party+pct pairs are captured, by design. Reading it back out requires a human/LLM read of the raw fetched text."
+    },
+    {
+      "id": 15,
+      "status": "unable",
+      "answer": null,
+      "gap": "Same gap as Q14 — field dates (\"framkvæmd dagana 5. til 31. janúar\") are prose-only, not structured. Only published_at (the article's publish date, not the poll's field dates) is captured."
+    },
+    {
+      "id": 16,
+      "status": "unable",
+      "answer": null,
+      "gap": "Same gap as Q14/15 — response rate is prose-only."
+    },
+    {
+      "id": 17,
+      "status": "answered",
+      "answer": "Gallup — the latest 'þjóðarpúls' (national-pulse) poll is visir-20262904348 (2026-07-01), whose subtitle names Gallup directly. Pollster detection is reliable and has been extensively verified this session."
+    },
+    {
+      "id": 18,
+      "status": "unable",
+      "answer": null,
+      "gap": "Public-trust/approval-of-individuals articles exist in the discovery cache (e.g. ruv-458088 'Kristrún nýtur mests trausts en flestir vantreysta Guðmundi Inga') but are a wholly different data model — person names and trust percentages, not party names and vote-share. _PARTY_RE would not match, so even fetching this article would likely yield zero extracted rows, not a wrong answer, but no answer."
+    },
+    {
+      "id": 19,
+      "status": "unable",
+      "answer": null,
+      "gap": "Same as Q18 — government-performance approval is an unsupported metric type."
+    },
+    {
+      "id": 20,
+      "status": "partial",
+      "answer": "Ambiguous question. If read as 'individual government approval,' unable (see Q18/19). If read as 'combined governing-coalition parties' vote share,' mechanically answerable by summing party rows across two fetched time points, same manual-comparison limitation as Q10/11.",
+      "gap": "No feature identifies which parties currently form the government coalition, so even the answerable interpretation needs that fact supplied externally."
+    },
+    {
+      "id": 21,
+      "status": "unable",
+      "answer": null,
+      "gap": "\"Kosningaspá Vísis\" (Vísir's own forecast model) articles are discoverable by title (pollster correctly tagged null, since it's a model not a firm) but Vísir fetch isn't built, so the actual forecast numbers are unreachable."
+    },
+    {
+      "id": 22,
+      "status": "unable",
+      "answer": null,
+      "gap": "Seat-count projections (borgarfulltrúar) are a different data type than vote-share %, present in VB's full article (read manually this session) but not extracted anywhere — not by the chart/prose parsers (which only produce party+pct) and not reachable at all via automation since VB isn't wired in."
+    },
+    {
+      "id": 23,
+      "status": "unable",
+      "answer": null,
+      "gap": "VB has no discovery mechanism wired into list/fetch at all (Caveat 9 — no tags, broken search, no server-side pagination, sitemap slugs aren't keyword-filterable). Everything known about VB's Reykjavík coverage this session came from manual live-browser investigation, not the script."
+    },
+    {
+      "id": 24,
+      "status": "answered",
+      "answer": "No — heimildin.is/leit/?q=skoðanakönnun's most recent match is from 2024-11-26 (heimildin-23373). Nothing found for all of 2025 or 2026 despite this being an active election year with heavy RÚV/Vísir poll coverage in the same window. Genuine finding, not a bug: Heimildin's editorial focus in this window appears to not use poll-churnalism framing this search query catches."
+    },
+    {
+      "id": 25,
+      "status": "partial",
+      "answer": "Likely Vísir — of 3 ambiguous Vísir candidates cross-referenced against ruv-479261 (2026-06-24 08:04), one (visir-20262901108, 2026-06-23 18:31, 'Sjálfstæðisflokkur á flugi og ríkisstjórnin aldrei mælst með minna fylgi') plausibly covers the same Maskína poll and predates RÚV's story by ~14 hours. The other two ambiguous candidates (about whaling and Eurovision viewership) are clearly unrelated polls that only matched on pollster+scope+time-window.",
+      "gap": "cross_reference_duplicates() correctly left this ambiguous rather than guessing — answering it required a human reading the 3 candidate titles to pick the plausible one. No automated 'who published first' answer exists."
+    },
+    {
+      "id": 26,
+      "status": "unable",
+      "answer": null,
+      "gap": "\"Vor til vinstri\" (VG + Vor's 2026 Reykjavík joint list, 1.2% per VB's full article) exists only in VB's manually-read content this session. It's not in `_PARTY_STEMS` by design (a one-election alliance, not a standing party) and VB isn't wired in regardless."
+    },
+    {
+      "id": 27,
+      "status": "unable",
+      "answer": null,
+      "gap": "Only two Framsóknarflokkur data points exist in the processed CSV, at different scopes (3.0% Reykjavík Aug 2025, 8.5% national June 2026) — not comparable to each other, and no trend feature exists even for comparable points."
+    },
+    {
+      "id": 28,
+      "status": "unable",
+      "answer": null,
+      "gap": "2022 election-result baselines appear in VB's prose (read manually this session, e.g. \"Framsóknarflokkurinn ... fékk 18,7% atkvæða ... í kosningunum 2022\") but are not extracted from any RÚV/Vísir article seen so far, and no structured field exists for 'prior election result' regardless of source."
+    },
+    {
+      "id": 29,
+      "status": "partial",
+      "answer": "101 distinct 2026 poll articles found across RÚV+Vísir+Heimildin (deduped) in the current cache.",
+      "gap": "This is a lower bound tied to which --since cutoff and sources were actually queried this session, not a verified total — RÚV's tag window is short (Caveat 7) and Heimildin's default single-query search may miss articles phrased differently. Presented as 'found so far,' not 'the true total.'"
+    },
+    {
+      "id": 30,
+      "status": "answered",
+      "answer": "Maskína — 32 of the 101 2026 articles with a resolved pollster name, ahead of Gallup (15) and Prósent (6). (48 of 101 have no resolved pollster at all — mostly non-party-fylgi polls like public-opinion/attitude surveys, or Kosningaspá-model pieces.)"
+    }
+  ],
+  "gap_patterns": [
+    "Staleness at the frontier: the truly-latest poll is frequently on Vísir (fetch not built) while the most recently *extracted* poll is RÚV and up to a week or more older (Q1, Q2, Q3, Q5, Q6).",
+    "Prose-only fields never make it into structured data: sample size, field dates, response rate, seat projections, prior-election baselines are all present in article text but outside what the chart/prose parsers extract (Q14, Q15, Q16, Q22, Q28).",
+    "Wrong metric entirely: approval/trust-of-individuals polls exist in the discovery cache but the extraction machinery is party-vote-share-only by construction (Q8, Q18, Q19).",
+    "No aggregation layer: trend-over-time and cross-pollster-average both require multiple manual fetch calls plus a hand-written query — no single command answers a trend or average question (Q9, Q10, Q11, Q12, Q13, Q27).",
+    "VB is a total blind spot for automation: every VB-sourced answer in this baseline came from ad-hoc browser work this session, not the script (Q7, Q22, Q23, Q26).",
+    "Conservative dedup correctly avoids wrong merges but pushes real judgment calls onto a human reading the ambiguous-candidates log (Q25) — working as designed, just worth knowing it isn't a full answer."
+  ],
+  "highest_value_next_steps": [
+    "Build Vísir fetch (chart/prose extraction on visir.is articles) — directly fixes the staleness pattern hit by 5 of the 30 questions (Q1, Q2, Q3, Q5, Q6), the single largest gap cluster.",
+    "Extract sample size + field dates as structured fields alongside party/pct when present in prose — cheap addition, fixes 3 questions (Q14, Q15, Q16).",
+    "A 'fetch every poll matching a filter' batch mode plus a trend/average query helper would turn 6 partial answers (Q10, Q11, Q13, Q20, Q27) into one-command answers instead of N manual fetches + hand-written SQL."
+  ]
+}
