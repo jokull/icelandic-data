@@ -308,12 +308,79 @@ uv run python scripts/skodanakannanir.py fetch --all --limit 20                #
    skill documents for `/sok`) remains a fine one-off check, just not the
    first move anymore.
 
-8. **VB (Viðskiptablaðið) was checked and has no equivalent tag page** —
-   spot-checked one poll article there (`vb.is/frettir/stal-i-stal-i-borginni-/`)
-   with no `skodanakonnun`/`skoðanakönnun` tag found in the page. It does
-   serve a `sitemap.xml` (200 OK), which could be a discovery path if VB
-   coverage turns out to matter for a specific gap, but that's unexplored —
-   not built, not verified beyond confirming the sitemap responds.
+8. **Heimildin was checked as a possible fourth source — turns out its
+   regular articles need no paywall workaround at all.** Verified against 3
+   full articles (2 poll stories + one major investigative piece, the
+   Samherji fishing-corruption case): all three rendered complete,
+   full-length, with comments sections, to a logged-out request. A real
+   login was tested anyway (Playwright, stored `heimildin-is-credentials`)
+   and confirmed working — active paid subscription, "Þú ert með áskrift að
+   Heimildinni" — but it changed nothing for this content type; the actual
+   subscriber-only product is `Útgáfa` (the digital magazine-issue
+   archive), not ordinary web articles. **Discovery works well without any
+   auth**: `heimildin.is/leit/?q=<query>` (note the trailing slash — the
+   no-slash form 301-redirects there) returns real `/grein/<id>/<slug>/`
+   article links, paginated (`&page=2` seen in results). Not wired into
+   `list`/`fetch` yet — same reasoning as VB, this is a documented,
+   verified-working path for a future addition, not a built one.
+
+9. **VB (Viðskiptablaðið) has no discovery mechanism found so far, but its
+   own commissioned Gallup polls are genuinely valuable and the paywall
+   pattern is now understood.** Full findings, verified against a real
+   article (`stal-i-stal-i-borginni`, 3 Feb 2026):
+   - **No tags.** No `skodanakonnun`/`skoðanakönnun` tag found on the
+     article page.
+   - **`?s=` search returns nothing.** `vb.is/?s=<query>` 200s but the
+     response contains zero article links — likely client-rendered, not a
+     usable discovery path as a plain GET.
+   - **`/frettir/innlent/` category page has no server-side pagination** —
+     only 2 article links in the raw HTML, no `?page=` markers. Same
+     client-rendering issue as search.
+   - **`sitemap.xml` exists (200 OK, 50,000 URL cap) but article slugs are
+     headline-derived, not keyword-descriptive** — e.g. this article's slug
+     is `stal-i-stal-i-borginni` ("head to head in the city"), containing
+     neither `konnun` nor `fylgi`. Filtering the sitemap by slug keyword
+     found 126 historical matches but **zero** from 2025 or later — the
+     50k-entry sample plainly doesn't include recent content by slug
+     matching, so this isn't a usable discovery path as-is either.
+   - **The paywall boundary is the URL, not the content type.** The public,
+     un-paywalled URL (`.../stal-i-stal-i-borginni-/`, trailing hyphen) is a
+     *teaser* — real prose, 2 of ~10 parties' numbers, genuinely useful on
+     its own. The **same article at the URL without the trailing hyphen**
+     (`.../stal-i-stal-i-borginni/`) is the full version — every party,
+     direct quotes from the party leader, full methodology. Both were
+     fetched and diffed to confirm this pattern: the "Áskrifendur geta
+     lesið fréttina í heild" ("subscribers can read it in full") note on
+     the teaser links directly to that unsuffixed URL.
+   - **A logged-in session unlocks the unsuffixed URL directly** — verified
+     via Chrome DevTools MCP on the user's live, already-authenticated
+     browser session (not a fresh login this skill performed — the session
+     predated this check). No further auth flow needed once a session
+     cookie exists; this skill does not yet manage that cookie for
+     unattended/scripted use.
+   - **VB's poll credit was previously unseen: VB commissions its own
+     Gallup polls**, not just Maskína/Prósent/Gallup-for-somebody-else —
+     "könnun sem Gallup gerði fyrir Viðskiptablaðið." Add `Viðskiptablaðið`
+     as a pollster-commissioner distinct from the pollster itself if VB
+     coverage gets built out.
+   - **VB's poll charts use Infogram**, not Highcharts — a genuinely
+     different embed (`e.infogram.com` iframe) if chart-based extraction is
+     ever built for this source. Not investigated further (no aria-label
+     equivalent confirmed).
+   - **A one-off election alliance surfaced that isn't in the standing
+     party list**: "Vor til vinstri" — VG running a joint 2026 Reykjavík
+     city-council list with Vor, led by Sanna Magdalena Mörtudóttir
+     (ex-Sósíalistaflokkur city councillor) after she left that party's
+     leadership in 2025. Deliberately **not** added to `_PARTY_STEMS` —
+     it's a single-election joint list, not a standing national party, and
+     hardcoding election-specific alliances into the general regex would
+     misfire on other elections.
+   - **Net assessment: extraction is solved (once you have the real URL and
+     a session), discovery is not.** Until a real discovery path is found —
+     candidates not yet tried: an actual XHR-based search API distinct from
+     the `?s=` GET, RSS if one exists, or simply `WebSearch site:vb.is` per
+     poll as a manual backfill — VB stays a manual/occasional source, not
+     wired into `list`/`fetch`.
 
 ## Related Skills
 
