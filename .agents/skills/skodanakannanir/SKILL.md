@@ -116,14 +116,28 @@ later mention ignored`, `no party in context`, `unparsed number`), printed
 via `fetch`'s `prose_skipped` count and saved in the raw `{id}.json`. Nothing
 is silently dropped or guessed — a skip means "read this one by hand."
 
-**Known residual gap:** constructions with no recognized poll-cue verb at
-all — e.g. `"Fylgi Sósíalistaflokksins er farið úr 7,8 í 10,4 prósent"`
-("went from X to Y") — are correctly skipped rather than mis-parsed, but
-that also means they're **not extracted**. Verified on article 428434: 7 of
-9 parties resolved automatically, 2 (Sósíalistaflokkur, Vinstri græn) needed
-manual reading of the skipped-sentence log. Extending the cue-verb list is
-possible but each new construction is a real (if small) NLP-scope increase
-— weigh against just reading the skip log for the rare case.
+**Fixed cue gaps (originally documented here as residual gaps, closed since):**
+
+- **"úr X í Y" (trend framing)** — `"Fylgi Sósíalistaflokksins er farið úr
+  7,8 í 10,4 prósent"` ("went from X to Y") names no poll-cue verb at all;
+  `_TREND_CUE_RE` recognizes the `úr … í` construction as an independent cue
+  class rather than requiring `_POLL_CUE_RE` to also match. Verified against
+  article 428434, the case that originally surfaced the gap.
+- **"er með"/"eru með" (present "is/are with")** — `"Sjálfstæðisflokkur er
+  með 31,3 prósenta fylgi"` doesn't contain any of `mælist`/`fengi`/`stendur`
+  etc. Found independently in two real articles (round 2 and round 3) before
+  being added, per this skill's rule of never adding a cue on a single
+  example. Added to `_POLL_CUE_RE` as `(?:er|eru)\s+með`, with the
+  tense-symmetric historical counterpart `(?:var|voru)\s+með` added to
+  `_HISTORICAL_CUE_RE` at the same time (a party's number stated with "var
+  með" is a past/comparison figure, not the current poll result — same
+  present/past distinction as `mælist` vs `fékk`). Verified: `visir-20262884571`
+  went from 5 to 6 extracted parties (Sjálfstæðisflokkur 31.3% newly
+  captured), with no change to any other previously-verified article.
+
+Extending the cue-verb list further is still a real (if small) NLP-scope
+increase each time — each addition needs 2-3 independent real examples
+before being added, not a single occurrence.
 
 ## Article JSON Shape (from `__NEXT_DATA__`)
 
@@ -301,6 +315,68 @@ even though in this specific instance it happened to be correct, because the
 rule can't tell "single leftover Y with a botched X" apart from "single
 number that's actually the historical X, with Y omitted by the writer."
 
+## Methodology Fields
+
+`extract_methodology(paragraphs)` pulls three structured fields out of the
+prose that both `fetch_visir_article` and `_scrape_article` (RÚV) already
+run for every article — chart-sourced or prose-sourced, since a poll's
+methodology sentence is independent of whether its topline numbers came from
+a chart or from prose:
+
+- `sample_size` — from `heildarúrtak` ("total sample") or `í úrtaki voru`
+  ("the sample consisted of"), an integer with Icelandic thousand-separator
+  dots stripped.
+- `response_rate_pct` — from `þátttökuhlutfall`/`svarhlutfall`
+  ("participation/response rate"), tolerating `var`/`rétt`/`rúmlega` filler
+  words between the label and the number.
+- `fielded_note` — the raw field-date phrase after `Könnunin var
+  framkvæmd/gerð dagana` ("the survey was conducted on the days"), kept as
+  free text rather than parsed into a date range (Icelandic date ranges use
+  inconsistent separators — `1.–30. júní 2026`, `5. til 31. janúar 2026` —
+  parsing them isn't worth it when the raw phrase is already
+  human-readable).
+
+Verified end-to-end against two real articles with different phrasings:
+
+```python
+extract_methodology(["Könnunin var gerð dagana 1.–30. júní 2026. Heildarúrtak var 12.102 og þátttökuhlutfall 38,5 prósent."])
+# {"sample_size": 12102, "response_rate_pct": 38.5, "fielded_note": "1.–30. júní 2026"}
+
+extract_methodology(["Í úrtaki voru 3.406 Reykvíkingar 18 ára og eldri en þátttökuhlutfall var 44,7 prósent. Könnunin var gerð dagana 5. til 31. janúar 2026."])
+# {"sample_size": 3406, "response_rate_pct": 44.7, "fielded_note": "5. til 31. janúar 2026"}
+```
+
+and confirmed live via `fetch visir-20262904348`, whose CSV rows correctly
+carry `sample_size=12102, response_rate_pct=38.5, fielded_note='1.–30. júní
+2026'`.
+
+**Two regex bugs found and fixed while building `_FIELD_DATES_RE`, both
+against real data, not hypothesized:**
+
+1. Icelandic ordinal dates ("5. til 31. janúar 2026") contain periods that
+   aren't sentence boundaries. A first attempt anchored the capture on
+   `[^.]+\.` and truncated at the first ordinal's period ("5."). Fixed by
+   switching to a bounded word-count capture.
+2. The bounded word-count capture then over-captured on a *short* date: with
+   an 8-token window, `"1.–30. júní 2026."` (3 tokens) let the match run on
+   into the next sentence's `"Heildarúrtak var 12.102 og þátttökuhlutfall
+   38,5"`. Fixed by making the capture non-greedy and stopping at the first
+   4-digit year token (`(?:\S+\s+)*?\d{4}`) instead of counting words — every
+   real field-date phrase checked so far ends with a year, so this bounds the
+   match correctly regardless of how many tokens the date itself uses.
+
+**Known gap, deliberately unfixed:** Heimildin phrases sample size
+differently — `"Úrtakið í könnun Prósents var 2.400, 1.207 svöruðu og er
+svarhlutfallið því rétt rúmlega 50 prósent"`. Checked directly:
+`response_rate_pct` actually resolves (50.0) since `_RESPONSE_RATE_RE`
+matches on the shared `svarhlutfall` root regardless of the surrounding
+`úrtakið`/`var` framing — but `sample_size` stays `None`, since `_SAMPLE_SIZE_RE`
+only recognizes `heildarúrtak`/`í úrtaki voru`, not this `úrtakið í könnun
+... var` construction. Left open rather than adding a third
+`sample_size` pattern on one example, per this skill's evidence-before-cue
+rule; Heimildin `fetch` isn't built yet regardless (see Extraction Status by
+Source), so this has no live impact until that's built.
+
 ## Heimildin Discovery
 
 `https://heimildin.is/leit/?q=<query>&page=<n>` (search, default query
@@ -473,7 +549,7 @@ uv run python scripts/skodanakannanir.py fetch --all --limit 20                #
 |------|--------|-------------|
 | `data/raw/skodanakannanir/articles.json` | JSON | Article listing from whichever `--source` was last run (id prefixed `ruv-`/`visir-`, title, subtitle, url, published_at, scope, pollster, source) |
 | `data/raw/skodanakannanir/{id}.json` | JSON | Raw scrape result for one RÚV or Vísir article (page title + party/pct pairs) |
-| `data/processed/skodanakannanir.csv` | CSV | Long-format party support, RÚV + Vísir: article_id, published_at, scope, pollster, title, party, pct, approx, source |
+| `data/processed/skodanakannanir.csv` | CSV | Long-format party support, RÚV + Vísir: article_id, published_at, scope, pollster, title, party, pct, approx, source, sample_size, response_rate_pct, fielded_note (last three from `extract_methodology`, see Methodology Fields — null when the article's prose doesn't state them or uses an unmatched phrasing) |
 
 ## Caveats
 

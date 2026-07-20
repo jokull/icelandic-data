@@ -67,8 +67,8 @@ _NEXT_DATA_RE = re.compile(
 # mark a current poll number; "fékk"/"fengu" (simple past) mark a historical
 # election result mentioned for comparison. This is a real, reliable
 # Icelandic grammar distinction, not a heuristic guess.
-_POLL_CUE_RE = re.compile(r"\b(mælist|mælast|fengi|fengju|stæði|stæðu|stendur)\b")
-_HISTORICAL_CUE_RE = re.compile(r"\b(fékk|fengu)\b")
+_POLL_CUE_RE = re.compile(r"\b(mælist|mælast|fengi|fengju|stæði|stæðu|stendur|(?:er|eru)\s+með)\b")
+_HISTORICAL_CUE_RE = re.compile(r"\b(fékk|fengu|(?:var|voru)\s+með)\b")
 
 _PARTY_STEMS = [
     ("Sjálfstæðisflokkur", r"Sjálfstæðisflokk\w*"),
@@ -343,6 +343,65 @@ def extract_prose_poll_figures(paragraphs: list[str]) -> tuple[list[dict], list[
     return results, skipped
 
 
+# Methodology fields (sample size, response rate) — the highest-value gap
+# named repeatedly across three eval rounds. Article-level facts, not
+# per-party ones, so returned separately rather than folded into the
+# party/pct rows. First-pass coverage of the two phrasings verified in real
+# fetched articles so far:
+#   "Heildarúrtak var 12.102 og þátttökuhlutfall 38,5 prósent."      (Vísir)
+#   "Í úrtaki voru 3.406 ... en þátttökuhlutfall var 44,7%."          (VB, read manually this session)
+# Not attempted: parsing field dates ("Könnunin var gerð dagana 5. til 31.
+# janúar 2026") into structured start/end dates — date-range phrasing varies
+# enough (". til ", ".–", month names) that a first pass risks silently
+# mis-parsing rather than just missing; left as a documented gap rather than
+# a half-built parser, consistent with not shipping something confidently
+# wrong. `fielded_note`, if present, is the matched raw sentence fragment.
+_SAMPLE_SIZE_RE = re.compile(
+    r"(?:heildarúrtak\w*|í\s+úrtaki\s+voru)\s+(?:var\s+)?(\d[\d.,]*\d|\d)", re.IGNORECASE
+)
+_RESPONSE_RATE_RE = re.compile(
+    r"(?:þátttöku|svar)hlutfall\w*\s*(?:\w+\s+){0,3}?(?:var\s+)?"
+    r"(?:rétt\s+)?(?:rúm(?:lega)?\s+)?(\d+(?:[.,]\d+)?)\s*(?:prósent\w*|%)",
+    re.IGNORECASE,
+)
+# Bounded word-count capture, not "up to the next period" — Icelandic
+# ordinal dates ("5. til 31. janúar") contain periods that are NOT sentence
+# boundaries, so "[^.]+\." truncated at "dagana 5." and silently dropped
+# the actual date range. Verified live on a real VB sentence before fixing.
+_FIELD_DATES_RE = re.compile(
+    # Stop at the first 4-digit year, not a fixed token count — the earlier
+    # {1,8}-token window over-captured into the *next* sentence on a real
+    # article (a short date needs only ~3 tokens, so a generous window
+    # swept up "Heildarúrtak var 12.102 og þátttökuhlutfall 38,5" too,
+    # since nothing bounded it at the actual sentence end). A poll's field
+    # dates always end with a year in every phrasing checked so far.
+    r"[Kk]önnunin\s+var\s+(?:framkvæmd|gerð)\s+dagana\s+((?:\S+\s+)*?\d{4})", re.IGNORECASE
+)
+
+
+def extract_methodology(paragraphs: list[str]) -> dict:
+    text = " ".join(paragraphs)
+    sample_size = None
+    m = _SAMPLE_SIZE_RE.search(text)
+    if m:
+        try:
+            sample_size = int(m.group(1).replace(".", "").replace(",", ""))
+        except ValueError:
+            sample_size = None
+
+    response_rate = None
+    m = _RESPONSE_RATE_RE.search(text)
+    if m:
+        response_rate = float(m.group(1).replace(",", "."))
+
+    fielded_note = None
+    m = _FIELD_DATES_RE.search(text)
+    if m:
+        fielded_note = m.group(1).rstrip(".").strip()
+
+    return {"sample_size": sample_size, "response_rate_pct": response_rate, "fielded_note": fielded_note}
+
+
 def _article_url(raw_url: str) -> str:
     """Article listing URLs use the nyr.ruv.is staging host; www.ruv.is serves the same content."""
     return raw_url.replace("nyr.ruv.is", "www.ruv.is").rstrip("/")
@@ -555,30 +614,43 @@ def fetch_visir_article(url: str) -> dict:
             skipped.append(f"[unrecognized chart party label, kept as-is] {party!r}")
         parties.append({"party": party, "pct": float(m.group(2).replace(",", "."))})
 
+    # Paragraphs are extracted unconditionally, not just on the prose
+    # fallback path — methodology fields (sample size, response rate) live
+    # in ordinary prose even on chart-sourced articles, which don't
+    # otherwise touch the article body text at all.
+    start_m = _VISIR_SUMMARY_MARKER_RE.search(html)
+    if start_m:
+        hr_m = re.search(r"<hr\s*/?>", html[start_m.end():])
+        body_html = html[start_m.end():start_m.end() + hr_m.start()] if hr_m else html[start_m.end():]
+    else:
+        body_html = html  # marker missing (layout changed?) — fall back to whole page, worse but not silent
+
+    paragraphs = []
+    for raw_p in _VISIR_PARA_RE.findall(body_html):
+        text = re.sub(r"<[^>]+>", " ", raw_p)
+        text = unescape(text).replace("\xad", "").strip()
+        if text:
+            paragraphs.append(text)
+
     if not parties:
-        start_m = _VISIR_SUMMARY_MARKER_RE.search(html)
-        if start_m:
-            hr_m = re.search(r"<hr\s*/?>", html[start_m.end():])
-            body_html = html[start_m.end():start_m.end() + hr_m.start()] if hr_m else html[start_m.end():]
-        else:
-            body_html = html  # marker missing (layout changed?) — fall back to whole page, worse but not silent
-
-        paragraphs = []
-        for raw_p in _VISIR_PARA_RE.findall(body_html):
-            text = re.sub(r"<[^>]+>", " ", raw_p)
-            text = unescape(text).replace("\xad", "").strip()
-            if text:
-                paragraphs.append(text)
-
         prose_results, skipped = extract_prose_poll_figures(paragraphs)
         for r in prose_results:
             parties.append({"party": r["party"], "pct": r["pct"], "approx": r["approx"]})
         source = "prose" if prose_results else "none"
 
+    methodology = extract_methodology(paragraphs)
+
     title_m = re.search(r"<title>([^<]*)</title>", html)
     page_title = unescape(title_m.group(1)).strip() if title_m else url
 
-    return {"url": url, "page_title": page_title, "parties": parties, "source": source, "prose_skipped": skipped}
+    return {
+        "url": url,
+        "page_title": page_title,
+        "parties": parties,
+        "source": source,
+        "prose_skipped": skipped,
+        "methodology": methodology,
+    }
 
 
 # --- Heimildin --------------------------------------------------------------
@@ -786,28 +858,42 @@ async def _scrape_article(url: str) -> dict:
                 skipped.append(f"[unrecognized chart party label, kept as-is] {party!r}")
             parties.append({"party": party, "pct": float(m.group(2).replace(",", "."))})
 
+        # Scoped to .article-body, not all of <main>: the page footer/sidebar
+        # carries unrelated "most read" and nav content that could
+        # coincidentally contain party names. Fetched unconditionally, not
+        # just on the prose fallback path — methodology fields (sample
+        # size, response rate) live in ordinary prose even on chart-sourced
+        # articles, which otherwise never touch the article body text.
+        body_text = await page.eval_on_selector(".article-body", "el => el.innerText")
+        paragraphs = [p for p in body_text.split("\n") if p.strip()]
+
         if not parties:
-            # No chart on this article — fall back to prose. Scoped to
-            # .article-body, not all of <main>: the page footer/sidebar
-            # carries unrelated "most read" and nav content that could
-            # coincidentally contain party names. See
+            # No chart on this article — fall back to prose. See
             # extract_prose_poll_figures() for why verb mood, not proximity,
             # decides which numbers are current poll figures — the
-            # first-mention-wins dedup there (not this selector) is what
-            # actually keeps embedded "related article" teaser excerpts
-            # (rendered inline in .article-body, same as real paragraphs)
-            # from overwriting this article's own topline numbers.
-            body_text = await page.eval_on_selector(".article-body", "el => el.innerText")
-            paragraphs = [p for p in body_text.split("\n") if p.strip()]
+            # first-mention-wins dedup there (not the .article-body scoping
+            # above) is what actually keeps embedded "related article"
+            # teaser excerpts (rendered inline in .article-body, same as
+            # real paragraphs) from overwriting this article's own topline
+            # numbers.
             prose_results, skipped = extract_prose_poll_figures(paragraphs)
             for r in prose_results:
                 parties.append({"party": r["party"], "pct": r["pct"], "approx": r["approx"]})
             source = "prose" if prose_results else "none"
 
+        methodology = extract_methodology(paragraphs)
+
         title = await page.title()
         await browser.close()
 
-    return {"url": url, "page_title": title, "parties": parties, "source": source, "prose_skipped": skipped}
+    return {
+        "url": url,
+        "page_title": title,
+        "parties": parties,
+        "source": source,
+        "prose_skipped": skipped,
+        "methodology": methodology,
+    }
 
 
 def cmd_fetch(args):
@@ -871,6 +957,7 @@ def cmd_fetch(args):
             continue
         print(f"    {len(result['parties'])} parties via {result['source']}"
               + (f", {len(result['prose_skipped'])} sentences skipped" if result["source"] == "prose" else ""))
+        methodology = result.get("methodology") or {}
         for p in result["parties"]:
             rows.append(
                 {
@@ -883,6 +970,9 @@ def cmd_fetch(args):
                     "pct": p["pct"],
                     "approx": p.get("approx", False),
                     "source": result["source"],
+                    "sample_size": methodology.get("sample_size"),
+                    "response_rate_pct": methodology.get("response_rate_pct"),
+                    "fielded_note": methodology.get("fielded_note"),
                 }
             )
         (RAW_DIR / f"{meta['id']}.json").write_text(
