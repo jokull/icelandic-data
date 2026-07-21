@@ -82,6 +82,7 @@ Systematic coverage of public dashboards published under Iceland's data-access l
 | · | Insurance | 4 insurers (Sjóvá, Skagi/VÍS, TM, Vörður), combined ratios, Nordic comparison |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/fuel.svg" width="12"> | Fuel | Gasvaktin prices + conglomerate financials for N1/Olís/Orkan/Atlantsolía |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/maskina.svg" width="12"> | Maskína | Public-opinion polls via Tableau Public VizQL + WordPress API |
+| <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/skodanakannanir.svg" width="12"> | Skoðanakannanir | RÚV opinion-poll aggregator — national + Reykjavík party support across pollsters |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/opnirreikningar.svg" width="12"> | Opnir reikningar | Government invoices by org/vendor/type, 2017–present |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/tenders.svg" width="12"> | Tenders | 3,494+ public tenders via TED API + OCDS bulk data |
 

@@ -1,0 +1,50 @@
+{
+  "purpose": "Reference for extending _PARTY_STEMS in scripts/skodanakannanir.py. Built after a real extraction bug: 'Vinstrið' was assumed to be a colloquial nickname for Vinstri græn and nearly aliased as such. It is not — it's a distinct, formally-named 2026 Reykjavík electoral alliance. Wrong assumption would have merged two different entities' poll numbers. Researched via Icelandic Wikipedia (is.wikipedia.org) before touching the regex, per user instruction: read the source material together before guessing at the fix.",
+  "researched_date": "2026-07-20",
+  "sources": [
+    "https://is.wikipedia.org/wiki/S%C3%B3s%C3%ADalistaflokkur_%C3%8Dslands_(21._%C3%B6ld)",
+    "https://is.wikipedia.org/wiki/Vinstrihreyfingin_%E2%80%93_gr%C3%A6nt_frambo%C3%B0",
+    "https://is.wikipedia.org/wiki/Vinstri%C3%B0"
+  ],
+  "entities": [
+    {
+      "canonical_name": "Vinstri græn",
+      "full_name": "Vinstrihreyfingin – grænt framboð",
+      "type": "standing_national_party",
+      "founded": "1999-02-06",
+      "in_party_stems": true,
+      "notes": "Split away from Alþýðubandalag when it merged into Samfylkingin. 2024 national result: 2.3% (down from 12.6% in 2021), lost all Alþingi seats. Leadership changed to Rósa Björk Brynjólfsdóttir by 2026-03-08.",
+      "current_regex": "Vinstri\\s*g?ræn\\w*|\\bVG\\b"
+    },
+    {
+      "canonical_name": "Sósíalistaflokkur Íslands",
+      "type": "standing_national_party",
+      "founded": "2017-05-01",
+      "in_party_stems": true,
+      "notes": "Flat/board-governed structure (executive, policy, membership boards). Sanna Magdalena Mörtudóttir was the party's political leader through the 2024 election (3.9% national), resigned that role 2025-05-26 after a contested general assembly (2025-05-24) — the long-serving exec-board chair was voted out, Sæþór Benjamín Randalsson took over, current leader by 2026-06-07 is Jón Ferdínand Estherarson. Verified via VB (2026-02-03 article): she remained a Reykjavík city councillor for Sósíalistaflokkur even after resigning the leadership role — the leadership departure and the council-seat departure were NOT the same event.",
+      "current_regex": "Sósíalist\\w*"
+    },
+    {
+      "canonical_name": "Vinstrið",
+      "type": "reykjavik_electoral_alliance_2026",
+      "formed": "2026-02-23",
+      "predecessor_working_name": "Vor til vinstri",
+      "in_party_stems": false,
+      "action_needed": "ADD as its own distinct _PARTY_STEMS entry, NOT as an alias for Vinstri græn — they are different entities with different poll numbers reported for the same period once the alliance existed.",
+      "notes": "Formal alliance of Vinstri græn + Vor til vinstri, negotiated January 2026, officially named 'Vinstrið' 2026-02-23. Sanna Magdalena Mörtudóttir (ex-Sósíalistaflokkur political leader, see above) leads the list. Ran as List A in the 2026 Reykjavík city council election: ~9.4%, 2 seats. 'Vinstrið' literally means 'The Left' in Icelandic and is a genuine name-collision risk with the common noun/adjective usage ('vinstrið' meaning 'the left [side/wing]' generically in ordinary political prose) — matching must stay scope-aware (Reykjavík-specific context) and probably capitalization-sensitive, the same discipline already applied to 'Prósent' vs 'prósent'.",
+      "timeline_same_entity": [
+        {"date": "2026-02-03", "name_used": "Vor til vinstri", "pct": 1.2, "source": "vb (manually read this session, not scripted)"},
+        {"date": "2026-02-23", "event": "formally renamed/merged into Vinstrið"},
+        {"date": "2026-05-15", "name_used": "Vinstrið", "pct": 11.0, "source": "visir-20262884571, extracted this session (initially mis-attributed to Viðreisn before this research)"},
+        {"date": "2026-05-2x", "name_used": "Vinstrið", "note": "election result per Wikipedia: ~9.4%, 2 council seats"}
+      ]
+    },
+    {
+      "canonical_name": "Vor til vinstri",
+      "type": "reykjavik_electoral_list_predecessor",
+      "in_party_stems": false,
+      "notes": "Same entity as 'Vinstrið' at an earlier point in its formation — see timeline_same_entity above. This was flagged in an earlier session pass as 'a one-off election alliance, deliberately not added' without realizing it was the same list that later became 'Vinstrið' under a new name. Superseded by this file — do not re-add 'Vor til vinstri' as a separate _PARTY_STEMS entry from 'Vinstrið'; they should resolve to the same canonical name if both are matched."
+    }
+  ],
+  "lesson": "A name that looks like a common-noun collision or a casual nickname ('Vinstrið' = 'the left') should be checked against primary sources (here, Wikipedia) before assuming it's an alias for an existing entry — it may be a distinct, real, differently-polling entity instead. The earlier session guess ('Vinstrið is probably a colloquial name for VG') was plausible-sounding and wrong."
+}
