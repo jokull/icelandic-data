@@ -180,9 +180,50 @@ _AGGREGATE_RE = re.compile(r"\b(samanlagt|flokkanna)\b", re.IGNORECASE)
 # sentence in the current regression set (451831, 428434, 467932, 468092,
 # visir-20262884571, visir-20262904348) — none of them use any of this
 # vocabulary.
+# A third instance of the same failure class, found live testing the skill
+# (visir-20262884487, a Vísir "kosningaspá" — election-forecast article by a
+# named mathematician, Baldur Héðinsson, that models each candidate's
+# individual PROBABILITY of winning a council seat from the underlying
+# polls, not the party's own vote share). "líkur" (probability/odds) is the
+# forecast's native unit, and it rides the exact same cue verbs as a real
+# fylgi sentence: "Stefán Pálsson, þriðji maður Vinstrisins er með 53
+# prósent líkur..." and "...Einar Þorsteinsson mælist með áttatíu prósent
+# líkur..." both matched _POLL_CUE_RE ("er með" / "mælist með") and had an
+# in-sentence party name, producing two bogus rows (Vinstrið: 53%,
+# Framsóknarflokkur: 80%) for what are actually two individual candidates'
+# seat-probabilities, not their parties' support. Two independent real
+# occurrences in the same article — same evidence bar as adding a new cue.
+#
+# A fourth, related shape found in the same article: "Flokkurinn er með
+# rúmlega ellefu prósentustiga forskot á Samfylkinguna" ("The party has
+# just over an eleven-point LEAD over Samfylking") — "forskot" (lead) means
+# the number is the GAP between two parties, belonging to neither party's
+# own fylgi. It matched the real "er með" poll-cue verb with Samfylking as
+# the only in-sentence party (the leading party is only a pronoun,
+# "Flokkurinn"), producing a bogus Samfylking: 11% row (the party's real
+# support that week was closer to 19-20%, confirmed by the same day's
+# Maskína/Gallup polls). Most "prósentustig" (percentage-point) sentences
+# elsewhere in the corpus are harmless — either correctly skipped as
+# `[no poll cue]` (a plain fylgisaukning/fylgistap sentence, no poll verb)
+# or incidentally deduped by the first-mention-wins rule because the same
+# party's real figure was already recorded earlier in the article — but
+# this one hit the one ordering where neither protection applied (the
+# margin sentence was the party's first and only poll-cue+percent mention).
+# Not just this one instance's luck: relying on incidental dedup ordering
+# to hide a still-present false-attribution bug isn't something to leave
+# in place once spotted. "prósentustig" (percentage point) alone is too
+# broad to guard on, though — verified live: it broke a real regression
+# article (428434's "Flokkurinn fengi 25,0 prósent, tæplega prósentustigi
+# minna en..." is Samfylking's genuine 25% figure, with a harmless
+# comparison-to-prior-polls clause in the same sentence). "forskot" (lead)
+# is the actually load-bearing word — specific to the margin-between-two-
+# parties construction, confirmed recurring (not this one article's
+# phrasing): several other real Vísir article titles use the identical
+# "mælist með N prósentustiga forskot á X" headline pattern.
 _NON_SUPPORT_TOPIC_RE = re.compile(
     r"\b(ánægj\w*|óánægj\w*|traust\w*|vantreyst\w*|staðið\s+sig"
-    r"|fylgismann\w*|kjósend\w*|kusu|kaus)\b",
+    r"|fylgismann\w*|kjósend\w*|kusu|kaus|líkur\w*|líkum"
+    r"|forskot\w*)\b",
     re.IGNORECASE,
 )
 

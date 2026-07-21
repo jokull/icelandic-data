@@ -209,6 +209,39 @@ attempted — the per-sentence guards above already resolve every real
 false-positive case found, and an article-level topic classifier is a
 bigger, unverified step past what evidence currently supports.
 
+**Two more instances of the same class, found live user-testing the skill
+(article `visir-20262884487`, a Vísir "kosningaspá" — election-forecast
+model by a named mathematician, Baldur Héðinsson, run on top of the
+underlying Maskína/Gallup polls):**
+
+- **"líkur" (probability/odds of winning a council seat)** — a forecast's
+  native unit, phrased with the exact same cue verbs as a real fylgi
+  sentence: `"Stefán Pálsson, þriðji maður Vinstrisins er með 53 prósent
+  líkur..."` and `"...Einar Þorsteinsson mælist með áttatíu prósent
+  líkur..."` both matched `_POLL_CUE_RE` with an in-sentence party name,
+  producing two bogus rows (`Vinstrið: 53%`, `Framsóknarflokkur: 80%`) for
+  two individual candidates' seat-probabilities, not their parties' fylgi.
+- **"forskot" (lead/margin between two parties)** — `"Flokkurinn er með
+  rúmlega ellefu prósentustiga forskot á Samfylkinguna"` ("The party has
+  just over an eleven-point lead over Samfylking") attributed the *gap*
+  between two parties to whichever party happened to be named in the
+  sentence (Samfylking, the trailing party — the leading party was only a
+  pronoun), producing a bogus `Samfylking: 11%` row (real support that week
+  was closer to 19-20%, per the same day's other Maskína/Gallup coverage).
+  Verified as a recurring headline pattern, not this one article's
+  phrasing — several other real Vísir article titles use the identical
+  `"mælist með N prósentustiga forskot á X"` construction. **Note:**
+  `"prósentustig"` (percentage point) alone was tried first and reverted —
+  verified live to break a real regression article (428434's `"Flokkurinn
+  fengi 25,0 prósent, tæplega prósentustigi minna en..."` is Samfylking's
+  genuine 25% figure with a harmless comparison clause) — `"forskot"` is
+  the specific, load-bearing word.
+
+Both added to `_NON_SUPPORT_TOPIC_RE` alongside the round-5 terms. Checked
+against the full regression set plus every other article in the local cache
+that mentions `"prósentustig"` (428434, 429057, visir-20262859852,
+visir-20262847801, visir-20262904348) — all unchanged after the fix.
+
 ## Article JSON Shape (from `__NEXT_DATA__`)
 
 ```json
