@@ -287,7 +287,15 @@ uv run python scripts/health_verdict.py --history .history/history.jsonl --windo
 
 Health probes run daily in `.github/workflows/source-health.yml`. Browser probes
 are manual-dispatch only — from a datacenter IP, Power BI/Tableau failures say
-more about bot detection than about the source being down.
+more about bot detection than about the source being down. The `browser` marker
+means *cannot be honestly observed from CI*, not *needs Chromium*: `samgongustofa`
+carries it because `bifreidatolur.samgongustofa.is` is geo-fenced — 50 ms from an
+Icelandic IP, `ConnectTimeout` from every runner (2026-08-06).
+
+Note that `degraded_ok` is **not** an escape hatch for an unreachable source: a
+degraded row is still a non-healthy observation to `health_verdict.py`, so three
+in a row still read `dead` and still gate. Only `skipped` rows (and no rows at
+all) are excluded from the streak.
 
 To add a probe for a new source, see the `new-data-source` skill.
 

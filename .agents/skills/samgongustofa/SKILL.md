@@ -109,6 +109,19 @@ XPENG                |          352 |          2
 
 ## Data Caveats
 
+0. **Geo-fenced to Icelandic IPs (observed 2026-08-06).** `bifreidatolur.samgongustofa.is`
+   answers in ~50 ms from an Icelandic connection and times out
+   (`httpx.ConnectTimeout`) from every GitHub Actions runner — 22 CI runs, 22
+   timeouts, never once reachable. The host is not down; datacenter address
+   space is blocked. Practical consequences:
+   - Scrape from an Icelandic IP (or a VPN exit in Iceland). CI, cloud VMs and
+     most hosted notebooks cannot reach this source at all.
+   - The health probe (`tests/health/test_samgongustofa.py`) is therefore marked
+     `browser`, i.e. manual-dispatch only, and is **not** in the daily required
+     lane — a timeout there would measure GitHub's network position, not
+     Samgöngustofa's health. Run it by hand from Iceland:
+     `uv run pytest -m "health and browser" -k samgongustofa`.
+
 1. **Real-time data:** Dashboard shows current state, no historical snapshots
 2. **Rate limiting:** Don't scrape too frequently
 3. **Structure changes:** Power BI report structure may change

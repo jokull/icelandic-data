@@ -44,7 +44,7 @@ addopts = ["-m", "not slow"]
 markers = [
     "slow: marks tests that make network/browser calls",
     "health: upstream data-source health probe (auto-applied under tests/health/)",
-    "browser: health probe needing Playwright/Chromium (run separately from lightweight)",
+    "browser: health probe that cannot be honestly observed from CI — needs Playwright/Chromium, or the upstream is geo-fenced to Icelandic IPs (manual dispatch only)",
     "degraded_ok: staleness check — reports degraded, does not fail the scheduled run",
 ]
 testpaths = ["tests"]
