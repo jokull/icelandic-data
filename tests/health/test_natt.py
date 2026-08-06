@@ -1,101 +1,100 @@
-"""Health probe — Náttúrufræðistofnun GeoServer WFS (gis.natt.is).
+"""Health probe — Náttúrufræðistofnun habitat map (gis.natt.is GeoServer).
 
-Contract: the habitat-type layer `scripts/natt.py` LAYER points at still exists
-and still serves the `DN` / `htxt` attribute pair that every CQL filter in that
-script is built from (`DN=95` = L14.2 Tún og akurlendi, the cultivated-land
-polygons behind `scripts/agricultural_land_map.py`).
+Contract: the 1:25.000 3rd-edition habitat raster `scripts/natt.py` reads still
+exists under the name that script requests, and its colormap still maps
+`DN=95` → `"L14.2 Tún og akurlendi"` — the cultivated-land code behind
+`scripts/agricultural_land_map.py`. That colormap is also the `inventory`
+subcommand's only data source, so one request covers both.
 
-**This probe is expected to fail as of 2026-07-17** — that is the point, not a
-bug in the test. `LMI_vektor:vistgerd` has been withdrawn from gis.natt.is,
-gis.lmi.is and ogc.gis.is alike; all three answer
-`InvalidParameterValue: Feature type LMI_vektor:vistgerd unknown`. NÍ appear to
-have reorganised the habitat data into a new `vistgerdir:` workspace
-(`v_vg25v_fl_land`, `_fl_vatn`, `_fl_fjorur`), but those layers are *not* a
-drop-in replacement: they carry a different schema (`vg1`, `vg1_texti`, … — no
-`DN`/`htxt`) and orders of magnitude fewer polygons. Migrating natt.py needs a
-decision about which new layer maps to the old habitat codes, so the probe
-records the break rather than papering over it.
+Payload discipline: the coverage is 7.5 Gpx at 5 m, so nothing here fetches
+pixels at map resolution. Capabilities proves the name, the legend JSON is a few
+KB, and the one `GetCoverage` is scaled down to a 1 km grid (~200 × 150 px).
 
-Payload discipline: the layer is ~24M polygons (the polygonised 5 m raster), so
-neither request here transfers geometry — capabilities proves the name,
-`resultType=hits` proves non-emptiness, and the attribute check uses
-`propertyName=DN,htxt` with `count=5`.
+History: `LMI_vektor:vistgerd`, the polygonised vector edition this script used
+until 2026-08, was withdrawn from gis.natt.is, gis.lmi.is and ogc.gis.is alike.
+The `vistgerdir:v_vg25v_fl_*` vector layers that appeared alongside are NOT its
+replacement — they carry only geothermal, freshwater and littoral habitats. The
+raster is, and it kept the codes. See `.agents/skills/natt/SKILL.md`.
 """
 from __future__ import annotations
 
-import re
+from scripts.natt import COVERAGE, DEFAULT_DN, WCS, WMS, WMS_LAYER
 
-from scripts.natt import LAYER, WFS
+L14_2 = "L14.2 Tún og akurlendi"
 
 
-def test_capabilities_lists_the_habitat_layer(http):
+def test_capabilities_lists_the_habitat_coverage(http):
     """A rename is the documented failure mode — catch it by name."""
     r = http.get(
-        WFS,
-        params={"service": "WFS", "version": "2.0.0", "request": "GetCapabilities"},
+        WCS,
+        params={"service": "WCS", "version": "2.0.1", "request": "GetCapabilities"},
     )
     assert r.status_code == 200, f"{r.request.url} -> {r.status_code}"
-    assert f"<Name>{LAYER}</Name>" in r.text, (
-        f"{r.request.url} -> {r.status_code}: {LAYER} absent from WFS "
+    assert f"<wcs:CoverageId>{COVERAGE}</wcs:CoverageId>" in r.text, (
+        f"{r.request.url} -> {r.status_code}: {COVERAGE} absent from WCS "
         f"capabilities — renamed or withdrawn; see the natt skill"
     )
 
 
-def test_habitat_layer_serves_dn_and_htxt(http):
-    """`DN` + `htxt` are the only two attributes natt.py reads.
-
-    Bounded with count=5 and propertyName so no geometry crosses the wire.
-    """
+def test_legend_still_maps_dn95_to_cultivated_land(http):
+    """The raster colormap *is* the DN→htxt inventory natt.py emits."""
     r = http.get(
-        WFS,
+        WMS,
         params={
-            "service": "WFS",
-            "version": "2.0.0",
-            "request": "GetFeature",
-            "typeNames": LAYER,
-            "propertyName": "DN,htxt",
-            "outputFormat": "application/json",
-            "count": 5,
+            "service": "WMS", "version": "1.1.1",
+            "request": "GetLegendGraphic",
+            "layer": WMS_LAYER,
+            "format": "application/json",
         },
     )
     assert r.status_code == 200, f"{r.request.url} -> {r.status_code}: {r.text[:200]}"
 
     payload = r.json()
-    assert payload.get("type") == "FeatureCollection", (
-        f"unexpected payload type {payload.get('type')!r}"
-    )
-    features = payload.get("features") or []
-    assert features, f"{LAYER} returned zero features"
+    entries = (payload["Legend"][0]["rules"][0]["symbolizers"][0]
+               ["Raster"]["colormap"]["entries"])
+    table = {int(float(e["quantity"])): (e.get("label") or "").strip()
+             for e in entries if e.get("quantity") is not None}
 
-    props = features[0].get("properties") or {}
-    assert "DN" in props and "htxt" in props, (
-        f"{LAYER} no longer exposes DN/htxt; got {sorted(props)}"
-    )
-    assert isinstance(props["DN"], int), (
-        f"DN is {type(props['DN']).__name__}, expected int — CQL filters like "
-        f"DN=95 assume an integer column"
+    # Non-emptiness, not an exact count — a 4th edition may add or drop codes.
+    assert len(table) > 50, f"colormap shrank to {len(table)} entries: {sorted(table)}"
+    assert table.get(DEFAULT_DN) == L14_2, (
+        f"DN={DEFAULT_DN} is {table.get(DEFAULT_DN)!r}, expected {L14_2!r} — "
+        f"the habitat codes were renumbered; scripts/natt.py and "
+        f"scripts/agricultural_land_map.py both assume this pair"
     )
 
 
-def test_cultivated_land_filter_still_matches(http):
-    """DN=95 (L14.2 Tún og akurlendi) — the filter the agricultural-land map runs.
+def test_wcs_serves_band_1_habitat_codes(http):
+    """`GetCoverage` returns the code band, and DN=95 is actually in it.
 
-    `hits` only: the real fetch is ~16.6k polygons and belongs in a fetch run.
+    `scaleFactor=0.005` collapses the 5 m grid to 1 km — a ~30 KB TIFF that
+    still contains thousands of cultivated-land pixels.
     """
     r = http.get(
-        WFS,
-        params={
-            "service": "WFS",
-            "version": "2.0.0",
-            "request": "GetFeature",
-            "typeNames": LAYER,
-            "resultType": "hits",
-            "CQL_FILTER": "DN=95",
-        },
+        WCS,
+        params=[
+            ("service", "WCS"), ("version", "2.0.1"), ("request", "GetCoverage"),
+            ("coverageId", COVERAGE),
+            ("format", "image/tiff"),
+            ("rangeSubset", "GRAY_INDEX"),
+            ("scaleFactor", "0.005"),
+        ],
     )
     assert r.status_code == 200, f"{r.request.url} -> {r.status_code}: {r.text[:200]}"
+    assert r.content[:5] != b"<?xml", (
+        f"{r.request.url} -> WCS exception: {r.text[:300]}")
 
-    match = re.search(r'numberMatched="(\d+)"', r.text)
-    assert match, f"{r.request.url} -> {r.status_code}: no numberMatched in {r.text[:200]}"
-    # Non-emptiness, not a count — the polygon total shifts between editions.
-    assert int(match.group(1)) > 0, "DN=95 (L14.2) matched zero polygons"
+    import numpy as np
+    from rasterio.io import MemoryFile
+
+    with MemoryFile(r.content) as mem, mem.open() as src:
+        assert src.crs is not None and src.crs.to_string() == "EPSG:3057", (
+            f"coverage CRS is {src.crs}, expected EPSG:3057 (ISN93) — the whole "
+            f"map stack assumes the raster arrives already projected")
+        band = src.read(1)
+
+    present = set(np.unique(band).tolist())
+    assert DEFAULT_DN in present, (
+        f"DN={DEFAULT_DN} ({L14_2}) absent from band 1 at 1 km; "
+        f"values present: {sorted(present)[:25]}"
+    )
