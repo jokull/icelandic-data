@@ -312,13 +312,10 @@ FROM read_csv('../data/processed/skatturinn/ownership.csv')
 
 ```bash
 # Download single report
-uv run python scripts/skatturinn.py download --kennitala 5012043070 --year 2023
+uv run python scripts/skatturinn.py download 5012043070 --year 2023
 
 # Map ownership chain
-uv run python scripts/skatturinn.py chain --kennitala 5012043070 --depth 3
-
-# Bulk download for list of companies
-uv run python scripts/skatturinn.py bulk --input companies.txt --year 2023
+uv run python scripts/skatturinn.py chain 5012043070 --depth 3
 ```
 
 ## Related Skills
