@@ -1,0 +1,135 @@
+{
+  "fetched_at": "2026-08-16T20:40:20Z",
+  "metrics": {
+    "policy_rate_is": {
+      "value": 7.75,
+      "change": 0.25,
+      "change_type": "pp",
+      "label": "14. ágúst 2026",
+      "source": "Seðlabanki Íslands",
+      "source_url": "https://sedlabanki.is/",
+      "decimals": 2,
+      "suffix": "%"
+    },
+    "cpi_is": {
+      "value": 693.2,
+      "change": 5.3,
+      "change_type": "pct",
+      "label": "júlí 2026",
+      "source": "Hagstofa Íslands",
+      "source_url": "https://hagstofa.is/",
+      "decimals": 1,
+      "suffix": ""
+    },
+    "usdisk": {
+      "value": 122.94,
+      "change": -0.28,
+      "change_type": "pct",
+      "label": "14. ágúst 2026",
+      "source": "Seðlabanki Íslands",
+      "source_url": "https://sedlabanki.is/",
+      "decimals": 2,
+      "suffix": " kr."
+    },
+    "eurisk": {
+      "value": 142.2,
+      "change": 0.28,
+      "change_type": "pct",
+      "label": "14. ágúst 2026",
+      "source": "Seðlabanki Íslands",
+      "source_url": "https://sedlabanki.is/",
+      "decimals": 2,
+      "suffix": " kr."
+    },
+    "bond_5y_is": {
+      "value": 7.54,
+      "change": 0.01,
+      "change_type": "pp",
+      "label": "14. ágúst 2026",
+      "source": "Lánamál ríkisins",
+      "source_url": "https://www.lanamal.is/",
+      "decimals": 2,
+      "suffix": "%"
+    },
+    "bond_long_is": {
+      "value": 6.82,
+      "change": -0.01,
+      "change_type": "pp",
+      "label": "14. ágúst 2026",
+      "source": "Lánamál ríkisins",
+      "source_url": "https://www.lanamal.is/",
+      "decimals": 2,
+      "suffix": "%"
+    },
+    "treasury_5y_us": {
+      "value": 4.32,
+      "change": -0.06,
+      "change_type": "pp",
+      "label": "13. ágúst 2026",
+      "source": "FRED (Federal Reserve Bank of St. Louis)",
+      "source_url": "https://fred.stlouisfed.org/series/DGS5",
+      "decimals": 2,
+      "suffix": "%"
+    },
+    "treasury_30y_us": {
+      "value": 5.21,
+      "change": -0.03,
+      "change_type": "pp",
+      "label": "13. ágúst 2026",
+      "source": "FRED (Federal Reserve Bank of St. Louis)",
+      "source_url": "https://fred.stlouisfed.org/series/DGS30",
+      "decimals": 2,
+      "suffix": "%"
+    },
+    "fed_funds_rate": {
+      "value": 3.63,
+      "change": 0.01,
+      "change_type": "pp",
+      "label": "13. ágúst 2026",
+      "source": "FRED (Federal Reserve Bank of St. Louis)",
+      "source_url": "https://fred.stlouisfed.org/series/DFF",
+      "decimals": 2,
+      "suffix": "%"
+    },
+    "cpi_us": {
+      "value": 332.8,
+      "change": 3.5,
+      "change_type": "pct",
+      "label": "júlí 2026",
+      "source": "FRED (Federal Reserve Bank of St. Louis)",
+      "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+      "decimals": 1,
+      "suffix": ""
+    },
+    "oil_brent": {
+      "value": 93.26,
+      "change": 0.56,
+      "change_type": "pct",
+      "label": "11. ágúst 2026",
+      "source": "FRED (Federal Reserve Bank of St. Louis)",
+      "source_url": "https://fred.stlouisfed.org/series/DCOILBRENTEU",
+      "decimals": 2,
+      "suffix": " USD"
+    },
+    "btc_usd": {
+      "value": 63054.0,
+      "change": 0.06,
+      "change_type": "pct",
+      "label": "16. ágúst 2026",
+      "source": "CoinGecko",
+      "source_url": "https://www.coingecko.com/en/coins/bitcoin",
+      "decimals": 0,
+      "suffix": " USD"
+    },
+    "btc_isk": {
+      "value": 7751859.0,
+      "change": 0.06,
+      "change_type": "pct",
+      "label": "16. ágúst 2026",
+      "source": "CoinGecko",
+      "source_url": "https://www.coingecko.com/en/coins/bitcoin",
+      "decimals": 0,
+      "suffix": " kr."
+    }
+  }
+}

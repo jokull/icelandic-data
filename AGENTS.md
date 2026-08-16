@@ -255,6 +255,10 @@ uv run python scripts/landeignaskra.py lookup 0174540
 # Seðlabanki interest rates — Power BI scrape via gagnabanki.is
 uv run python scripts/sedlabanki_rates.py
 
+# Personal macro dashboard — IS + US/global indicators -> data/processed/dashboard.json
+# (published to GitHub Pages every 6h; see the dashboard skill)
+FRED_API_KEY=... uv run python scripts/dashboard.py
+
 # Samgöngustofa bifreiðatölur — vehicle registrations via reverse-engineered Power BI API
 # (geo-fenced: run from an Icelandic IP). list shows both reports + all dimensions.
 uv run python scripts/samgongustofa.py list

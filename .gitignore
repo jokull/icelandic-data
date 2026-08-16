@@ -1,8 +1,12 @@
 # Data (large files, regenerable)
 data/raw/
-data/processed/
 data/geodata/
 data/cache/
+
+# data/processed/ is regenerable EXCEPT dashboard.json, which the dashboard
+# workflow commits on every run so GitHub Pages always serves the latest fetch.
+data/processed/*
+!data/processed/dashboard.json
 
 # DuckDB
 *.duckdb

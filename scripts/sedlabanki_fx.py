@@ -138,7 +138,8 @@ def read_fx_market(path: Path) -> pl.DataFrame:
     return df
 
 
-def read_eur_mid(path: Path) -> pl.DataFrame:
+def read_mid_rate(path: Path) -> pl.DataFrame:
+    """Parse a single-series xmltimeseries CSV (any TimeSeriesID) into date/value rows."""
     rows = []
     for line in path.read_text(encoding="utf-8-sig").splitlines():
         parts = line.split(";")
@@ -149,10 +150,10 @@ def read_eur_mid(path: Path) -> pl.DataFrame:
         except ValueError:
             continue
         d = pl.Series([parts[6]]).str.to_date("%m/%d/%Y %I:%M:%S %p")[0]
-        rows.append({"date": d, "eur_mid": value})
-    df = pl.DataFrame(rows, schema={"date": pl.Date, "eur_mid": pl.Float64})
+        rows.append({"date": d, "mid_rate": value})
+    df = pl.DataFrame(rows, schema={"date": pl.Date, "mid_rate": pl.Float64})
     if df.is_empty():
-        raise RuntimeError(f"no EUR mid data in {path}")
+        raise RuntimeError(f"no time series data in {path}")
     return df
 
 
@@ -178,7 +179,7 @@ def read_reserves(path: Path) -> pl.DataFrame:
 def build_monthly(fx_path: Path, eur_path: Path, cb_path: Path) -> pl.DataFrame:
     """Aggregate the three sources into one monthly wide frame."""
     fx = read_fx_market(fx_path)
-    eur = read_eur_mid(eur_path)
+    eur = read_mid_rate(eur_path)
     res = read_reserves(cb_path)
 
     fx = fx.with_columns((pl.col("date").dt.truncate("1mo")).alias("month"))
@@ -207,7 +208,7 @@ def build_monthly(fx_path: Path, eur_path: Path, cb_path: Path) -> pl.DataFrame:
     eur_mid = (
         eur.sort("date")
         .group_by("month")
-        .agg(pl.col("eur_mid").last().alias("isk_per_eur"))
+        .agg(pl.col("mid_rate").last().alias("isk_per_eur"))
     )
     reserves = (
         res.sort("date")
