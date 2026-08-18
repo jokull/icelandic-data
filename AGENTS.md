@@ -214,6 +214,18 @@ uv run python scripts/byggdastofnun.py url tekjur
 uv run python scripts/tekjusagan.py token
 uv run python scripts/tekjusagan.py fetch
 
+# Skoðanakannanir — RÚV + Vísir + Heimildin opinion-poll aggregators (national + Reykjavík, all pollsters)
+uv run python scripts/skodanakannanir.py list
+uv run python scripts/skodanakannanir.py list --source visir --since 2025 --scope reykjavik
+uv run python scripts/skodanakannanir.py list --source heimildin --since 2020
+uv run python scripts/skodanakannanir.py list --source all --since 2025
+uv run python scripts/skodanakannanir.py fetch 479261
+uv run python scripts/skodanakannanir.py fetch visir-20262904348    # Vísir works too, no browser needed
+
+# Skoðanakannanir --topic esb — same pipeline, EU-membership support/oppose (ahead of the 2026-08-29 þjóðaratkvæðagreiðsla)
+uv run python scripts/skodanakannanir.py list --source visir --since 2025 --topic esb
+uv run python scripts/skodanakannanir.py fetch visir-20262915377 --topic esb   # or omit --topic: auto-detected per article
+
 # Ferðamálastofa — Keflavík tourism Power BI
 uv run python scripts/ferdamalastofa.py --help
 

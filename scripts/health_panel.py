@@ -57,7 +57,7 @@ PROBES = [
     "hms", "landlaeknir", "lanamal", "laun", "lmi", "lmi_hrl", "loftgaedi",
     "maelabord_landbunadarins", "maskina", "nasdaq", "natt", "opnirreikningar",
     "reykjavik", "rikisreikningur", "samgongustofa", "sedlabanki", "sedlabanki_fx", "skatturinn",
-    "skipulagsmal", "tekjusagan", "tenders", "umferd", "vedur",
+    "skipulagsmal", "skodanakannanir", "tekjusagan", "tenders", "umferd", "vedur",
     "ust_gis", "velsaeldarvisar", "vernd", "vinnumalastofnun",
 ]
 

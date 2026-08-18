@@ -1,0 +1,126 @@
+{
+  "purpose": "Full grammatical inflection tables (beygingartöflur) for every entity in _PARTY_STEMS, looked up on málið.is / Beygingarlýsing íslensks nútímamáls (BÍN) — Iceland's authoritative inflection database — rather than assumed from the \\w* wildcard pattern already in use. Built to verify (not guess) that the regex actually covers every case form. Found 3 real gaps this way; see fixes_applied below.",
+  "researched_date": "2026-07-20",
+  "source": "https://malid.is (search) -> https://bin.arnastofnun.is/beyging/<id> (Stofnun Árna Magnússonar í íslenskum fræðum, © 2002-2026)",
+  "note_on_scope": "BÍN often has two entries per word: a generic common-noun sense (e.g. plain 'samfylking' = alliance/coalition) and, where one exists, a dedicated 'stofnunar- eða fyrirtækisheiti' (institution/company name) or 'heiti' (name) sense for the actual party. Both decline identically in every case checked here, so this file records the inflection table without distinguishing which BÍN entry it came from — what matters for regex coverage is the letter forms, not the sense tag.",
+  "entities": [
+    {
+      "party": "Sjálfstæðisflokkur",
+      "bin_id": 97381,
+      "gender": "karlkyn (masculine)",
+      "usage_note": "BÍN: 'Orðið er yfirleitt haft með greini' (usually used with the definite article) — Sjálfstæðisflokkurinn is the more common real-world form, not the bare nominative.",
+      "singular": {"nf": ["Sjálfstæðisflokkur", "Sjálfstæðisflokkurinn"], "þf": ["Sjálfstæðisflokk", "Sjálfstæðisflokkinn"], "þgf": ["Sjálfstæðisflokki", "Sjálfstæðisflokknum"], "ef": ["Sjálfstæðisflokks", "Sjálfstæðisflokksins"]},
+      "plural": "not used (--)",
+      "current_regex": "Sjálfstæðisflokk\\w*",
+      "regex_coverage": "complete — fixed stem 'Sjálfstæðisflokk' + \\w* absorbs every suffix shown"
+    },
+    {
+      "party": "Samfylking",
+      "bin_id": 132843,
+      "gender": "kvenkyn (feminine)",
+      "usage_note": "BÍN entry found is the generic common noun (alliance/coalition); no distinct institution-name entry surfaced, but forms are identical either way.",
+      "singular": {"nf": ["samfylking", "samfylkingin"], "þf": ["samfylkingu", "samfylkinguna"], "þgf": ["samfylkingu", "samfylkingunni"], "ef": ["samfylkingar", "samfylkingarinnar"]},
+      "plural": {"nf": ["samfylkingar", "samfylkingarnar"], "þf": ["samfylkingar", "samfylkingarnar"], "þgf": ["samfylkingum", "samfylkingunum"], "ef": ["samfylkinga", "samfylkinganna"]},
+      "current_regex": "Samfylking\\w*",
+      "regex_coverage": "complete — fixed stem + \\w* absorbs every suffix shown, singular and plural"
+    },
+    {
+      "party": "Framsóknarflokkur",
+      "bin_id": 97275,
+      "gender": "karlkyn (masculine)",
+      "singular": {"nf": ["framsóknarflokkur", "framsóknarflokkurinn"], "þf": ["framsóknarflokk", "framsóknarflokkinn"], "þgf": ["framsóknarflokki", "framsóknarflokknum"], "ef": ["framsóknarflokks", "framsóknarflokksins"]},
+      "plural": {"nf": ["framsóknarflokkar", "framsóknarflokkarnir"], "þf": ["framsóknarflokka", "framsóknarflokkana"], "þgf": ["framsóknarflokkum", "framsóknarflokkunum"], "ef": ["framsóknarflokka", "framsóknarflokkanna"]},
+      "current_regex": "Framsókn(?:arflokk\\w*)?",
+      "regex_coverage": "complete — fixed stem + \\w* absorbs every suffix shown"
+    },
+    {
+      "party": "Viðreisn",
+      "bin_id": 496481,
+      "gender": "kvenkyn (feminine), heiti (proper name)",
+      "usage_note": "Never takes the definite article (all 'með greini' forms are '--'), and has no plural.",
+      "singular": {"nf": ["Viðreisn"], "þf": ["Viðreisn"], "þgf": ["Viðreisn"], "ef": ["Viðreisnar"]},
+      "plural": "not used (--)",
+      "current_regex": "Viðreisn\\w*",
+      "regex_coverage": "complete — matches bare 'Viðreisn' and genitive 'Viðreisnar' via \\w*"
+    },
+    {
+      "party": "Vinstri græn",
+      "bin_id": null,
+      "note": "No direct BÍN entry for the two-word short form (BÍN doesn't index multi-word phrases) — see 'Vinstrihreyfingin' below for the party's full legal name, which BÍN does index.",
+      "current_regex": "Vinstri\\s*g?ræn\\w*|\\bVG\\b|Vinstrihreyfingin\\s*[-–]\\s*grænt\\s+framboð",
+      "regex_coverage": "short form 'Vinstri græn'/'VG' presumed adequate (adjective agreement absorbed by \\w* after 'græn') but not individually BÍN-verified; full-name form had a real gap, see fixes_applied"
+    },
+    {
+      "party": "Vinstrihreyfingin (full legal name of Vinstri græn)",
+      "bin_id": 489798,
+      "gender": "kvenkyn (feminine), stofnunar- eða fyrirtækisheiti (institution/company name)",
+      "usage_note": "Always takes the definite article — no 'án greinis' forms exist at all.",
+      "singular": {"nf": ["Vinstrihreyfingin"], "þf": ["Vinstrihreyfinguna"], "þgf": ["Vinstrihreyfingunni"], "ef": ["Vinstrihreyfingarinnar"]},
+      "plural": "not used (--)",
+      "regex_gap_found": "The originally-added pattern only matched the bare nominative 'Vinstrihreyfingin' immediately followed by '- grænt framboð' — 'Vinstrihreyfinguna – grænt framboð' (accusative), '...unni' (dative), '...arinnar' (genitive) would all have failed to match if the full legal name appeared in a non-nominative sentence position.",
+      "fix": "Vinstrihreyfing\\w*\\s*[-–]\\s*grænt\\s+framboð — shortened the anchor stem to 'Vinstrihreyfing' (drops the nominative-only '-in') so \\w* absorbs all four case suffixes."
+    },
+    {
+      "party": "Vinstrið (2026 Reykjavík alliance)",
+      "bin_id": 569149,
+      "gender": "hvorugkyn (neuter)",
+      "usage_note": "Always definite (no 'án greinis' form exists at all) — same pattern as 'veðrið'. This is also BÍN's entry for the ordinary common-noun/adjective use of 'vinstri' ('the left [side/wing]') made definite — the exact word-collision risk already documented in scripts/skodanakannanir.py.",
+      "singular": {"nf": ["--", "Vinstrið"], "þf": ["--", "Vinstrið"], "þgf": ["--", "Vinstrinu"], "ef": ["--", "Vinstrisins"]},
+      "plural": "not used (--)",
+      "regex_gap_found": "Original pattern 'Vinstrið\\w*' only matches nominative/accusative (both literally 'Vinstrið') — dative 'Vinstrinu' and genitive 'Vinstrisins' don't contain the substring 'Vinstrið' at all (no 'ð' present) and would have silently failed to match if either case appeared in real prose, e.g. 'fylgi Vinstrinu' or 'árangur Vinstrisins'.",
+      "fix": "\\bVinstri(?:ð|nu|sins)\\b — explicit enumeration of exactly the 3 attested case forms, word-bounded so it doesn't also match as a prefix of 'Vinstrihreyfingin'/'Vinstri græn'."
+    },
+    {
+      "party": "Píratar",
+      "bin_id": 496480,
+      "gender": "karlkyn (masculine), lemma: Pírati (singular, 'a Pirate/party member')",
+      "usage_note": "u-umlaut (a→ö) in the dative plural — the standard Icelandic sound change before a following 'u', affecting several masculine nouns.",
+      "singular": {"nf": ["Pírati", "Píratinn"], "þf": ["Pírata", "Píratann"], "þgf": ["Pírata", "Píratanum"], "ef": ["Pírata", "Píratans"]},
+      "plural": {"nf": ["Píratar", "Píratarnir"], "þf": ["Pírata", "Píratana"], "þgf": ["Pírötum", "Pírötunum"], "ef": ["Pírata", "Píratanna"]},
+      "regex_gap_found": "Original pattern 'Píra\\w*' requires the literal substring 'Píra' — 'Pírötum'/'Pírötunum' (dative plural, the umlauted a→ö form) don't contain 'Píra' at all and would have silently failed to match a real, plausible construction like 'fylgi hjá Pírötum' ('support among Pirates').",
+      "fix": "Pír(?:a|ö)t\\w* — alternation on the vowel that umlauts, keeping the rest of the stem and \\w* suffix-absorption unchanged."
+    },
+    {
+      "party": "Miðflokkur",
+      "bin_id": 97339,
+      "gender": "karlkyn (masculine)",
+      "note": "BÍN entry found is the generic common noun (a centrist party, generic term, hence the plural forms) — no distinct institution-name entry surfaced, but forms are identical either way.",
+      "singular": {"nf": ["miðflokkur", "miðflokkurinn"], "þf": ["miðflokk", "miðflokkinn"], "þgf": ["miðflokki", "miðflokknum"], "ef": ["miðflokks", "miðflokksins"]},
+      "plural": {"nf": ["miðflokkar", "miðflokkarnir"], "þf": ["miðflokka", "miðflokkana"], "þgf": ["miðflokkum", "miðflokkunum"], "ef": ["miðflokka", "miðflokkanna"]},
+      "current_regex": "Miðflokk\\w*",
+      "regex_coverage": "complete — fixed stem + \\w* absorbs every suffix shown"
+    },
+    {
+      "party": "Flokkur fólksins",
+      "bin_id": null,
+      "note": "No BÍN entry for the two-word phrase itself; 'flokkur' (bin_id 6471) is the declining half, 'fólksins' (genitive of 'fólk', 'of the people') is fixed within this party name and doesn't need to independently decline.",
+      "flokkur_singular": {"nf": ["flokkur", "flokkurinn"], "þf": ["flokk", "flokkinn"], "þgf": ["flokki", "flokknum"], "ef": ["flokks", "flokksins"]},
+      "current_regex": "Flokk\\w*\\s+fólksins",
+      "regex_coverage": "complete for the declining half ('Flokk' + \\w* absorbs every singular suffix of 'flokkur' shown above); 'fólksins' is checked as a fixed literal, correctly so"
+    },
+    {
+      "party": "Sósíalistaflokkur",
+      "bin_id": 97390,
+      "gender": "karlkyn (masculine)",
+      "singular": {"nf": ["sósíalistaflokkur", "sósíalistaflokkurinn"], "þf": ["sósíalistaflokk", "sósíalistaflokkinn"], "þgf": ["sósíalistaflokki", "sósíalistaflokknum"], "ef": ["sósíalistaflokks", "sósíalistaflokksins"]},
+      "plural": {"nf": ["sósíalistaflokkar", "sósíalistaflokkarnir"], "þf": ["sósíalistaflokka", "sósíalistaflokkana"], "þgf": ["sósíalistaflokkum", "sósíalistaflokkunum"], "ef": ["sósíalistaflokka", "sósíalistaflokkanna"]},
+      "current_regex": "Sósíalist\\w*",
+      "regex_coverage": "complete — stem is even shorter than the declining part, \\w* absorbs everything including the 'Íslands' suffix variant seen in real chart data ('Sósíalistaflokkur Íslands')"
+    },
+    {
+      "party": "Lýðræðisflokkur",
+      "bin_id": 97330,
+      "gender": "karlkyn (masculine)",
+      "singular": {"nf": ["lýðræðisflokkur", "lýðræðisflokkurinn"], "þf": ["lýðræðisflokk", "lýðræðisflokkinn"], "þgf": ["lýðræðisflokki", "lýðræðisflokknum"], "ef": ["lýðræðisflokks", "lýðræðisflokksins"]},
+      "plural": {"nf": ["lýðræðisflokkar", "lýðræðisflokkarnir"], "þf": ["lýðræðisflokka", "lýðræðisflokkana"], "þgf": ["lýðræðisflokkum", "lýðræðisflokkunum"], "ef": ["lýðræðisflokka", "lýðræðisflokkanna"]},
+      "current_regex": "Lýðræðisflokk\\w*",
+      "regex_coverage": "complete — fixed stem + \\w* absorbs every suffix shown"
+    }
+  ],
+  "fixes_applied": [
+    "Vinstrið: 'Vinstrið\\w*' -> '\\bVinstri(?:ð|nu|sins)\\b' (dative/genitive were unmatched)",
+    "Vinstrihreyfingin full name: 'Vinstrihreyfingin\\s*[-–]\\s*grænt\\s+framboð' -> 'Vinstrihreyfing\\w*\\s*[-–]\\s*grænt\\s+framboð' (accusative/dative/genitive were unmatched)",
+    "Píratar: 'Píra\\w*' -> 'Pír(?:a|ö)t\\w*' (u-umlauted dative plural 'Pírötum'/'Pírötunum' was unmatched)"
+  ],
+  "lesson": "The \\w* stem+wildcard pattern silently assumes the stem is invariant across every case — true for most of these words (8 of 11 checked needed no change at all), but false wherever Icelandic's own morphology changes the stem itself: the neuter definite-article suffix pattern (ð/nu/sins, not just appending to a fixed stem), a nominative-only anchor missed by shortening it, and u-umlaut (a→ö). Checking the real declension table over relying on the wildcard is what caught these — matches the standing rule of verifying against primary sources before trusting an assumption, applied here to grammar instead of political-entity research."
+}
