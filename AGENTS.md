@@ -255,6 +255,11 @@ uv run python scripts/landeignaskra.py lookup 0174540
 # Seðlabanki interest rates — Power BI scrape via gagnabanki.is
 uv run python scripts/sedlabanki_rates.py
 
+# Lánamál ríkisins — government bond yields (RIKB/RIKS, no auth, UTF-16 JSON)
+uv run python scripts/lanamal.py list                # live orderbook catalog from /markadsyfirlit
+uv run python scripts/lanamal.py fetch              # daily fixings -> data/processed/lanamal.csv
+uv run python scripts/lanamal.py fetch --orderbook RIKB_31_0124
+
 # Samgöngustofa bifreiðatölur — vehicle registrations via reverse-engineered Power BI API
 # (geo-fenced: run from an Icelandic IP). list shows both reports + all dimensions.
 uv run python scripts/samgongustofa.py list

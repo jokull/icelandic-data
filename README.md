@@ -51,6 +51,7 @@ Per-source uptime and last error are in the
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/hagstofan.svg" width="12"> | Hagstofa Íslands | PX-Web API — economic, demographic, trade, income series |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/sedlabanki.svg" width="12"> | Seðlabanki | SDMX API — monetary policy, financial stability, FX history via ECB |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/sedlabanki_fx.svg" width="12"> | Seðlabanki (FX) | Central Bank FX intervention — gjaldeyriskaup/-sala, turnover, reserves, ISK/EUR (monthly) |
+| <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/lanamal.svg" width="12"> | Lánamál ríkisins | Government bond yields — RIKB/RIKS daily fixings, no auth (lanamal.is) |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/tekjusagan.svg" width="12"> | Tekjusagan | Income-history dashboard — 5 Power BI report routes (Forsætisráðuneytið) |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/velsaeldarvisar.svg" width="12"> | Velsældarvísar | Hagstofa indicator catalogs — well-being + social + cultural (88 indicators → 77 PX tables) |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/heimsmarkmid.svg" width="12"> | Heimsmarkmið | UN SDG national statistics — 137 indicators across all 17 goals (open-sdg ZIP bundle) |
