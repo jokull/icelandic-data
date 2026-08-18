@@ -26,6 +26,7 @@ import urllib.parse
 from pathlib import Path
 
 import httpx
+import polars as pl
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -156,10 +157,7 @@ def cmd_fetch(args):
 
     out = PROCESSED_DIR / "byggdastofnun_catalog.csv"
     fields = ["slug", "title", "workbook", "view", "embed_url", "page_url"]
-    with out.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader()
-        w.writerows(rows)
+    pl.DataFrame(rows, schema=fields).write_csv(out)
     print(f"\nwrote {len(rows)} rows → {out}", file=sys.stderr)
 
 

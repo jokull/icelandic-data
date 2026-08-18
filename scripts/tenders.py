@@ -1,13 +1,13 @@
 """Fetch and process Icelandic public procurement data from TED API and OCDS bulk data."""
 
 import argparse
-import csv
 import gzip
 import json
 import sys
 from pathlib import Path
 
 import httpx
+import polars as pl
 
 TED_API_URL = "https://api.ted.europa.eu/v3/notices/search"
 OCDS_DOWNLOAD_URL = "https://data.open-contracting.org/en/publication/57/download?name=full.jsonl.gz"
@@ -193,15 +193,10 @@ def extract_awards(args):
     if args.output:
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
+        pl.DataFrame(rows, schema=fieldnames).write_csv(output)
         print(f"Wrote {len(rows)} awards to {output}", file=sys.stderr)
     else:
-        writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+        sys.stdout.write(pl.DataFrame(rows, schema=fieldnames).write_csv())
         print(f"\n{len(rows)} awards total", file=sys.stderr)
 
 

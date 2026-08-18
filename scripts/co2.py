@@ -31,6 +31,7 @@ import time
 from pathlib import Path
 
 import httpx
+import polars as pl
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -221,10 +222,7 @@ def cmd_fetch(args):
         "vidfangsefni_slug", "title", "description",
         "markmid", "upphaf", "endir", "stada", "abyrgdaradili", "vidfangsefni_url",
     ]
-    with out.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(actions)
+    pl.DataFrame(actions, schema=fields).write_csv(out)
     print(f"\nwrote {len(actions)} actions → {out}", file=sys.stderr)
     # Summary by kerfi + status
     from collections import Counter

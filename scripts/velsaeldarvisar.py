@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import httpx
+import polars as pl
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -155,11 +156,7 @@ def cmd_fetch(args=None):
         "px_urls",
         "metadata_pdf",
     ]
-    with out.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=cols)
-        w.writeheader()
-        for row in catalog:
-            w.writerow({k: row.get(k, "") for k in cols})
+    pl.DataFrame(catalog, schema=cols).write_csv(out)
     print(f"wrote {len(catalog)} rows → {out}", file=sys.stderr)
 
 

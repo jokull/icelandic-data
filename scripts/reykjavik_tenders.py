@@ -1,11 +1,11 @@
 """Scrape Reykjavík tender results for winter service contracts."""
 
-import csv
 import re
 import sys
 from pathlib import Path
 
 import httpx
+import polars as pl
 from bs4 import BeautifulSoup
 
 TENDER_URLS = {
@@ -131,10 +131,10 @@ def main():
         all_tenders.extend(tenders)
         print(f"  {year}: {len(tenders)} winter/street tenders found", file=sys.stderr)
 
-    with open(output, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["year", "tender_id", "description", "category"])
-        writer.writeheader()
-        writer.writerows(all_tenders)
+    pl.DataFrame(
+        all_tenders,
+        schema=["year", "tender_id", "description", "category"],
+    ).write_csv(output)
 
     print(f"\nWrote {len(all_tenders)} tenders to {output}", file=sys.stderr)
 

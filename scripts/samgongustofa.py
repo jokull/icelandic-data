@@ -32,10 +32,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import datetime as dt
-import csv
 import sys
 from pathlib import Path
 
+import polars as pl
 import powerbi as pb
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -183,10 +183,7 @@ async def _run_fetch(args):
         tag = col.split(" ")[0].split("-")[0][:6] + "-" + "+".join(vals)
         parts.append("".join(ch for ch in tag if ch.isalnum() or ch in "-+"))
     out = Path(args.out) if args.out else OUT_DIR / ("_".join(parts) + ".csv")
-    with out.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=header)
-        w.writeheader()
-        w.writerows(records)
+    pl.DataFrame(records, schema=header).write_csv(out)
     print(f"→ {out} ({len(records)} rows)", file=sys.stderr)
 
 

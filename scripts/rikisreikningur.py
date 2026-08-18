@@ -18,7 +18,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import re
 import sys
@@ -26,6 +25,7 @@ import urllib.parse
 from pathlib import Path
 
 import httpx
+import polars as pl
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -117,22 +117,21 @@ def cmd_summary(args):
     # Persist full CSV
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     out = PROCESSED_DIR / "rikisreikningur_summary.csv"
-    with out.open("w", encoding="utf-8", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["ar", "tekjur", "gjold", "afkoma"])
-        for r in afkoma:
-            w.writerow([r["ar"], r["tekjur"], r["gjold"], r["afkoma"]])
+    pl.DataFrame(
+        [
+            {"ar": r["ar"], "tekjur": r["tekjur"], "gjold": r["gjold"], "afkoma": r["afkoma"]}
+            for r in afkoma
+        ],
+        schema=["ar", "tekjur", "gjold", "afkoma"],
+    ).write_csv(out)
     print(f"\n→ {out}")
 
     # Category breakdown CSV
     out2 = PROCESSED_DIR / "rikisreikningur_tekjur_gjold.csv"
-    with out2.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(
-            f,
-            fieldnames=["timabil_ar", "timabil", "tegund_numer", "tegund", "texti", "samtals"],
-        )
-        w.writeheader()
-        w.writerows(data["tekjur_gjold"])
+    pl.DataFrame(
+        data["tekjur_gjold"],
+        schema=["timabil_ar", "timabil", "tegund_numer", "tegund", "texti", "samtals"],
+    ).write_csv(out2)
     print(f"→ {out2}  ({len(data['tekjur_gjold'])} rows)")
 
 
@@ -142,10 +141,7 @@ def cmd_malefni(args):
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     out = PROCESSED_DIR / "rikisreikningur_malefni.csv"
     fields = sorted({k for r in rows for k in r.keys()})
-    with out.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader()
-        w.writerows(rows)
+    pl.DataFrame(rows, schema=fields).write_csv(out)
     print(f"wrote {len(rows)} rows → {out}")
     # Summary: distinct málefnasvið and years
     svid = sorted({(r["malefnasvid_numer"], r["malefnasvid_heiti"]) for r in rows})
@@ -164,10 +160,7 @@ def cmd_files(args):
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     out = PROCESSED_DIR / "rikisreikningur_files.csv"
     fields = sorted({k for s in skrar for k in s.keys()})
-    with out.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader()
-        w.writerows(skrar)
+    pl.DataFrame(skrar, schema=fields).write_csv(out)
     print(f"→ {out}")
 
 

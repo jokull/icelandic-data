@@ -20,6 +20,7 @@ import zipfile
 from pathlib import Path
 
 import httpx
+import polars as pl
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -130,10 +131,7 @@ def cmd_fetch(args):
     out = PROCESSED_DIR / "heimsmarkmid_catalog.csv"
     cols = ["code", "goal", "target", "indicator", "columns",
             "n_rows", "first_year", "last_year"]
-    with out.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=cols)
-        w.writeheader()
-        w.writerows(catalog)
+    pl.DataFrame(catalog, schema=cols).write_csv(out)
     print(f"wrote {len(catalog)} indicators → {out}", file=sys.stderr)
 
 

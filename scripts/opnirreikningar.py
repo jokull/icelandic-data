@@ -1,7 +1,6 @@
 """Fetch government invoice data from opnirreikningar.is (Open Accounts of the State)."""
 
 import argparse
-import csv
 import sys
 from collections import defaultdict
 from datetime import date
@@ -9,6 +8,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import httpx
+import polars as pl
 
 BASE_URL = "https://opnirreikningar.is"
 HEADERS = {"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"}
@@ -137,15 +137,10 @@ def fetch(args):
     if args.output:
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-            writer.writeheader()
-            writer.writerows(rows)
+        pl.DataFrame(rows, schema=CSV_FIELDS).write_csv(output)
         print(f"Wrote {len(rows)} invoices to {output}", file=sys.stderr)
     else:
-        writer = csv.DictWriter(sys.stdout, fieldnames=CSV_FIELDS)
-        writer.writeheader()
-        writer.writerows(rows)
+        sys.stdout.write(pl.DataFrame(rows, schema=CSV_FIELDS).write_csv())
         print(f"\n{len(rows)} invoices total", file=sys.stderr)
 
 

@@ -3,6 +3,8 @@
 import csv
 from pathlib import Path
 
+import polars as pl
+
 
 def process_env_ops():
     """Compute wages vs other costs ratio from CKAN environmental ops data."""
@@ -29,10 +31,7 @@ def process_env_ops():
                     "other_to_wages_ratio": round(ratio, 3),
                 })
 
-    with open(output, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
+    pl.DataFrame(rows).write_csv(output)
 
     print(f"Wrote {len(rows)} rows to {output}")
     for r in rows:
