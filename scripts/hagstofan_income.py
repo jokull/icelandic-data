@@ -26,6 +26,7 @@ Depends on data/raw/hagstofan/cpi_full.csv being present for CPI deflation.
 
 from __future__ import annotations
 
+import argparse
 import json
 import time
 from pathlib import Path
@@ -444,7 +445,7 @@ def compute_headline(
             print(f"  Imm/Icel ratio: {r0:.1f}% -> {r1:.1f}% ({r1-r0:+.1f} pp)")
 
 
-def main():
+def cmd_fetch(args) -> int:
     wi = fetch_wage_index()
     time.sleep(3)
     lab = fetch_labor_income_dist()
@@ -456,7 +457,18 @@ def main():
     proc = build_processed_csv(lab, tot)
     bg = build_background_csv(bg_raw)
     compute_headline(wi, proc, bg)
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    sub = ap.add_subparsers(dest="cmd")
+    f = sub.add_parser("fetch", help="fetch wage index + income distribution + PAYE-by-background → data/processed/*.csv")
+    f.set_defaults(func=cmd_fetch)
+    ap.set_defaults(func=cmd_fetch)  # bare run == fetch (AGENTS.md quick command)
+    args = ap.parse_args()
+    return args.func(args)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

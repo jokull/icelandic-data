@@ -2,14 +2,23 @@
 """
 Fetch bike and e-bike import data from Hagstofan (Statistics Iceland).
 Combines multiple tariff code tables across different periods.
+
+Usage:
+    uv run python scripts/hagstofan.py             # fetch all tables (default)
+    uv run python scripts/hagstofan.py list        # show the tariff tables
+    uv run python scripts/hagstofan.py fetch       # explicit fetch
 """
+
+import argparse
+import re
+import sys
+from pathlib import Path
 
 import httpx
 import polars as pl
-from pathlib import Path
-import re
 
 BASE_URL = "https://px.hagstofa.is/pxis/api/v1/is"
+HEADERS = {"User-Agent": "icelandic-data/1.0 (data toolkit fetcher)"}
 
 # Tariff code mappings - see .agents/skills/hagstofan/SKILL.md
 TARIFF_CATEGORIES = {
@@ -37,9 +46,9 @@ def fetch_table(path: str, tariff_codes: list[str]) -> str | None:
     
     # First get metadata to find the correct variable code
     try:
-        meta = httpx.get(url, timeout=30).json()
+        meta = httpx.get(url, timeout=30, headers=HEADERS).json()
     except Exception as e:
-        print(f"  Error getting metadata: {e}")
+        print(f"  WARN: metadata fetch failed for {path}: {e}", file=sys.stderr)
         return None
     
     # Find the tariff code variable
@@ -59,11 +68,11 @@ def fetch_table(path: str, tariff_codes: list[str]) -> str | None:
             break
     
     if not tariff_var:
-        print(f"  Could not find tariff variable in {path}")
+        print(f"  WARN: could not find tariff variable in {path} (schema drift?)", file=sys.stderr)
         return None
     
     if not valid_codes:
-        print(f"  No matching tariff codes found in {path}")
+        print(f"  WARN: no matching tariff codes found in {path}", file=sys.stderr)
         return None
     
     print(f"  Found {len(valid_codes)} matching codes: {valid_codes[:5]}...")
@@ -80,14 +89,14 @@ def fetch_table(path: str, tariff_codes: list[str]) -> str | None:
     }
     
     try:
-        resp = httpx.post(url, json=query, timeout=60)
+        resp = httpx.post(url, json=query, timeout=60, headers=HEADERS)
         if resp.status_code != 200:
-            print(f"  Failed to fetch {path}: {resp.status_code}")
-            print(f"  Response: {resp.text[:500]}")
+            print(f"  WARN: fetch failed for {path}: HTTP {resp.status_code} — {resp.text[:200]}",
+                  file=sys.stderr)
             return None
         return resp.text
     except Exception as e:
-        print(f"  Error fetching: {e}")
+        print(f"  WARN: fetch failed for {path}: {e}", file=sys.stderr)
         return None
 
 
@@ -98,7 +107,9 @@ def parse_wide_csv(raw_file: Path) -> pl.DataFrame:
     # Try to decode as UTF-8, falling back to latin-1
     try:
         text = content.decode("utf-8-sig")  # Handle BOM
-    except:
+    except UnicodeDecodeError:
+        # Hagstofan occasionally serves ISO-8859-1; only fall back on an
+        # actual encoding error, never swallow other failures silently.
         text = content.decode("latin-1")
     
     # Parse CSV
@@ -132,11 +143,17 @@ def parse_wide_csv(raw_file: Path) -> pl.DataFrame:
             year = col_match.group(1)
             metric = col_match.group(2).lower()
             
-            # Parse value
+            # Parse value — never fabricate a 0 for a failed parse: warn loudly
+            # to stderr and skip the cell so missing data stays missing.
+            raw = str(value).replace(",", "").replace(" ", "") if value is not None else ""
+            if raw == "":
+                continue  # empty/missing cell
             try:
-                val = float(str(value).replace(",", "").replace(" ", "")) if value else 0
-            except:
-                val = 0
+                val = float(raw)
+            except ValueError:
+                print(f"  WARN: unparseable value {value!r} in column {col_name!r} "
+                      f"for tariff {tariff_full!r} — skipping cell", file=sys.stderr)
+                continue
             
             # Determine metric type
             if "cif" in metric:
@@ -159,7 +176,18 @@ def parse_wide_csv(raw_file: Path) -> pl.DataFrame:
     return pl.DataFrame(records)
 
 
-def main():
+def cmd_list(args) -> int:
+    """Print the Hagstofan tariff tables this script fetches."""
+    print("Hagstofan bike/e-bike import tables:")
+    for path, name in TABLES:
+        print(f"  {name:14s} {BASE_URL}/{path}")
+    print("\nTariff categories:")
+    for code, cat in TARIFF_CATEGORIES.items():
+        print(f"  {code} -> {cat}")
+    return 0
+
+
+def cmd_fetch(args) -> int:
     """Fetch and process all bike import data."""
     output_dir = Path(__file__).parent.parent / "data" / "processed"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -169,6 +197,7 @@ def main():
     
     tariff_codes = list(TARIFF_CATEGORIES.keys())
     all_data = []
+    failed_tables = []
     
     for table_path, source_name in TABLES:
         print(f"Fetching {source_name}...")
@@ -179,6 +208,8 @@ def main():
             raw_file = raw_dir / f"{source_name}.csv"
             raw_file.write_text(csv_text, encoding="utf-8")
             print(f"  Saved raw to {raw_file}")
+        else:
+            failed_tables.append(source_name)
     
     # Parse all raw files
     print("\nParsing raw files...")
@@ -190,8 +221,8 @@ def main():
             print(f"    Got {len(df)} records")
     
     if not all_data:
-        print("No data found!")
-        return
+        print("ERROR: no data fetched or parsed — nothing written", file=sys.stderr)
+        return 1
     
     # Combine all data
     combined = pl.concat(all_data)
@@ -226,7 +257,24 @@ def main():
     output.write_csv(output_file)
     print(f"\nSaved {len(output)} rows to {output_file}")
     print(output)
+    
+    if failed_tables:
+        print(f"WARN: {len(failed_tables)} of {len(TABLES)} tables failed to fetch "
+              f"({', '.join(failed_tables)}) — output may be incomplete", file=sys.stderr)
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    sub = ap.add_subparsers(dest="cmd")
+    l = sub.add_parser("list", help="list the Hagstofan tariff tables this script fetches")
+    l.set_defaults(func=cmd_list)
+    f = sub.add_parser("fetch", help="fetch bike/e-bike imports → data/processed/bike_imports_all.csv")
+    f.set_defaults(func=cmd_fetch)
+    ap.set_defaults(func=cmd_fetch)  # bare run == fetch (AGENTS.md quick command)
+    args = ap.parse_args()
+    return args.func(args)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

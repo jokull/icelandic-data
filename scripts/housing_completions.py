@@ -12,10 +12,16 @@ same measurement with minor revision.
 
 Output: data/processed/iceland_housing_completions.csv
 
-Usage: uv run python scripts/housing_completions.py
+Usage:
+    uv run python scripts/housing_completions.py                        # fetch Hagstofan + build
+    uv run python scripts/housing_completions.py fetch --use-cached     # reuse cached raw fetch
+
+HMS 2020–2025 figures are HARDCODED in HMS_COMPLETIONS (see --help); update
+them annually when HMS publishes the next housing plan report.
 """
 
-from io import StringIO
+import argparse
+import sys
 from pathlib import Path
 
 import httpx
@@ -23,6 +29,8 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 DST = ROOT / "data" / "processed" / "iceland_housing_completions.csv"
+RAW_HAG = ROOT / "data" / "raw" / "hagstofan" / "IDN03001_housing_completions.csv"
+HEADERS = {"User-Agent": "icelandic-data/1.0 (data toolkit fetcher)"}
 
 HAGSTOFAN_URL = (
     "https://px.hagstofa.is/pxis/api/v1/is/"
@@ -51,13 +59,8 @@ HMS_COMPLETIONS = {
 }
 
 
-def fetch_hagstofan() -> dict[int, int]:
-    """Fetch Hagstofan completions 1970–2021."""
-    resp = httpx.post(HAGSTOFAN_URL, json=HAGSTOFAN_QUERY, timeout=30)
-    resp.raise_for_status()
-    # CSV uses ISO-8859-1; decode from bytes
-    text = resp.content.decode("iso-8859-1")
-    # First line is header, each row: "YYYY",count
+def _parse_completions(text: str) -> dict[int, int]:
+    """Parse the ISO-8859-1 'YYYY',count CSV body into {year: count}."""
     out = {}
     for line in text.splitlines()[1:]:
         parts = line.replace('"', "").split(",")
@@ -66,9 +69,37 @@ def fetch_hagstofan() -> dict[int, int]:
     return out
 
 
-def main():
-    hag = fetch_hagstofan()
-    print(f"Hagstofan IDN03001: {len(hag)} years ({min(hag)}–{max(hag)})")
+def fetch_hagstofan() -> dict[int, int]:
+    """Fetch Hagstofan completions 1970–2021 and cache the raw response."""
+    resp = httpx.post(HAGSTOFAN_URL, json=HAGSTOFAN_QUERY, timeout=30, headers=HEADERS)
+    resp.raise_for_status()
+    # CSV uses ISO-8859-1; decode from bytes
+    text = resp.content.decode("iso-8859-1")
+    RAW_HAG.parent.mkdir(parents=True, exist_ok=True)
+    RAW_HAG.write_text(text, encoding="utf-8")
+    return _parse_completions(text)
+
+
+def load_cached_hagstofan() -> dict[int, int]:
+    """Read the raw response cached by a previous run."""
+    if not RAW_HAG.exists():
+        raise FileNotFoundError(
+            f"no cached Hagstofan data at {RAW_HAG} — run without --use-cached first"
+        )
+    return _parse_completions(RAW_HAG.read_text(encoding="utf-8"))
+
+
+def cmd_fetch(args) -> int:
+    if args.use_cached:
+        hag = load_cached_hagstofan()
+        print(f"Cached Hagstofan IDN03001: {len(hag)} years ({min(hag)}–{max(hag)})")
+    else:
+        hag = fetch_hagstofan()
+        print(f"Hagstofan IDN03001: {len(hag)} years ({min(hag)}–{max(hag)})")
+
+    if not hag:
+        print("ERROR: no Hagstofan completions data — nothing written", file=sys.stderr)
+        return 1
 
     # Combine: Hagstofan 1970–2019, HMS 2020–2025 (prefer HMS where overlapping)
     combined = {y: v for y, v in hag.items() if y <= 2019}
@@ -103,7 +134,33 @@ def main():
 
     total_15_24 = sum(combined[y] for y in range(2015, 2025))
     print(f"\n2015–2024 total: {total_15_24}")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=("NOTE: HMS completions for 2020–2025 are HARDCODED in HMS_COMPLETIONS "
+                "from sheet 2.1 of the annual húsnæðisáætlanir report — update them by "
+                "hand whenever HMS publishes the next housing plan, or the tail of the "
+                "series silently stops moving. Hagstofan IDN03001 froze after 2021."),
+    )
+    sub = ap.add_subparsers(dest="cmd")
+    f = sub.add_parser(
+        "fetch",
+        help="fetch Hagstofan IDN03001 + HMS → data/processed/iceland_housing_completions.csv",
+    )
+    f.add_argument(
+        "--use-cached",
+        action="store_true",
+        help="skip the Hagstofan fetch and reuse the raw response cached by a "
+             "previous run (data/raw/hagstofan/IDN03001_housing_completions.csv)",
+    )
+    f.set_defaults(func=cmd_fetch)
+    ap.set_defaults(func=cmd_fetch, use_cached=False)  # bare run == fetch (AGENTS.md quick command)
+    args = ap.parse_args()
+    return args.func(args)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

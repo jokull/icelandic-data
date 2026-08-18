@@ -16,6 +16,7 @@ Outputs:
 - data/processed/hagstofan_foreign_labor_share.csv
 """
 
+import argparse
 import json
 from pathlib import Path
 
@@ -533,7 +534,7 @@ def build_labor_csv(recs: list[dict]) -> pl.DataFrame:
 # main
 # ---------------------------------------------------------------------------
 
-def main():
+def cmd_fetch(args) -> int:
     print("=" * 60)
     print("A. Population")
     print("=" * 60)
@@ -632,7 +633,18 @@ def main():
             print(f"  {dt}: {row.item(0, 'immigrant_share_pct'):.2f}%")
     latest_lab = lab_df.sort("date").tail(1)
     print(f"  {latest_lab.item(0, 'date')}: {latest_lab.item(0, 'immigrant_share_pct'):.2f}%")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    sub = ap.add_subparsers(dest="cmd")
+    f = sub.add_parser("fetch", help="fetch population/wages/labor data → data/processed/*.csv")
+    f.set_defaults(func=cmd_fetch)
+    ap.set_defaults(func=cmd_fetch)  # bare run == fetch (AGENTS.md quick command)
+    args = ap.parse_args()
+    return args.func(args)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

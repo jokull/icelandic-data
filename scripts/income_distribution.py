@@ -1,5 +1,12 @@
-"""Fetch income distribution data from Hagstofa PX-Web API."""
+"""Fetch income distribution data from Hagstofa PX-Web API.
 
+Usage:
+    uv run python scripts/income_distribution.py                          # fetch all datasets
+    uv run python scripts/income_distribution.py fetch                    # fetch all datasets
+    uv run python scripts/income_distribution.py fetch --tables tax_burden income_by_age
+"""
+
+import argparse
 from pathlib import Path
 
 import httpx
@@ -181,11 +188,56 @@ def fetch_tax_burden():
     print(f"  Saved {path}")
 
 
-if __name__ == "__main__":
-    fetch_income_by_source()
-    fetch_income_by_source_gender()
-    fetch_income_by_age()
-    fetch_total_income_distribution()
-    fetch_employment_income_distribution()
-    fetch_tax_burden()
+# Discoverable dataset catalog (fetch --tables selects from these)
+DATASETS = [
+    ("income_by_source", fetch_income_by_source, "TEK01001 income by source, age, gender (mean+median)"),
+    ("income_by_source_gender", fetch_income_by_source_gender, "TEK01001 income by source × gender"),
+    ("income_by_age", fetch_income_by_age, "TEK01001 income by 5-year age bands"),
+    ("total_income_distribution", fetch_total_income_distribution, "TEK01006 total income distribution (percentiles)"),
+    ("employment_income_distribution", fetch_employment_income_distribution, "TEK01007 employment income distribution (percentiles)"),
+    ("tax_burden", fetch_tax_burden, "TEK01001 all income types + taxes"),
+]
+DATASET_NAMES = [name for name, _, _ in DATASETS]
+
+
+def cmd_fetch(args) -> int:
+    fns = {name: fn for name, fn, _ in DATASETS}
+    for name in args.tables:
+        fns[name]()
     print("Done!")
+    return 0
+
+
+def cmd_list(args) -> int:
+    """Print the datasets this script can fetch."""
+    print("Hagstofan income-distribution datasets:")
+    for name, _, desc in DATASETS:
+        print(f"  {name:<32} {desc}")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    sub = ap.add_subparsers(dest="cmd")
+    l = sub.add_parser("list", help="list the datasets this script can fetch")
+    l.set_defaults(func=cmd_list)
+    f = sub.add_parser(
+        "fetch",
+        help="fetch income-distribution CSVs → data/processed/ (default: all datasets)",
+    )
+    f.add_argument(
+        "--tables",
+        nargs="*",
+        choices=DATASET_NAMES,
+        default=DATASET_NAMES,
+        metavar="TABLE",
+        help="datasets to fetch (default: all six)",
+    )
+    f.set_defaults(func=cmd_fetch)
+    ap.set_defaults(func=cmd_fetch, tables=DATASET_NAMES)  # bare run == fetch all (AGENTS.md quick command)
+    args = ap.parse_args()
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

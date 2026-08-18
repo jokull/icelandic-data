@@ -17,7 +17,9 @@ series onto the Jan 2008 = 100 base (matching VIS01304 / VIS01102).
 """
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -25,6 +27,7 @@ import httpx
 import polars as pl
 
 BASE_URL = "https://px.hagstofa.is/pxis/api/v1/is"
+HEADERS = {"User-Agent": "icelandic-data/1.0 (data toolkit fetcher)"}
 ROOT = Path(__file__).parent.parent
 RAW_DIR = ROOT / "data" / "raw" / "hagstofan" / "cpi"
 PROCESSED = ROOT / "data" / "processed" / "hagstofan_cpi_components.csv"
@@ -107,7 +110,7 @@ SERIES = [
 # --- Fetch helpers ------------------------------------------------------------
 
 def _post(url: str, body: dict) -> dict:
-    r = httpx.post(url, json=body, timeout=60)
+    r = httpx.post(url, json=body, timeout=60, headers=HEADERS)
     r.raise_for_status()
     return r.json()
 
@@ -276,8 +279,21 @@ def add_changes(df: pl.DataFrame) -> pl.DataFrame:
 
 # --- Main ---------------------------------------------------------------------
 
-def main():
+def cmd_list(args) -> int:
+    """Print the CPI series catalog."""
+    print("Hagstofan CPI sub-component series (fetch builds each from "
+          "archive + current tables, chain-linked at the overlap month):")
+    for (code, name_is, name_en, level,
+         archive_path, archive_val, current_path, current_val) in SERIES:
+        cur = current_path.split("/")[-1] if current_path else "-"
+        arc = archive_path.split("/")[-1] if archive_path else "-"
+        print(f"  {code:<16} {level:<12} current={cur:<12} archive={arc}")
+    return 0
+
+
+def cmd_fetch(args) -> int:
     all_rows: list[pl.DataFrame] = []
+    failed_fetches: list[str] = []
 
     for spec in SERIES:
         (series_code, name_is, name_en, level,
@@ -316,7 +332,8 @@ def main():
                 print(f"  current: {len(current_df)} rows "
                       f"({current_df['date'].min()}..{current_df['date'].max()})" if len(current_df) else "  current: empty")
             except Exception as e:
-                print(f"  WARN current fetch failed: {e}")
+                print(f"  WARN current fetch failed for {series_code}: {e}", file=sys.stderr)
+                failed_fetches.append(f"{series_code} (current)")
 
         # ---- Fetch archive data ----
         archive_df = pl.DataFrame()
@@ -387,7 +404,8 @@ def main():
                 print(f"  archive: {len(archive_df)} rows "
                       f"({archive_df['date'].min()}..{archive_df['date'].max()})" if len(archive_df) else "  archive: empty")
             except Exception as e:
-                print(f"  WARN archive fetch failed: {e}")
+                print(f"  WARN archive fetch failed for {series_code}: {e}", file=sys.stderr)
+                failed_fetches.append(f"{series_code} (archive)")
 
         # ---- Chain and trim ----
         if series_code == "CPI":
@@ -396,8 +414,9 @@ def main():
         else:
             combined = chain_link(archive_df, current_df)
 
-        # Trim to >=2015-01-01
-        combined = combined.filter(pl.col("date") >= "2015-01-01")
+        # Trim to >=2015-01-01 (guard: an empty combined df has no columns)
+        if not combined.is_empty():
+            combined = combined.filter(pl.col("date") >= "2015-01-01")
         print(f"  combined: {len(combined)} rows "
               f"({combined['date'].min()}..{combined['date'].max()})" if len(combined) else "  combined: EMPTY")
         if not combined.is_empty():
@@ -405,8 +424,10 @@ def main():
 
     # ---- Merge everything ----
     if not all_rows:
-        print("No data collected!")
-        return
+        print("ERROR: no series data collected — nothing written", file=sys.stderr)
+        for f_ in failed_fetches:
+            print(f"  failed fetch: {f_}", file=sys.stderr)
+        return 1
     master = pl.concat(all_rows)
     master = add_changes(master)
 
@@ -426,6 +447,29 @@ def main():
         pl.len().alias("n"),
     ).sort("series_code"))
 
+    # ---- Failure accounting: a partially-missing CSV must never look full ----
+    present = set(master["series_code"].unique().to_list())
+    expected = {s[0] for s in SERIES}
+    missing = sorted(expected - present)
+    if missing or failed_fetches:
+        print(f"WARN: {len(missing)} of {len(expected)} series missing from "
+              f"output: {missing}", file=sys.stderr)
+        for f_ in failed_fetches:
+            print(f"  failed fetch: {f_}", file=sys.stderr)
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    sub = ap.add_subparsers(dest="cmd")
+    l = sub.add_parser("list", help="list the CPI series this script fetches")
+    l.set_defaults(func=cmd_list)
+    f = sub.add_parser("fetch", help="fetch CPI sub-components → data/processed/hagstofan_cpi_components.csv")
+    f.set_defaults(func=cmd_fetch)
+    ap.set_defaults(func=cmd_fetch)  # bare run == fetch (AGENTS.md quick command)
+    args = ap.parse_args()
+    return args.func(args)
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
