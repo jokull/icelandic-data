@@ -67,18 +67,17 @@ def test_dm_schemas_match_powerbi_descriptor():
     assert NAUTGRIPA_IDX == 1
 
 
-@pytest.mark.xfail(
-    reason="parse_matrix needs a ValueDicts.D0 entry to resolve Nautgriparækt by name; "
-    "synthetic body in this test lacks one, so DM3 is not processed. Either pass a "
-    "ValueDicts.D0 in the test fixture or add a NAUTGRIPA_IDX fallback path."
-)
 def test_parse_matrix_handles_repeat_and_null_masks():
     """Synthetic body shaped like the real matrix — mirrors Dufþakshólt row.
 
     DM3 row 1 establishes a baseline, row 2 uses R (repeat) + Ø (null) masks
-    to compress values, just like Power BI's real wire format.
+    to compress values, just like Power BI's real wire format. The body
+    carries the ValueDicts.D0 dict the real response includes, so
+    parse_matrix can resolve the Nautgriparækt samningur index (G1 == 1)
+    and process DM3.
     """
     body = {
+        "ValueDicts": {"D0": ["Ýmis stuðningur", "Nautgriparækt"]},
         "results": [{
             "result": {"data": {"dsr": {"DS": [{"PH": [
                 {"DM1": [{
