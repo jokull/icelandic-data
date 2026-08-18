@@ -17,8 +17,8 @@ GENERATION_URL = (
     "https://vefskrar.orkustofnun.is/Talnaefni/"
     "OS-2025-1-throun-raforkuframleidslu-a-islandi-1969-2024.xlsx"
 )
-RAW_DIR = Path("data/raw/energy")
-OUT = Path("data/processed/energy_generation.parquet")
+RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw" / "energy"
+OUT = Path(__file__).resolve().parent.parent / "data" / "processed" / "energy_generation.parquet"
 
 
 def parse_generation(path: Path) -> pl.DataFrame:

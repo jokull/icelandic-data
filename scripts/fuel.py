@@ -30,7 +30,7 @@ MAJOR_RETAILERS = {"ao", "n1", "ol", "or"}
 
 def load_trends() -> pl.DataFrame:
     """Load Gasvaktin trends.json into a flat DataFrame."""
-    with open(RAW_DIR / "vaktin" / "trends.json") as f:
+    with open(RAW_DIR / "vaktin" / "trends.json", encoding="utf-8") as f:
         data = json.load(f)
 
     rows = []

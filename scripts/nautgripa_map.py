@@ -30,8 +30,8 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-RECIPIENTS_CSV = Path("data/processed/nautgripa_recipients.csv")
-GEODATA = Path("data/geodata")
+RECIPIENTS_CSV = Path(__file__).resolve().parent.parent / "data" / "processed" / "nautgripa_recipients.csv"
+GEODATA = Path(__file__).resolve().parent.parent / "data" / "geodata"
 
 OUT_PNG = Path("reports/nautgripa-map.png")
 OUT_HTML = Path("reports/nautgripa-map.html")

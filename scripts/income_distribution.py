@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 
 BASE = "https://px.hagstofa.is/pxis/api/v1/is/Samfelag/launogtekjur"
-OUT = Path("data/processed")
+OUT = Path(__file__).resolve().parent.parent / "data" / "processed"
 OUT.mkdir(parents=True, exist_ok=True)
 
 

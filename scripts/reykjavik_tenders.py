@@ -122,7 +122,7 @@ def scrape_year(year: int, url: str) -> list[dict]:
 
 
 def main():
-    output = Path("data/processed/reykjavik_winter_tenders.csv")
+    output = Path(__file__).resolve().parent.parent / "data" / "processed" / "reykjavik_winter_tenders.csv"
     output.parent.mkdir(parents=True, exist_ok=True)
 
     all_tenders = []
@@ -131,7 +131,7 @@ def main():
         all_tenders.extend(tenders)
         print(f"  {year}: {len(tenders)} winter/street tenders found", file=sys.stderr)
 
-    with open(output, "w", newline="") as f:
+    with open(output, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["year", "tender_id", "description", "category"])
         writer.writeheader()
         writer.writerows(all_tenders)

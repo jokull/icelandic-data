@@ -25,8 +25,8 @@ from pathlib import Path
 
 import polars as pl
 
-RAW = Path("data/raw/hms/indices")
-OUT = Path("data/processed/hms_rent_vs_price_index.csv")
+RAW = Path(__file__).resolve().parent.parent / "data" / "raw" / "hms" / "indices"
+OUT = Path(__file__).resolve().parent.parent / "data" / "processed" / "hms_rent_vs_price_index.csv"
 
 
 def load_kaup() -> pl.DataFrame:

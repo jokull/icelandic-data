@@ -25,10 +25,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-RAW_DIR = Path("data/raw/landeignaskra")
+RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw" / "landeignaskra"
 ZIP_PATH = RAW_DIR / "landeignaskra.zip"
 EXTRACT_DIR = RAW_DIR / "extracted"
-PROCESSED = Path("data/processed/landeignaskra.csv")
+PROCESSED = Path(__file__).resolve().parent.parent / "data" / "processed" / "landeignaskra.csv"
 
 LANDING_URL = "https://hms.is/gogn-og-maelabord/grunngogntilnidurhals/landeignaskrazip"
 BLOB_URL = "https://hmsstgsftpprodweu001.blob.core.windows.net/fasteignaskra/Landeignaskra.zip"

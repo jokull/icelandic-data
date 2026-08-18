@@ -61,6 +61,7 @@ def calculate(
             "Content-Type": "application/json",
             "X-Requested-With": "XMLHttpRequest",
         },
+        timeout=60,
     )
     resp.raise_for_status()
     result = resp.json()

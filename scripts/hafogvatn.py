@@ -16,8 +16,8 @@ from bs4 import BeautifulSoup
 
 BASE = "https://www.hafogvatn.is"
 CATALOGUE = f"{BASE}/en/moya/extras/categories/radgjof"
-RAW_DIR = Path("data/raw/hafogvatn")
-OUT_DIR = Path("data/processed")
+RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw" / "hafogvatn"
+OUT_DIR = Path(__file__).resolve().parent.parent / "data" / "processed"
 
 
 def tables_url(stock: str, year: int) -> str:

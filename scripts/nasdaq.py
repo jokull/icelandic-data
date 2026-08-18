@@ -57,7 +57,7 @@ def query(
     if to_date:
         params["toDate"] = to_date
 
-    resp = httpx.get(f"{BASE_URL}/query.action", params=params)
+    resp = httpx.get(f"{BASE_URL}/query.action", params=params, timeout=60)
     resp.raise_for_status()
     return resp.json()
 
@@ -121,7 +121,7 @@ def get_metadata(
     if company:
         params["company"] = company
 
-    resp = httpx.get(f"{BASE_URL}/metadata.action", params=params)
+    resp = httpx.get(f"{BASE_URL}/metadata.action", params=params, timeout=60)
     resp.raise_for_status()
     data = resp.json()
     return [fact["id"] for fact in data.get("facts", [])]
@@ -142,7 +142,7 @@ def download_attachment(url: str, output_dir: Path | None = None) -> Path:
     output_dir = output_dir or DATA_DIR / "attachments"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    resp = httpx.get(url)
+    resp = httpx.get(url, timeout=60)
     resp.raise_for_status()
 
     # Get filename from header or URL
@@ -227,7 +227,7 @@ def main():
         ]
 
         if args.output:
-            Path(args.output).write_text(json.dumps(output, indent=2, ensure_ascii=False))
+            Path(args.output).write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8")
             print(f"Wrote {len(output)} results to {args.output}")
         else:
             print(json.dumps(output, indent=2, ensure_ascii=False))

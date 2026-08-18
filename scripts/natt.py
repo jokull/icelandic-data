@@ -77,7 +77,7 @@ DEFAULT_DN = 95           # L14.2 Tún og akurlendi
 DEFAULT_RES_M = 50
 DEFAULT_TILE_PX = 5000    # 250 km square at 50 m — ~25 MB per WCS request
 
-RAW = Path("data/raw/natt/vistgerdir")
+RAW = Path(__file__).resolve().parent.parent / "data" / "raw" / "natt" / "vistgerdir"
 
 
 # ── inventory: the raster colormap is the DN → htxt table ────────────────

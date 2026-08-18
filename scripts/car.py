@@ -48,6 +48,7 @@ def lookup(search: str) -> list[dict]:
             "query": VEHICLE_SEARCH_QUERY,
         },
         headers={"Content-Type": "application/json"},
+        timeout=60,
     )
     resp.raise_for_status()
     data = resp.json()

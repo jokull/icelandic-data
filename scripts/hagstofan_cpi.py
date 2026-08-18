@@ -117,7 +117,7 @@ def fetch_json(table_path: str, query: list[dict], out_file: Path) -> dict:
     url = f"{BASE_URL}/{table_path}"
     body = {"query": query, "response": {"format": "json"}}
     data = _post(url, body)
-    out_file.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    out_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return data
 
 

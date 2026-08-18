@@ -183,7 +183,7 @@ async def _run_fetch(args):
         tag = col.split(" ")[0].split("-")[0][:6] + "-" + "+".join(vals)
         parts.append("".join(ch for ch in tag if ch.isalnum() or ch in "-+"))
     out = Path(args.out) if args.out else OUT_DIR / ("_".join(parts) + ".csv")
-    with out.open("w", newline="") as f:
+    with out.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=header)
         w.writeheader()
         w.writerows(records)

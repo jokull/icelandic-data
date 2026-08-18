@@ -16,8 +16,8 @@ import polars as pl
 
 WFS = "https://gis.ust.is/geoserver/ows"
 CONTAMINATED_LAND = "INSPIRE:mengadur_jardvegur"
-RAW_DIR = Path("data/raw/ust_gis")
-OUT = Path("data/processed/ust_contaminated_land.parquet")
+RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw" / "ust_gis"
+OUT = Path(__file__).resolve().parent.parent / "data" / "processed" / "ust_contaminated_land.parquet"
 
 
 def get(params: dict) -> httpx.Response:

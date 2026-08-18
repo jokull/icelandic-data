@@ -11,8 +11,8 @@ import httpx
 
 TED_API_URL = "https://api.ted.europa.eu/v3/notices/search"
 OCDS_DOWNLOAD_URL = "https://data.open-contracting.org/en/publication/57/download?name=full.jsonl.gz"
-RAW_DIR = Path("data/raw/procurement")
-PROCESSED_DIR = Path("data/processed")
+RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw" / "procurement"
+PROCESSED_DIR = Path(__file__).resolve().parent.parent / "data" / "processed"
 
 
 def download_ocds(args):
@@ -29,7 +29,7 @@ def download_ocds(args):
                 f.write(chunk)
 
     print("Decompressing...", file=sys.stderr)
-    with gzip.open(gz_path, "rt", encoding="utf-8") as gz, open(output, "w") as out:
+    with gzip.open(gz_path, "rt", encoding="utf-8") as gz, open(output, "w", encoding="utf-8") as out:
         count = 0
         for line in gz:
             out.write(line)
@@ -193,7 +193,7 @@ def extract_awards(args):
     if args.output:
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w", newline="") as f:
+        with open(output, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)

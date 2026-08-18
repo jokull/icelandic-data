@@ -27,7 +27,7 @@ FRANKFURTER_URL = "https://api.frankfurter.dev/v1"
 
 def fetch_current_rates(codes: list[str] | None = None) -> dict[str, dict]:
     """Fetch current card rates from Borgun."""
-    resp = httpx.get(BORGUN_URL)
+    resp = httpx.get(BORGUN_URL, timeout=60)
     resp.raise_for_status()
     root = ET.fromstring(resp.text)
 

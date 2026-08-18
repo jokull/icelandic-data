@@ -149,7 +149,7 @@ def fetch_population_quarterly():
     """MAN10001: quarterly, total country, Ísl. vs Erl. ríkisborgarar."""
     path = "Ibuar/mannfjoldi/1_yfirlit/arsfjordungstolur/MAN10001.px"
     meta = fetch_metadata(path)
-    (POPULATION_DIR / "MAN10001_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2))
+    (POPULATION_DIR / "MAN10001_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # Keep only Alls municipality, Alls/Íslenskir/Erlendir from Kyn og ríkisfang,
     # all quarters 2010Á4-present.
@@ -177,7 +177,7 @@ def fetch_population_quarterly():
                                                     "values": [v for v in wanted.values() if v]}},
     ]
     data = post_json(path, query)
-    (POPULATION_DIR / "MAN10001_quarterly.json").write_text(json.dumps(data, ensure_ascii=False))
+    (POPULATION_DIR / "MAN10001_quarterly.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     recs = jsonstat_to_records(data)
     return recs
 
@@ -186,7 +186,7 @@ def fetch_population_by_country():
     """MAN04103: annual Jan 1, population by citizenship (country), all ages/sex."""
     path = "Ibuar/mannfjoldi/3_bakgrunnur/Rikisfang/MAN04103.px"
     meta = fetch_metadata(path)
-    (POPULATION_DIR / "MAN04103_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2))
+    (POPULATION_DIR / "MAN04103_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     var_map = {v["code"]: v for v in meta["variables"]}
 
@@ -214,7 +214,7 @@ def fetch_population_by_country():
     ]
 
     data = post_json(path, query)
-    (POPULATION_DIR / "MAN04103_by_country.json").write_text(json.dumps(data, ensure_ascii=False))
+    (POPULATION_DIR / "MAN04103_by_country.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     return jsonstat_to_records(data)
 
 
@@ -372,7 +372,7 @@ SECTOR_NAME_EN = {
 def fetch_wages_by_sector():
     path = "Samfelag/launogtekjur/2_lvt/1_manadartolur/LAU04007.px"
     meta = fetch_metadata(path)
-    (WAGES_DIR / "LAU04007_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2))
+    (WAGES_DIR / "LAU04007_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     var_map = {v["code"]: v for v in meta["variables"]}
     manuaur = var_map["Mánuður"]
@@ -394,7 +394,7 @@ def fetch_wages_by_sector():
         {"code": "Eining", "selection": {"filter": "item", "values": eining_vals}},
     ]
     data = post_json(path, query)
-    (WAGES_DIR / "LAU04007_wages_by_sector.json").write_text(json.dumps(data, ensure_ascii=False))
+    (WAGES_DIR / "LAU04007_wages_by_sector.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     return jsonstat_to_records(data)
 
 
@@ -402,7 +402,7 @@ def fetch_wages_overall():
     """LAU04001: overall wage index, monthly from 2015."""
     path = "Samfelag/launogtekjur/2_lvt/1_manadartolur/LAU04001.px"
     meta = fetch_metadata(path)
-    (WAGES_DIR / "LAU04001_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2))
+    (WAGES_DIR / "LAU04001_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     var_map = {v["code"]: v for v in meta["variables"]}
     months = var_map["Mánuður"]["values"]
@@ -418,7 +418,7 @@ def fetch_wages_overall():
         {"code": "Eining", "selection": {"filter": "item", "values": eining_vals}},
     ]
     data = post_json(path, query)
-    (WAGES_DIR / "LAU04001_wages_overall.json").write_text(json.dumps(data, ensure_ascii=False))
+    (WAGES_DIR / "LAU04001_wages_overall.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     return jsonstat_to_records(data)
 
 
@@ -475,7 +475,7 @@ def build_wages_csv(sector_recs: list[dict], overall_recs: list[dict]) -> pl.Dat
 def fetch_labor_by_background():
     path = "Samfelag/vinnumarkadur/vinnuaflskraargogn/VIN10001.px"
     meta = fetch_metadata(path)
-    (LABOR_DIR / "VIN10001_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2))
+    (LABOR_DIR / "VIN10001_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     var_map = {v["code"]: v for v in meta["variables"]}
     months = var_map["Mánuður"]["values"]
@@ -494,7 +494,7 @@ def fetch_labor_by_background():
         {"code": "Lögheimili", "selection": {"filter": "item", "values": [loghemili_alls]}},
     ]
     data = post_json(path, query)
-    (LABOR_DIR / "VIN10001_labor_background.json").write_text(json.dumps(data, ensure_ascii=False))
+    (LABOR_DIR / "VIN10001_labor_background.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     return jsonstat_to_records(data)
 
 

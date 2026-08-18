@@ -16,8 +16,8 @@ import polars as pl
 
 WFS = "https://gis.is/geoserver/fiskistofa/wfs"
 ACTIVE_CLOSURES = "virkar_skyndilokanir"
-RAW_DIR = Path("data/raw/fiskistofa")
-OUT = Path("data/processed/fiskistofa_active_closures.parquet")
+RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw" / "fiskistofa"
+OUT = Path(__file__).resolve().parent.parent / "data" / "processed" / "fiskistofa_active_closures.parquet"
 
 
 def get(params: dict) -> httpx.Response:

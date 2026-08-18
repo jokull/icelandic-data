@@ -39,8 +39,8 @@ REPORT = (
 )
 EFTIR_BUI_PAGE = "ReportSection6ce1bcdf21048698c67b"
 
-OUT_RAW = Path("data/raw/hagstofan/nautgripa_recipients_raw.json")
-OUT_CSV = Path("data/processed/nautgripa_recipients.csv")
+OUT_RAW = Path(__file__).resolve().parent.parent / "data" / "raw" / "hagstofan" / "nautgripa_recipients_raw.json"
+OUT_CSV = Path(__file__).resolve().parent.parent / "data" / "processed" / "nautgripa_recipients.csv"
 
 FARM_LABEL_RE = re.compile(r"^\s*(\d{6,8})\s*-\s*(.+?)\s*$")
 NAUTGRIPA_LABEL = "Nautgriparækt"  # resolve per-body via the D0 value-dict

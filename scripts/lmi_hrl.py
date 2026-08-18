@@ -37,7 +37,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 WCS = "https://gis.lmi.is/geoserver/High_Resolution_Layer/wcs"
-RAW = Path("data/raw/lmi_hrl")
+RAW = Path(__file__).resolve().parent.parent / "data" / "raw" / "lmi_hrl"
 
 COVERAGES = {
     "grassland": "High_Resolution_Layer__Grassland",
