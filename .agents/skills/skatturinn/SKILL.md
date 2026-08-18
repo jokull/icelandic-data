@@ -202,14 +202,17 @@ async def map_ownership_chain(
             {
                 "kennitala": "1234567890",
                 "name": "Parent Company hf.",
+                "birth_year_month": None,
                 "ownership_pct": 100.0,
+                "ownership_types": ["Beint eignarhald"],
                 "type": "company",
                 "owners": [...]  # Recursive
             },
             {
-                "kennitala": "0101801234",
                 "name": "Jón Jónsson",
+                "birth_year_month": "1980-JANÚAR",
                 "ownership_pct": 50.0,
+                "ownership_types": ["Beint eignarhald"],
                 "type": "person"  # No recursion for individuals
             }
         ]
@@ -241,14 +244,17 @@ async def map_ownership_chain(
         # Determine if owner is company or person
         # Companies: first 2 digits are month (01-12), not day
         # Actually: company kennitalas start with 4-7 in first digit
-        is_company = owner_kt[0] in "4567"
+        is_company = bool(owner_kt and owner_kt[0] in "4567")
 
         owner_data = {
-            "kennitala": owner_kt,
             "name": owner["name"],
+            "birth_year_month": owner["birth_year_month"],
             "ownership_pct": owner["ownership_pct"],
+            "ownership_types": owner["ownership_types"],
             "type": "company" if is_company else "person"
         }
+        if owner_kt:
+            owner_data["kennitala"] = owner_kt
 
         if is_company:
             # Recurse into parent company
@@ -297,6 +303,8 @@ The first 6 digits encode the registration date. Century determined by 9th digit
 5. **Terms of service:** No explicit prohibition on automated access, but bulk scraping may trigger blocks. Consider contacting fyrirtaekjaskra@skatturinn.is for data access agreements.
 
 6. **Session cookies:** The shopping cart requires maintaining session state. Reuse one `httpx.AsyncClient` (and therefore one cookie jar) across addToCart → cart → download; a fresh client between those steps loses the cart.
+
+7. **Control without a percentage:** `Eignarhlutur` can be `-` when a person qualifies as a beneficial owner through control rather than a stated equity percentage. In that case `ownership_pct` is `null`; inspect `ownership_types` for values such as `Bein stjórnun` or `Tilnefning stjórnarmanna`.
 
 ## Evidence Integration
 

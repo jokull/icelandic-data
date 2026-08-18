@@ -128,10 +128,17 @@ def test_beneficial_owners_markup(owner_page):
         "owner table lost its Eignarhlutur column — get_company_info() reads "
         "the percentage from column index 3"
     )
+    assert "Tegund eignahalds" in owner_block, (
+        "owner table lost its Tegund eignahalds column — get_company_info() "
+        "reads ownership_types from column index 4"
+    )
     assert re.search(
         r"<td[^>]*>\s*\d+[,.]?\d*\s*%\s*</td>", owner_block
     ), "no percentage cell in the owner table"
     assert re.search(r"Fæðingarár/mán", owner_block), (
         "the birth year/month column is gone — the page may now expose full "
         "kennitalas, which would change Owner.kennitala handling"
+    )
+    assert re.search(r"Beint eignarhald", owner_block), (
+        "the owner table has no expected ownership-type value"
     )

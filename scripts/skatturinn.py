@@ -40,7 +40,9 @@ class Owner:
 
     name: str
     kennitala: str | None = None
+    birth_year_month: str | None = None
     ownership_pct: float | None = None
+    ownership_types: list[str] = field(default_factory=list)
     is_company: bool = False
 
     def __post_init__(self):
@@ -174,6 +176,8 @@ async def get_company_info(kennitala: str) -> Company | None:
                         if len(cells) < 4:
                             continue
 
+                        birth_year_month = _strip_html(cells[0]).strip() or None
+
                         # Percentage from the Eignarhlutur column (index 3)
                         pct = None
                         pct_match = re.search(
@@ -181,6 +185,16 @@ async def get_company_info(kennitala: str) -> Company | None:
                         )
                         if pct_match:
                             pct = float(pct_match.group(1).replace(",", "."))
+
+                        ownership_types = []
+                        if len(cells) >= 5:
+                            ownership_types = [
+                                _strip_html(value).strip()
+                                for value in re.split(
+                                    r"<br\s*/?>", cells[4], flags=re.IGNORECASE
+                                )
+                                if _strip_html(value).strip()
+                            ]
 
                         # Companies as owners may carry a kennitala in the
                         # row; persons never do. None keeps the chain from
@@ -194,7 +208,9 @@ async def get_company_info(kennitala: str) -> Company | None:
                             Owner(
                                 name=name,
                                 kennitala=kt_match.group(1) if kt_match else None,
+                                birth_year_month=birth_year_month,
                                 ownership_pct=pct,
+                                ownership_types=ownership_types,
                             )
                         )
         except Exception as e:
@@ -687,11 +703,14 @@ async def map_ownership_chain(
     # Recurse into company owners
     for owner in company.beneficial_owners:
         owner_data = {
-            "kennitala": owner.kennitala,
             "name": owner.name,
+            "birth_year_month": owner.birth_year_month,
             "ownership_pct": owner.ownership_pct,
+            "ownership_types": owner.ownership_types,
             "type": "company" if owner.is_company else "person",
         }
+        if owner.kennitala:
+            owner_data["kennitala"] = owner.kennitala
 
         if owner.is_company and owner.kennitala:
             # Recurse
@@ -759,9 +778,13 @@ async def info_command(kennitala: str) -> None:
     print(f"\nBeneficial owners ({len(company.beneficial_owners)}):")
     for owner in company.beneficial_owners:
         pct = f"{owner.ownership_pct}%" if owner.ownership_pct else "?"
-        kt = owner.kennitala or "no kt on page"
+        identity = owner.kennitala or owner.birth_year_month or "no kt on page"
         type_str = "company" if owner.is_company else "person"
-        print(f"  - {owner.name} ({kt}) - {pct} [{type_str}]")
+        ownership_types = ", ".join(owner.ownership_types) or "?"
+        print(
+            f"  - {owner.name} ({identity}) - {pct} "
+            f"[{type_str}; {ownership_types}]"
+        )
 
     print(f"\nAvailable reports ({len(company.available_reports)}):")
     for report in company.available_reports:
