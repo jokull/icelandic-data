@@ -58,6 +58,7 @@ Per-source uptime and last error are in the
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/rikisreikningur.svg" width="12"> | Ríkisreikningur | State accounts — yearly afkoma 2015+, málefnasvið breakdowns, 35 published files (Azure Functions API) |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/fjarlog.svg" width="12"> | Fjárlög | State budget appropriations + 5-year plan at málaflokkur level (actual / enacted / bill) |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/energy.svg" width="12"> | Energy | Electricity generation by source, energy-system tables and fuel sales (Environment & Energy Agency) |
+| <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/althingi.svg" width="12"> | Alþingi | Parliamentary XML — MPs, per-MP vote records, bills, committees, speeches (1875+) |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/eurostat.svg" width="12"> | Eurostat | Euro-area / EU statistics — HICP, compensation of employees, employment, labour costs (official REST API) |
 
 ### Government dashboards (_mælaborð_)

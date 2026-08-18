@@ -236,6 +236,14 @@ uv run python scripts/rikisreikningur.py files
 uv run python scripts/hagstofan_rikissjod.py list     # sibling tables + coverage
 uv run python scripts/hagstofan_rikissjod.py fetch    # → data/processed/rikissjod_balance.csv
 
+# Alþingi — parliamentary XML: MPs, per-MP vote records, bills, committees, speeches
+# --thing defaults to the sitting parliament (resolved at runtime, never hardcoded)
+uv run python scripts/althingi.py list                        # all parliaments
+uv run python scripts/althingi.py list --datasets
+uv run python scripts/althingi.py fetch --dataset members     # roster + party + constituency
+uv run python scripts/althingi.py fetch --dataset votes --thing 156   # events + per-MP ballots
+uv run python scripts/althingi.py fetch --dataset all --thing 150-156
+
 # Fjárlög — state budget APPROPRIATIONS + 5-yr plan (málaflokkur level)
 uv run python scripts/fjarlog.py fetch                 # → data/processed/fjarlog.parquet
 uv run python scripts/fjarlog.py products              # afurð × year coverage
