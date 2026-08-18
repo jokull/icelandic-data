@@ -142,8 +142,8 @@ Peningamál 2026/1).
 |---------|----------|---------|-----|
 | Balance Sheets | SDMX | ❌ **proxy only** | `https://fr.sedlabanki.is/sdmx/v2/table/IS2_EXT/INN_BALANCE_SHEETS_TOTAL/1.0?format=xlsx` |
 | New Credit | Library | ✅ direct | `https://sedlabanki.is/library?itemid=b73e42d6-ba32-4eb3-b39e-1c70d2e45aec` |
-| FX market (daily) | XML time series | ✅ **direct** | `https://sedlabanki.is/xmltimeseries/Default.aspx?DagsFra=2019-01-01&GroupID=8&Type=csv` |
-| EUR mid rate (daily) | XML time series | ✅ **direct** | `https://sedlabanki.is/xmltimeseries/Default.aspx?DagsFra=2019-01-01&TimeSeriesID=4064&Type=csv` |
+| FX market (daily) | XML time series | ✅ **direct** | `https://sedlabanki.is/xmltimeseries/Default.aspx?DagsFra=2009-01-01&GroupID=8&Type=csv` |
+| EUR mid rate (daily) | XML time series | ✅ **direct** | `https://sedlabanki.is/xmltimeseries/Default.aspx?DagsFra=2009-01-01&TimeSeriesID=4064&Type=csv` |
 | CBI balance sheet (reserves) | Library | ❌ **proxy only** | `https://sedlabanki.is/library?itemid=c0126d81-fd88-42bd-aee3-449e09b9089f` |
 
 ### XML Time Series endpoint (`xmltimeseries`)

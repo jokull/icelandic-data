@@ -1,6 +1,8 @@
 """
 Seðlabanki FX intervention — CBI net purchases/sales, FX market turnover,
-FX reserves, and the ISK/EUR mid rate, monthly since 2019.
+FX reserves, and the ISK/EUR mid rate, monthly since 2009 (series start;
+the 2017-03 capital-control liberalization is the intervention-float
+regime anchor, so pre/post contrast needs the controls era included).
 
 Sources (all public, no auth):
   1. XML time series (direct HTTP — NOT the fr.sedlabanki.is SDMX proxy):
@@ -48,7 +50,7 @@ CB_BALANCE_LIBRARY = (
     "https://sedlabanki.is/library?itemid=c0126d81-fd88-42bd-aee3-449e09b9089f"
 )
 PROXY = "https://gagnabanki.is/api/download"
-START_DATE = "2019-01-01"  # covers COVID (2020-21) + the 2025 carry-trade era
+START_DATE = "2009-01-01"  # daily XML series start; covers controls era (2009-2017) + intervention-float (2017-03 onward) for a pre/post regime contrast
 
 RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / "sedlabanki"
 PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
