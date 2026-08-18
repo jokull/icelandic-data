@@ -52,7 +52,7 @@ Style: system fonts, max-width `960px`, cards with `border-radius: 12px`, Chart.
 
 ## Adding a New Data Source
 
-Follow the methodology in the `new-data-source` skill — covers discovery, probing, skill authoring, script conventions, health probes, testing, and visualization. Summary:
+Follow the methodology in the `new-data-source` skill — covers discovery, probing, skill authoring, script conventions, health probes, testing, and visualization. Scripts must also follow `docs/python-scripting-gold-standard.md` (CLI, httpx, polars, paths, encoding, probes). Summary:
 
 1. **Discover** — find the API type (REST, WFS, Power BI, scraping), probe endpoints, document schema
 2. **Skill** — create `.agents/skills/{source}/SKILL.md` with frontmatter, API, schema, request examples, caveats
@@ -148,6 +148,12 @@ uv run python scripts/ust_gis.py fetch
 
 # Air quality — UST PM10/PM2.5/NO2/H2S bulk CSVs + Open-Meteo wind, daily aggregates for Grensásvegur
 uv run python scripts/loftgaedi.py
+
+# Veðurstofa — stations, latest AWS observations, earthquakes (api.vedur.is JSON, no auth)
+uv run python scripts/vedur.py list
+uv run python scripts/vedur.py fetch                              # all three datasets
+uv run python scripts/vedur.py fetch --dataset quakes --days 7 --min-magnitude 1
+uv run python scripts/vedur.py fetch --dataset observations --aggregation hour
 
 # EEA geospatial catalogue (sdi.eea.europa.eu, GeoNetwork 4.4)
 uv run python scripts/eea_sdi.py search "grassland" --iceland --size 10
