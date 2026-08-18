@@ -1,6 +1,6 @@
 ---
 name: powerbi
-description: Reverse-engineer any public Power BI dashboard (app.powerbi.com/view embeds) into tidy data — shared scripts/powerbi.py primitives for token/key, in-iframe query replay, and DSR decompression.
+description: Reverse-engineer public Power BI dashboards (app.powerbi.com/view embeds) — scripts/powerbi.py primitives: token/key, query replay, DSR decompression.
 ---
 
 # Power BI dashboard reverse-engineering

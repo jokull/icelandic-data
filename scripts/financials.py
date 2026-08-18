@@ -1,7 +1,7 @@
 """
 Extract structured financial data from Icelandic annual reports (ársreikningar).
 
-Uses Docling for PDF parsing and outputs standardized JSON for Claude interpretation.
+Uses pdfplumber for PDF parsing and outputs standardized JSON for Claude interpretation.
 """
 
 import argparse

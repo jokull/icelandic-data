@@ -1,6 +1,6 @@
 ---
 name: rikisreikningur
-description: Icelandic state accounts actuals (ríkisreikningur, Fjársýsla) — yearly revenue/expense 2015+; pre-2015 balance via Hagstofan THJ05211; 36 málefnasvið policy areas.
+description: Icelandic state accounts actuals (Fjársýsla) — yearly revenue/expense 2015+; pre-2015 balance via Hagstofan THJ05211; 36 málefnasvið policy areas.
 ---
 
 # Ríkisreikningur — state accounts (Fjársýsla ríkisins)

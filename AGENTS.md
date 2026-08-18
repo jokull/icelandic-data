@@ -88,6 +88,9 @@ uv run python scripts/sedlabanki.py
 uv run python scripts/sedlabanki_fx.py fetch
 uv run python scripts/sedlabanki_fx.py list
 
+# Currency exchange rates — Borgun card rates (current) + ECB reference rates (historical)
+uv run python scripts/gengi.py USD,EUR --history 6m
+
 # Query processed data
 duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
 
@@ -143,6 +146,9 @@ uv run python scripts/fiskistofa.py fetch
 uv run python scripts/ust_gis.py list
 uv run python scripts/ust_gis.py fetch
 
+# Air quality — UST PM10/PM2.5/NO2/H2S bulk CSVs + Open-Meteo wind, daily aggregates for Grensásvegur
+uv run python scripts/loftgaedi.py
+
 # EEA geospatial catalogue (sdi.eea.europa.eu, GeoNetwork 4.4)
 uv run python scripts/eea_sdi.py search "grassland" --iceland --size 10
 uv run python scripts/eea_sdi.py record   35a036bb-c027-401c-8625-2ecf722e8461
@@ -160,9 +166,21 @@ uv run python scripts/hagstofan_population_wages.py
 # Tidy long format with CPI-deflated real values
 uv run python scripts/hagstofan_income.py
 
+# Hagstofan: bike & e-bike imports by tariff code (ebikes/escooters/bikes) -> data/processed/bike_imports_all.csv
+uv run python scripts/hagstofan.py
+
+# Hagstofan income distribution — TEK01001 by source/age/gender (mean+median) + tax burden CSVs
+uv run python scripts/income_distribution.py
+
+# Take-home salary calculator (payday.is) — monthly gross -> take-home, tax + pension breakdown
+uv run python scripts/laun.py 1000000
+
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
 # Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
 uv run python scripts/hms_indices.py
+
+# Housing completions 1970–2025 — Hagstofan IDN03001 + HMS húsnæðisáætlanir -> data/processed/iceland_housing_completions.csv
+uv run python scripts/housing_completions.py
 
 # Download LMI geodata layers (~50 MB)
 uv run python scripts/lmi.py download
@@ -244,6 +262,22 @@ uv run python scripts/rikisreikningur.py summary
 uv run python scripts/rikisreikningur.py malefni
 uv run python scripts/rikisreikningur.py files
 
+# Opnir reikningar — state paid invoices by org/vendor (2017–present)
+uv run python scripts/opnirreikningar.py search-org "Veðurstofa"
+uv run python scripts/opnirreikningar.py fetch --org-text "14412 - Veðurstofa Íslands" --from 2024-01-01 --to 2024-12-31
+uv run python scripts/opnirreikningar.py top-vendors --org 14412 --year 2024
+
+# Public procurement — TED API + OCDS bulk data (3,494+ tenders), award tracking, CPV search
+uv run python scripts/tenders.py download-ocds
+uv run python scripts/tenders.py search --cpv 90600000 --date-from 20240101
+uv run python scripts/tenders.py awards --buyer "Reykjavíkurborg"
+
+# Reykjavík winter/street tender results 2018–2024 (reykjavik.is scrape) -> data/processed/reykjavik_winter_tenders.csv
+uv run python scripts/reykjavik_tenders.py
+
+# Reykjavík env-ops wages vs other-costs ratio (outsourcing proxy) -> data/processed/reykjavik_env_ops_ratio.csv
+uv run python scripts/reykjavik_winter.py
+
 # Ríkissjóður balance 1980-2025 — Hagstofan THJ05211 (pre-2015; the Fjársýsla API only goes back to 2015)
 uv run python scripts/hagstofan_rikissjod.py list     # sibling tables + coverage
 uv run python scripts/hagstofan_rikissjod.py fetch    # → data/processed/rikissjod_balance.csv
@@ -272,6 +306,9 @@ uv run python scripts/landeignaskra.py extract
 uv run python scripts/landeignaskra.py build       # data/processed/landeignaskra.csv
 uv run python scripts/landeignaskra.py lookup 0174540
 
+# Reykjavík planning activity (Planitor) — building/planning cases by type & stage -> data/processed/planitor_reykjavik_planning.csv
+uv run python scripts/skipulagsmal.py
+
 # Seðlabanki interest rates — Power BI scrape via gagnabanki.is
 uv run python scripts/sedlabanki_rates.py
 
@@ -286,6 +323,9 @@ uv run python scripts/samgongustofa.py list
 uv run python scripts/samgongustofa.py fetch --report onroad --dimension fuel        # current fleet EV split
 uv run python scripts/samgongustofa.py fetch --dimension make --years 2020-2026      # imports by brand/year
 uv run python scripts/samgongustofa.py fetch --dimension fuel --years 2025,2026 --monthly
+
+# island.is vehicle lookup by plate or VIN (public GraphQL API)
+uv run python scripts/car.py AB123
 
 # Traffic counters (Vegagerðin) — list, snapshot, accumulate, render
 uv run python scripts/umferd.py stations

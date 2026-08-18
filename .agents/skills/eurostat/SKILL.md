@@ -1,6 +1,6 @@
 ---
 name: eurostat
-description: Eurostat (Statistical Office of the EU) REST API — wages, HICP inflation, GDP, unemployment for euro-area / EU aggregates. scripts/eurostat.py fetches any dataset to tidy CSV.
+description: Eurostat (EU statistics office) REST API — wages, HICP, GDP, unemployment for euro-area / EU aggregates; scripts/eurostat.py fetches any dataset to tidy CSV.
 ---
 
 # Eurostat (Statistical Office of the EU)

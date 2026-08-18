@@ -1,6 +1,6 @@
 ---
 name: samgongustofa
-description: Icelandic vehicle registrations by make, fuel, class and model (Samgöngustofa) — new registrations (imports) and current on-road fleet, via a reverse-engineered Power BI API.
+description: Icelandic vehicle registrations by make, fuel, class, model (Samgöngustofa) — new registrations + current on-road fleet via reverse-engineered Power BI API.
 ---
 
 # Samgöngustofa (Iceland Transport Authority) — bifreiðatölur

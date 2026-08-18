@@ -1,6 +1,6 @@
 ---
 name: sedlabanki
-description: Central Bank of Iceland — SDMX balance sheets + new credit, key interest rates via gagnabanki, and FX intervention (gjaldeyriskaup/-sala, turnover, reserves, ISK/EUR).
+description: Central Bank of Iceland — SDMX balance sheets + new credit, key interest rates via gagnabanki, and FX intervention (kaup/sala, turnover, reserves, ISK/EUR).
 ---
 
 # Seðlabanki Íslands (Central Bank of Iceland)
