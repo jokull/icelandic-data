@@ -111,56 +111,31 @@ name, the Icelandic term), saying what it covers *and when to reach for it*.
 combined exceed 8,000 characters; with 45 skills that budget, not the
 per-skill limit, is what binds.
 
-```markdown
----
-name: {source}
-description: {Agency/term} — {what data}. Use for {when}. Under ~160 chars.
----
+**No template.** There is no required section list for a skill and no forced
+"Caveats" heading. A skill is compressed to exactly what helps an agent
+navigate to the data and the script: what the source is, where the API/data
+lives, how to run the script, and the gotchas that actually bite — in whatever
+order and shape the source warrants. A section earns its place by preventing
+a mistake, not by convention. (Script conventions — CLI, httpx, polars, paths,
+encoding, probes — are in `docs/python-scripting-gold-standard.md`; follow
+that, not a per-skill template.)
 
-# {Source Name} — {Agency}
+A useful skill body, shaped to the source, covers some subset of:
 
-{One sentence: what data, from whom.}
-
-## API
-
-**Base URL:** `{url}`
-
-{Auth status}. {Protocol}. {Response format}.
-
-## Available Data
-
-{Table of endpoints/layers/datasets with descriptions}
-
-## Request Examples
-
-{curl/Python snippets that actually work — test them first}
-
-## Schema
-
-{Field tables with types, examples, descriptions}
-{For complex responses, show a sample JSON/CSV block}
-
-## Script Usage
-
-{The CLI commands for the associated Python script}
-
-## Data Files
-
-{Table: file path, format, description}
-
-## Caveats
-
-{Numbered list of gotchas — this is the most valuable section}
-1. {Encoding quirk}
-2. {Null semantics}
-3. {Historical data limitation}
-4. {Double-counting risk}
-5. {Classification changes over time}
-```
+- one sentence: what data, from whom
+- API: base URL, auth, protocol, response format, encoding quirks
+- available endpoints/datasets/series and what each is good for
+- request examples that actually work (test them first)
+- schema: field tables with real example values, null semantics, date formats
+- script usage: the CLI commands
+- data files: where raw and tidy output land
+- gotchas that genuinely bite: encoding, double-counting, classification
+  changes, staleness, rate limits — written as prose or a short list, only
+  where real
 
 **What makes a skill file valuable:**
 - Someone can use the data source without reading the original docs
-- Caveats prevent bugs before they happen
+- It is short — an agent loads the whole thing, and bloat is a tax
 - Code examples are copy-pasteable and tested
 - Field schemas include real example values, not just types
 
