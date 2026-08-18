@@ -1,6 +1,6 @@
 ---
 name: sedlabanki
-description: Central Bank of Iceland — SDMX API for balance sheets and new credit, plus daily key interest rates 2007+ via gagnabanki.is.
+description: Central Bank of Iceland — SDMX balance sheets + new credit, key interest rates via gagnabanki, and FX intervention (gjaldeyriskaup/-sala, turnover, reserves, ISK/EUR).
 ---
 
 # Seðlabanki Íslands (Central Bank of Iceland)
@@ -78,6 +78,40 @@ New lending by sector and index type:
 - **Household detail:** Mortgages (fixed/floating rate), car loans
 - **Index types:** Indexed (verðtryggð), Non-indexed, Foreign currency
 
+### 3. FX Intervention (Gjaldeyriskaup/-sala) — via XML Time Series
+**Type:** Flow (daily CBI FX purchases/sales, market turnover) + stock (reserves)
+**Period:** Daily series since Jan 2009; reserves monthly since Jan 1994
+**Frequency:** Daily (business days), aggregated monthly downstream
+
+CBI foreign-exchange intervention — the answer to "did the CBI defend the
+króna?" questions (e.g. the COVID 2020-21 period and the 2025 carry-trade era):
+- **TS 285** Gjaldeyrissala SÍ í ISK — CBI *sales* of foreign currency, M.kr. (positive = CBI sells FX)
+- **TS 287** Gjaldeyriskaup SÍ í ISK — CBI *purchases* of foreign currency, M.kr.
+- **TS 284** Heildarvelta á innlendum gjaldeyrismarkaði — total interbank FX market turnover, M.kr.
+- **TS 282** Same turnover, M.eur
+- **TS 4064** Evra, skráð miðgengi — official EUR mid rate (ISK per EUR), daily
+- **FX reserves** (Gjaldeyrisforði) — from the CBI's own balance sheet workbook ("Sedlabanki" sheet, row "Liðir til skýringar: Gjaldeyrisforði"), monthly M.kr.
+
+**Source:** `https://sedlabanki.is/xmltimeseries/Default.aspx` — plain HTTP,
+**directly fetchable** (no Playwright, no gagnabanki proxy) for the daily series.
+The reserves workbook is a `sedlabanki.is/library` item fetched through the
+gagnabanki proxy (see Download URLs).
+
+**Fetch:** `uv run python scripts/sedlabanki_fx.py fetch`
+**Output:** `data/processed/sedlabanki_fx_intervention.csv` — monthly rows with
+`date, net_purchases_mkr, turnover_mkr, reserves_mkr, isk_per_eur, item_en`.
+`net_purchases_mkr` = kaup − sala (negative = CBI net seller, defending the
+króna; positive = accumulating reserves). Reserves and ISK/EUR are month-end;
+the daily flow series are summed per month.
+
+**Known COVID-era pattern (verified against this data):** the CBI was a heavy
+net SELLER of FX from March 2020 through spring 2021 (net −132.7 bn kr in 2020,
+−22.7 bn kr in 2021; monthly peaks Oct 2020 −38.3 bn kr), selling reserves to
+support the króna as ISK/EUR rose from ~135 (Dec 2019) to a trough ~164 (Oct
+2020), then recovered to ~146-150 through 2021. It flipped to a net BUYER from
+2025 (67.9 bn kr bought in 2025, matching the 67.9 ma.kr. stated in
+Peningamál 2026/1).
+
 ## API
 
 **Portal:** `https://gagnabanki.is/report/monetary`
@@ -108,6 +142,20 @@ New lending by sector and index type:
 |---------|----------|---------|-----|
 | Balance Sheets | SDMX | ❌ **proxy only** | `https://fr.sedlabanki.is/sdmx/v2/table/IS2_EXT/INN_BALANCE_SHEETS_TOTAL/1.0?format=xlsx` |
 | New Credit | Library | ✅ direct | `https://sedlabanki.is/library?itemid=b73e42d6-ba32-4eb3-b39e-1c70d2e45aec` |
+| FX market (daily) | XML time series | ✅ **direct** | `https://sedlabanki.is/xmltimeseries/Default.aspx?DagsFra=2019-01-01&GroupID=8&Type=csv` |
+| EUR mid rate (daily) | XML time series | ✅ **direct** | `https://sedlabanki.is/xmltimeseries/Default.aspx?DagsFra=2019-01-01&TimeSeriesID=4064&Type=csv` |
+| CBI balance sheet (reserves) | Library | ❌ **proxy only** | `https://sedlabanki.is/library?itemid=c0126d81-fd88-42bd-aee3-449e09b9089f` |
+
+### XML Time Series endpoint (`xmltimeseries`)
+
+Separate from the SDMX service: a simple public GET at `sedlabanki.is` (NOT
+`www.` — that host 301s), returning `Type=csv` as a **headerless semicolon
+CSV**: `group;group_name;series_id;;series_name;description;date;value`.
+Dates are `M/D/YYYY h:mm:ss AM` — parse with `%m/%d/%Y %I:%M:%S %p`. Parameters:
+`DagsFra`/`DagsTil` (`YYYY-MM-DD`, or `LATEST`/`TODAY`), `GroupID` or
+`TimeSeriesID`, `Type=xml|csv`. See the full catalog at
+`https://sedlabanki.is/gagnatorg/xml-gogn/` (GroupID 8 = "Velta á
+gjaldeyrismarkaði", the FX market group; the official mid rates are GroupID 9).
 
 ## Fetching Data
 
@@ -172,16 +220,40 @@ Ný útlán / New credit (total)
 └── Erlendur aðili / Non-residents
 ```
 
+### FX Intervention CSV Layout
+
+`data/processed/sedlabanki_fx_intervention.csv` — one row per month:
+
+| Column | Type | Meaning |
+|--------|------|---------|
+| date | date (YYYY-MM-01) | month (flows are monthly sums; stocks are month-end) |
+| net_purchases_mkr | float | CBI kaup − sala, M.kr. **negative = CBI net seller of FX** |
+| turnover_mkr | float | interbank FX market total turnover, M.kr. |
+| reserves_mkr | float | month-end FX reserves (Gjaldeyrisforði), M.kr. |
+| isk_per_eur | float | month-end official EUR mid rate |
+| item_en | str | descriptive label of the row |
+
+### CBI Balance Sheet Excel Layout (for reserves)
+- Sheets: `FAME Persistence2`, `Sedlabanki`
+- `Sedlabanki` sheet: row 9 = date headers (`1994-01-31 00:00:00`, …), row 60 = `Liðir til skýringar: Gjaldeyrisforði (erlendar eignir, a-f)` — the FX reserves memo line, M.kr.
+
 ## Processing Pipeline
 
 ```bash
-# Process both datasets to tidy CSVs
+# Process balance sheets + new credit to tidy CSVs
 uv run python scripts/sedlabanki.py
+
+# Fetch FX intervention data (raw + processed monthly CSV)
+uv run python scripts/sedlabanki_fx.py fetch
+
+# List the daily FX series available upstream
+uv run python scripts/sedlabanki_fx.py list
 ```
 
 **Outputs:**
 - `data/processed/sedlabanki_newcredit.csv` - New credit by sector
 - `data/processed/sedlabanki_balance_sheets.csv` - Balance sheet items
+- `data/processed/sedlabanki_fx_intervention.csv` - FX intervention (monthly)
 
 ## Icelandic Terms
 
@@ -198,6 +270,11 @@ uv run python scripts/sedlabanki.py
 | Óverðtryggð | Non-indexed |
 | Heimili | Households |
 | Atvinnufyrirtæki | Non-financial corporations |
+| Gjaldeyriskaup | FX purchases (CBI buys foreign currency) |
+| Gjaldeyrissala | FX sales (CBI sells foreign currency) |
+| Gjaldeyrisforði | FX reserves |
+| Velta á gjaldeyrismarkaði | FX market turnover |
+| Skráð miðgengi | Official mid rate |
 
 ## Data Notes
 
@@ -213,6 +290,14 @@ uv run python scripts/sedlabanki.py
 
 6. **Encoding.** Icelandic chars (þ, ð, æ, ö) appear in sector names (Heimili, Atvinnufyrirtæki, verðtryggð) across both SDMX exports and the gagnabanki Power BI payload. Read CSV with `encoding="utf-8"` (the Excel-derived files are `utf-8-sig`); write JSON with `ensure_ascii=False`.
 
+7. **FX sign convention.** In `sedlabanki_fx_intervention.csv`, `net_purchases_mkr` = kaup − sala, so a **negative** value means the CBI *sold* FX that month (net) — the direction that defends/dampens the króna. Series 285 (sala) and 287 (kaup) are both reported as positive numbers upstream; the sign appears only in the net column.
+
+8. **FX provisional data.** The daily FX market numbers are provisional ("nýjustu tölur eru bráðabirgðatölur") and revised; the daily series update each business day at 16:00 with a two-day lag.
+
+9. **Reserves workbook layout is positional.** The `Sedlabanki` sheet reserves row (60) and date row (9) are assumed by row number in `scripts/sedlabanki_fx.py`. If the CBI reorders the workbook, the reserves column breaks — the health test only catches reachability, not the row numbers.
+
+10. **XML endpoint quirks.** Use `sedlabanki.is` (the `www.` host 301s). The CSV is headerless and semicolon-delimited with an empty 4th field, and dates are US-format `M/D/YYYY h:mm:ss AM`. The `LATEST` keyword returns only the most recent observation — use explicit `DagsFra`/`DagsTil` for ranges.
+
 ## Evidence Integration
 
 ```sql
@@ -226,5 +311,11 @@ ORDER BY date
 SELECT date, value_mkr as assets_mkr
 FROM read_csv('../data/processed/sedlabanki_balance_sheets.csv')
 WHERE item_en = 'Assets, total'
+ORDER BY date
+
+-- Example: CBI FX intervention through COVID (net seller = negative)
+SELECT date, net_purchases_mkr, turnover_mkr, reserves_mkr, isk_per_eur
+FROM read_csv('../data/processed/sedlabanki_fx_intervention.csv')
+WHERE date BETWEEN DATE '2020-01-01' AND DATE '2021-12-31'
 ORDER BY date
 ```

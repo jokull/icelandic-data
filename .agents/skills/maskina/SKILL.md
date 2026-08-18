@@ -1,11 +1,18 @@
 ---
 name: maskina
-description: Maskína public opinion polls — structured data via Tableau VizQL, articles via the WordPress API.
+description: Maskína public opinion polls — structured data via Tableau VizQL + WordPress API. First stop for poll questions, before article-scraping skills.
 ---
 
 # Maskína — Public Opinion Polls
 
 Public opinion polls and surveys from Iceland's leading polling company. Two data sources: WordPress articles (prose) and Tableau Public dashboard (structured).
+
+**This is the first stop for opinion-poll questions.** The data here comes
+structured, straight from the pollster — no browser, no news-article
+scraping. Only when the question needs other pollsters (Gallup, Prósent,
+Félagsvísindastofnun), cross-pollster comparison, or polls Maskína never
+published itself should you fall back to the heavier `skodanakannanir` skill
+(number extraction from RÚV/Vísir/Heimildin news articles).
 
 ## Data Sources
 
@@ -28,10 +35,88 @@ curl 'https://maskina.is/wp-json/wp/v2/posts/6412?_fields=id,title,date,link,con
 
 **Content format:** HTML in `content.rendered`. Requires HTML stripping. Poll data is embedded as prose text — "Samfylkingin stendur nú í um 25% fylgi".
 
-**Key search terms:**
-- `fylgi` — party support (monthly polls)
-- `borgarviti` — Reykjavík politics
-- `stofnanaviti` — institutional trust
+**Search is a full-text index, not a fixed set of topics.** `/wp/v2/categories`
+returns only `Fréttir` (339 posts) and `Uncategorized @is` (32) — there is no
+real taxonomy to browse. `/wp/v2/tags` is empty. The `?search=` parameter is
+the only practical way to find topical content, and it matches title + body
+text freely — any word Maskína has ever polled about works, not just the
+terms below.
+
+**Known recurring, branded series** (repeated release after release — worth
+building a systematic fetcher around, the way `fylgi` already is):
+
+| Series | Search term(s) | Example title |
+|---|---|---|
+| Fylgi flokka (national party support) | `fylgi` | "Ný fylgismæling fyrir flokka á Alþingi" |
+| Borgarviti (Reykjavík city politics) | `borgarviti` | "Borgarviti Maskínu: vaxandi óánægja með störf borgarstjóra" |
+| Stofnanaviti (institutional trust) | `stofnanaviti` | "Stofnanaviti Maskínu er kominn út!" |
+| ESB/aðild (EU membership) | `ESB`, `aðild`, `Evrópusambandið` | "53% hlynnt áframhaldandi aðildarviðræðum við ESB" (2026-01-12) |
+| Traust til ráðherra/ríkisstjórnar (government/minister trust & approval) | `ríkisstjórnin`, `ráðherra` | "Ný traust mæling allra ráðherra" |
+| Meðmæling Maskínu (annual "recommended companies") | `Meðmæling` | "12 fyrirtæki hljóta Meðmælingu Maskínu 2023" |
+| Kryddsíld (year-end TV special poll) | `Kryddsíld` | "Kannanir úr Kryddsíld 2023" |
+| Áramótaskaupið (satisfaction with the New Year's Eve comedy show) | `Áramótaskaupið` | "Gríðarleg ánægja með Áramótaskaupið" |
+| Eurovision | `Eurovision` | "13% horfðu á Eurovision í ár" |
+
+All nine confirmed live (2026-08-01) via `curl .../wp/v2/posts?search=<term>`
+— each returns real, on-topic results, not just a single title-match fluke.
+
+Beyond these, the archive is 371 posts deep (`x-wp-total` response header)
+and covers plenty of one-off newsworthy topics that never repeat as a named
+series — laxeldi (fish farming), veggjöld (road tolls), leiguþak (rent
+caps), flóttafólk (refugees), Borgarlína, hvalveiðar (whaling), and more.
+These are real and searchable, just not catalogued here individually — if
+asked about a topic not in the table above, search for it directly rather
+than assuming Maskína hasn't polled on it.
+
+**Worked example — ESB** (2026-01-12,
+`https://maskina.is/53-hlynnt-aframhaldandi-adildarvidraedum-vid-esb/`): a
+poll originally commissioned for Sýn's Kryddsíld broadcast, published with
+Sýn's permission. Prose carries one clean extractable figure — "um 53%
+þeirra sem taka afstöðu í könnuninni eru hlynnt áframhaldandi
+aðildarviðræðum sem eru um 2 prósentustigum meira en þegar spurningin var
+borin upp ári áður" — followed by full methodology (Þjóðgátt panel,
+n=1,765, weighted by Þjóðskrá, fielded 3.-15. October 2025). Same shape as
+party-support articles: one prose sentence carries the headline number,
+methodology follows in the paragraphs after.
+
+The article also embeds a Tableau viz (`<div id="viz1768228030864">`)
+distinct from the `FylgiFlokka-heimasa` workbook documented below —
+**confirmed live 2026-08-01**: workbook `12_01_2026-ESB_virur`, view
+`Frtt-ESB`, worksheet `helstu-ESB (2)`, readable with the exact VizQL flow
+below (response ~100KB, 2 chunks). It carries the referendum question
+("Ef haldin verður atkvæðagreiðsla um áframhaldandi aðildarviðræður við
+ESB, myndir þú greiða atkvæði með eða á móti?") across two waves
+(`2024-12-01`, `2025-12-01`): Með 50.9% → 53.0%, Á móti 49.1% → 47.0%,
+plus weighted respondent counts — matching the article's "um 2
+prósentustigum meira en ári áður" exactly. Two generalizable lessons:
+the dated workbook name implies **one-off per-article workbooks** (future
+ESB releases will likely ship a new workbook, not update this one), and
+the workbook/view names are **discoverable from the article HTML** — grep
+for the static-image URL, shaped
+`public.tableau.com/static/images/12/12_01_2026-ESB_virur/Frtt-ESB/1.png`.
+
+**Caveat: broad search terms return false positives — verify each hit,
+don't trust title-matching alone.** Pulling the 3 most recent
+`ESB`/`aðild`/`Evrópusambandið` hits live (2026-08-01) surfaced:
+
+1. 2026-01-12 — the ESB-referendum poll above. Relevant.
+2. **2022-04-04 — "Maskína gerir reglulega kannanir á Íslandi fyrir
+   Framkvæmdastjórn Evrópusambandsins"** — matched only because
+   "Evrópusambandið"/"Evrópusvæðinu" appear often in the text. It's an EU
+   Commission survey of European SMEs' green-market practices (89% of EU
+   SMEs, 37% of Icelandic ones, have taken sustainability steps) — **not**
+   an Icelandic membership-opinion poll at all. A naive `--topic esb`
+   fetcher would misparse this as a referendum-support article and either
+   extract garbage or (more likely, since it has no hlynnt/andvígt framing)
+   silently produce nothing — either way, don't assume a search hit is
+   on-topic without reading it.
+3. 2021-02-06 — inngöngu-stuðningur (membership support, not just
+   "continue negotiations"): ~30% hlynnt, ~42% andvíg, plus a
+   party-affiliation breakdown (Viðreisn 76.9% hlynnt, Miðflokkur 75.8%
+   andvígt, etc.) — a genuinely different question from "aðildarviðræður"
+   in the 2026 article. Worth keeping the two framings (support continuing
+   *negotiations* vs. support *membership* itself) distinct in any
+   extraction logic — they are not interchangeable numbers.
 
 ### 2. Tableau Public Dashboard (structured data)
 
@@ -120,11 +205,24 @@ The `bar kosningar` worksheet has three columns via `valueIndices`:
 
 | Column | Type | Pattern | Example |
 |--------|------|---------|---------|
-| Dates | cstring indices | 3× per party | `[11,12,14, 11,12,14, ...]` → "20260301", "20260201", "20241130" |
-| Party names | cstring indices | 3× repeated | `[2,2,2, 3,3,3, ...]` → "Samfylkinguna", "Miðflokkinn", ... |
-| Percentages | real indices | sequential triplets | `[27,28,29, 30,31,32, ...]` → latest, previous month, election |
+| Dates | cstring indices | N× per party | `[11,12,14,16, 11,12,14,16, ...]` → "20260601", "20260501", "20260401", "20241130" |
+| Party names | cstring indices | N× repeated | `[2,2,2,2, 3,3,3,3, ...]` → "Samfylkinguna", "Sjálfstæðisflokkinn", ... |
+| Percentages | real indices | sequential N-tuples | `[36,37,38,39, 40,41,42,43, ...]` → latest, previous month, month before that, election |
 
-Each party has 3 data points: latest poll, previous month, last election ("Kosningar '24").
+**Period count is N=4 as of 2026-07-21 (latest, previous month, month before
+that, last election "Kosningar '24"), NOT 3.** This was originally
+documented as 3 — verified wrong live: naively striding by 3 through a
+period-4 array desyncs party names from percentages roughly every other
+party, producing duplicate party rows with garbage values (e.g. "Samfylkingin"
+appearing twice at 25.2% and 20.8%) instead of one row per party. **Don't
+hardcode the stride** — detect it live from the data instead (see
+`_detect_stride()` below): find the smallest N where `party_indices` is
+consistent in contiguous blocks of N (same party name repeats exactly N
+times, then changes). Verified live: for the current 9-party × 4-period
+= 36-length array, both N=3 and N=4 divide 36 evenly, so a "does the
+count divide evenly" check alone is not sufficient — cross-checking
+block-by-block consistency is what actually catches the 4-vs-3 case
+correctly.
 
 #### Party Names (accusative → nominative)
 
@@ -249,23 +347,40 @@ def fetch_polls():
             if first < len(strings) and strings[first] in PARTY_NAMES:
                 party_indices = indices
             elif first < len(reals) and 0 < reals[first] < 1:
-                sample = [reals[i] for i in indices[:6]]
+                sample = [reals[i] for i in indices[:8]]
                 if all(0 < v < 1 for v in sample):
                     pct_indices = indices
 
-    # Extract triplets: [latest, previous_month, election] per party
+    # Period count varies (was 3, is 4 as of 2026-07-21) — detect it live
+    # rather than hardcoding, by finding the block size where the party
+    # name is constant within each block and changes between blocks.
+    def _detect_stride(party_names_seq, candidates=(3, 4, 5, 6)):
+        n = len(party_names_seq)
+        for s in candidates:
+            if n % s != 0:
+                continue
+            if all(
+                len(set(party_names_seq[b * s: b * s + s])) == 1
+                for b in range(n // s)
+            ):
+                return s
+        raise RuntimeError(f"could not determine period stride from {n} values")
+
+    party_names_seq = [strings[i] for i in party_indices]
+    stride = _detect_stride(party_names_seq)
+
+    # Extract one row per party, all `stride` periods (index 0 = latest,
+    # index -1 = last election "Kosningar '24").
     results = []
-    for i in range(0, min(len(party_indices), len(pct_indices)) - 2, 3):
+    for i in range(0, len(party_indices), stride):
         party_acc = strings[party_indices[i]]
-        latest = reals[pct_indices[i]]
-        previous = reals[pct_indices[i + 1]]
-        election = reals[pct_indices[i + 2]]
+        pcts = [round(reals[pct_indices[i + k]] * 100, 1) for k in range(stride)]
         results.append({
             "party": PARTY_NAMES.get(party_acc, party_acc),
-            "latest_pct": round(latest * 100, 1),
-            "previous_pct": round(previous * 100, 1),
-            "election_pct": round(election * 100, 1),
-            "change": round((latest - previous) * 100, 1),
+            "pcts": pcts,  # [latest, ...intermediate periods..., election]
+            "latest_pct": pcts[0],
+            "change_vs_prev_period": round(pcts[0] - pcts[1], 1),
+            "change_vs_election": round(pcts[0] - pcts[-1], 1),
         })
 
     return sorted(results, key=lambda r: -r["latest_pct"])
@@ -273,22 +388,38 @@ def fetch_polls():
 
 if __name__ == "__main__":
     for row in fetch_polls():
-        print(f"{row['party']:<35} {row['latest_pct']:>5.1f}%  ({row['change']:+.1f}%)")
+        print(
+            f"{row['party']:<35} {row['latest_pct']:>5.1f}%  "
+            f"(mán: {row['change_vs_prev_period']:+.1f}, kosn: {row['change_vs_election']:+.1f})"
+        )
 ```
 
 ## Sample Output
 
+Verified live 2026-07-21 (periods: 1 June 2026 / 1 May 2026 / 1 April 2026 /
+30 Nov 2024 election), sums to 99.9%:
+
 ```
-Samfylkingin                         25.5%  (-1.6%)
-Miðflokkurinn                        18.4%  (-0.6%)
-Sjálfstæðisflokkurinn                16.1%  (-0.1%)
-Viðreisn                             14.0%  (+0.6%)
-Framsóknarflokkurinn                  7.1%  (+0.2%)
-Flokkur fólksins                      5.8%  (+1.1%)
-Píratar                               5.0%  (-0.2%)
-Vinstrihreyfingin – grænt framboð     4.4%  (+0.3%)
-Sósíalistaflokkurinn                  3.5%  (+0.4%)
+Samfylkingin                         25.2%  (mán: -0.1, kosn: +4.4)
+Sjálfstæðisflokkurinn                22.7%  (mán: +2.9, kosn: +3.3)
+Miðflokkurinn                        14.2%  (mán: -0.8, kosn: +2.1)
+Viðreisn                             12.4%  (mán: -2.0, kosn: -3.4)
+Framsóknarflokkurinn                  8.5%  (mán: +0.7, kosn: +0.7)
+Vinstrihreyfingin – grænt framboð     5.4%  (mán: +0.1, kosn: +3.1)
+Flokkur fólksins                      4.1%  (mán: -0.6, kosn: -9.7)
+Sósíalistaflokkurinn                  3.9%  (mán: +0.2, kosn: -0.1)
+Píratar                               3.5%  (mán: -0.6, kosn: +0.5)
 ```
+
+Flokkur fólksins' -9.7pt collapse since the 2024 election (13.8% → 4.1%)
+matches the well-documented real-world drop in their support — a useful
+sanity anchor when verifying future extractions.
+
+Re-verified 2026-08-01 with the code block above run verbatim against the
+following month's poll (published 2026-07-22, "Sjálfstæðisflokkurinn á
+flugi"): Sjálfstæðisflokkurinn leads at 25.0%, all nine parties extract
+once each, sum exactly 100.0% — stride detection handled the new
+measurement without changes.
 
 ## Data Caveats
 
@@ -299,11 +430,23 @@ Sósíalistaflokkurinn                  3.5%  (+0.4%)
 5. **Cookie forwarding required** — The `set-cookie` headers from startSession must be passed as `Cookie` header to bootstrapSession.
 6. **Response size** — bootstrapSession returns ~650KB. The data is in chunk 1 (~61KB); chunk 0 is layout metadata.
 7. **Monthly updates** — Polls are published monthly. The dashboard updates automatically.
-8. **Three time periods** — Each party has data for: latest poll, previous month, last election (Kosningar '24).
+8. **Time-period count is not fixed at 3 — detect it live.** Verified live
+   2026-07-21: the dashboard now carries 4 periods per party (latest,
+   previous month, month before that, last election), not the 3 originally
+   documented here. A naive fixed stride silently desyncs party names from
+   percentages and produces duplicate party rows with garbage values instead
+   of erroring — the sum-of-percentages sanity check below is what caught
+   it, not an exception. Always detect the stride from the data (see
+   `_detect_stride()`), and sanity-check the result sums to roughly 100%
+   before trusting it.
+9. **Sanity-check before trusting the output.** `sum(latest_pct for all
+   parties)` should land in the 95-105% range. If it doesn't (or if any
+   party name repeats), the stride detection or column-matching heuristic
+   picked the wrong `valueIndices` array — don't report the numbers as-is.
 
 ## Alternative Sources
 
 - **maskina.is articles** — WordPress REST API, prose format, full article text
-- **RÚV/Vísir** — Icelandic media sometimes republish poll highlights
-- **Gallup (gallup.is)** — Competing polling firm, separate data source (not yet explored)
-- **Prósent (prosent.is)** — Former MMR, another polling firm (not yet explored)
+- **RÚV/Vísir/Heimildin** — media coverage of polls from all pollsters; the `skodanakannanir` skill extracts numbers from those articles
+- **Gallup (gallup.is)** — Competing polling firm; no direct integration, but its polls reach the `skodanakannanir` pipeline via news coverage
+- **Prósent (prosent.is)** — Former MMR, another polling firm; same — reachable via `skodanakannanir` news coverage

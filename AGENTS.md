@@ -84,6 +84,10 @@ Python (managed by `uv`):
 # Process raw data into tidy CSVs
 uv run python scripts/sedlabanki.py
 
+# Fetch CBI FX intervention (net purchases/sales, turnover, reserves, ISK/EUR) -> monthly CSV
+uv run python scripts/sedlabanki_fx.py fetch
+uv run python scripts/sedlabanki_fx.py list
+
 # Query processed data
 duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
 
@@ -98,6 +102,15 @@ uv run python scripts/financials.py company <kennitala> --year 2024
 
 # Extract from local PDF
 uv run python scripts/financials.py extract /path/to/report.pdf
+
+# Eurostat — euro-area / EU statistics (wages, HICP, GDP, unemployment)
+uv run python scripts/eurostat.py list
+uv run python scripts/eurostat.py fetch prc_hicp_midx --filter geo=EA20 --filter coicop=CP00 --filter unit=I15
+uv run python scripts/eurostat.py fetch namq_10_a10 --filter geo=EA20 --filter na_item=D1 --filter s_adj=SCA --filter unit=CP_MEUR --filter nace_r2=TOTAL
+uv run python scripts/eurostat.py fetch namq_10_pe --filter geo=EA20 --filter na_item=EMP_DC --filter s_adj=SCA --filter unit=THS_PER
+
+# Real wage comparison Iceland vs euro area (Chart.js HTML report)
+uv run python reports/real_wages_is_vs_euro.py
 
 # Property price analysis
 duckdb -c "SELECT YEAR(kaupsamningur_dags), median(kaupverd*1000/einflm_m2) FROM 'data/processed/kaupskra_geocoded.parquet' WHERE NOT onothaefur AND tegund='Fjölbýli' GROUP BY 1 ORDER BY 1"
@@ -159,10 +172,14 @@ uv run python scripts/kortagerð.py static -o reports/iceland-map.png
 uv run python scripts/kortagerð.py html -o reports/iceland-map.html
 uv run python scripts/kortagerð.py static --bounds capital --highlight "Reykjavíkurborg" -o reports/rvk.png
 
-# Náttúrufræðistofnun: download habitat-type polygons via WFS
-# (vistgerðir 1:25.000 3rd ed.; DN=95 = L14.2 Tún og akurlendi, ~1,800 km²)
-uv run python scripts/natt.py habitat --dn 95
-uv run python scripts/natt.py inventory          # list all DN→htxt codes
+# Náttúrufræðistofnun: habitat-type mask from the 5 m vistgerðir raster via WCS
+# (1:25.000 3rd ed.; DN=95 = L14.2 Tún og akurlendi, 1,806 km²)
+# The old LMI_vektor:vistgerd polygon layer was withdrawn in 2026 — raster only.
+# Fetch cost is server-bound and scales with output pixels — see --res below.
+uv run python scripts/natt.py habitat --dn 95            # 50 m ISN93 mask, ~2 min
+uv run python scripts/natt.py habitat --dn 95 --res 100  # ~1 min, still map-grade
+uv run python scripts/natt.py habitat --dn 95 --res 20   # ~30 min, detail work
+uv run python scripts/natt.py inventory          # DN→htxt codes, from the WMS legend
 
 # Map of Iceland's agricultural land (PNG + single-file Leaflet HTML)
 uv run python scripts/agricultural_land_map.py
@@ -227,6 +244,10 @@ uv run python scripts/rikisreikningur.py summary
 uv run python scripts/rikisreikningur.py malefni
 uv run python scripts/rikisreikningur.py files
 
+# Ríkissjóður balance 1980-2025 — Hagstofan THJ05211 (pre-2015; the Fjársýsla API only goes back to 2015)
+uv run python scripts/hagstofan_rikissjod.py list     # sibling tables + coverage
+uv run python scripts/hagstofan_rikissjod.py fetch    # → data/processed/rikissjod_balance.csv
+
 # Fjárlög — state budget APPROPRIATIONS + 5-yr plan (málaflokkur level)
 uv run python scripts/fjarlog.py fetch                 # → data/processed/fjarlog.parquet
 uv run python scripts/fjarlog.py products              # afurð × year coverage
@@ -245,6 +266,13 @@ uv run python scripts/landeignaskra.py lookup 0174540
 
 # Seðlabanki interest rates — Power BI scrape via gagnabanki.is
 uv run python scripts/sedlabanki_rates.py
+
+# Samgöngustofa bifreiðatölur — vehicle registrations via reverse-engineered Power BI API
+# (geo-fenced: run from an Icelandic IP). list shows both reports + all dimensions.
+uv run python scripts/samgongustofa.py list
+uv run python scripts/samgongustofa.py fetch --report onroad --dimension fuel        # current fleet EV split
+uv run python scripts/samgongustofa.py fetch --dimension make --years 2020-2026      # imports by brand/year
+uv run python scripts/samgongustofa.py fetch --dimension fuel --years 2025,2026 --monthly
 
 # Traffic counters (Vegagerðin) — list, snapshot, accumulate, render
 uv run python scripts/umferd.py stations
@@ -281,9 +309,9 @@ uv run pytest -m slow                  # network + Playwright integration tests
 # Upstream health probes (tests/health/) — smallest stable contract per source
 uv run pytest -m health                        # every probe
 uv run pytest -m health -k hagstofan           # one source by name
-uv run pytest -m "health and not browser and not degraded_ok"   # required lane
+uv run pytest -m "health and not degraded_ok"   # required lane
 uv run pytest -m "health and degraded_ok"      # staleness / known-soft lane
-uv run pytest -m browser                       # Playwright probes (manual only)
+uv run pytest -m health                        # every probe
 
 # Render today's snapshot from both lanes
 uv run python scripts/health_summary.py --required health-required.xml \
@@ -293,9 +321,19 @@ uv run python scripts/health_summary.py --required health-required.xml \
 uv run python scripts/health_verdict.py --history .history/history.jsonl --window-days 30
 ```
 
-Health probes run daily in `.github/workflows/source-health.yml`. Browser probes
-are manual-dispatch only — from a datacenter IP, Power BI/Tableau failures say
-more about bot detection than about the source being down.
+Health probes run daily in `.github/workflows/source-health.yml`, on the
+self-hosted mac-mini (`solberg.club`, labels `self-hosted` + `iceland`) — the
+runner exists because GitHub-hosted runners sit in Azure datacenters with no
+Iceland region: geo-fenced sources like `bifreidatolur.samgongustofa.is`
+answer Icelandic IPs in ~50 ms but `ConnectTimeout` from every GitHub runner,
+and Power BI/Tableau bot detection trips on datacenter IPs. There is no
+`browser` lane anymore — the one probe that used it (`samgongustofa`, plain
+HTTP) was only geo-fence-blocked, and the mini fixed that.
+
+Note that `degraded_ok` is **not** an escape hatch for an unreachable source: a
+degraded row is still a non-healthy observation to `health_verdict.py`, so three
+in a row still read `dead` and still gate. Only `skipped` rows (and no rows at
+all) are excluded from the streak.
 
 To add a probe for a new source, see the `new-data-source` skill.
 
@@ -373,6 +411,21 @@ a switch that also opines on source health is a switch that can cry wolf.
 Pull beats push here: it needs no inbound ingress and no secret, and it catches
 the auto-disable case (where the workflow never runs to push anything) that a
 push-ping structurally cannot.
+
+**Keeping the mini's clone current.** The runner checks out its own workspace
+per run, so `~/Code/icelandic-data` (used by local/agent sessions on the mini)
+has nothing keeping it fresh on its own — it drifted 11 commits behind
+`origin/main` at least once. A periodic ff-only pull fixes that:
+
+| | |
+|---|---|
+| Script | `~/clawd/bin/icelandic-data-pull.sh` |
+| Schedule | `~/Library/LaunchAgents/com.jokull.icelandic-data-pull.plist` (every 6h + at load) |
+| Logs | `~/clawd/logs/icelandic-data-pull.log` |
+| Alert | Telegram via `openclaw message send` — but only on divergence/network failure |
+
+`--ff-only` never clobbers local work; a divergent clone alerts instead of
+force-pulling.
 
 Three properties worth preserving if you touch it:
 

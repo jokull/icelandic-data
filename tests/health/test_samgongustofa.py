@@ -14,8 +14,13 @@ the chain can, and if it does the documented recipe silently scrapes an empty
 page. Probing the site root alone would be worthless: it returns 200 with a
 static shell even if every route below it is gone.
 
-Lightweight: resolving the token and asking Power BI whether that report still
-exists needs no browser. Only the DAX capture does, and that is manual-only.
+This probe needs no browser at all — only the DAX capture does, and that stays
+a manual recipe. It ran in the manual `browser` lane from 2026-08-06 until the
+self-hosted mac-mini runner (labels: self-hosted, iceland) took over the daily
+lane: the host geo-fences datacenter address space (`httpx.ConnectTimeout`
+from every GitHub Actions runner) but answers Icelandic IPs in ~50 ms, and the
+daily job now runs from Iceland. Nothing left in the repo needs a manual
+browser lane, so the marker is gone with it.
 """
 from __future__ import annotations
 

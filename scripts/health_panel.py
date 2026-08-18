@@ -53,9 +53,10 @@ COLOR = {
 PROBES = [
     "byggdastofnun", "car", "co2", "domstolar", "eea_sdi", "farsaeld_barna",
     "energy", "ferdamalastofa", "fiskistofa", "fjarlog", "fuel", "gengi", "hafogvatn", "hagstofan", "heimsmarkmid",
+    "eurostat",
     "hms", "landlaeknir", "laun", "lmi", "lmi_hrl", "loftgaedi",
     "maelabord_landbunadarins", "maskina", "nasdaq", "natt", "opnirreikningar",
-    "reykjavik", "rikisreikningur", "samgongustofa", "sedlabanki", "skatturinn",
+    "reykjavik", "rikisreikningur", "samgongustofa", "sedlabanki", "sedlabanki_fx", "skatturinn",
     "skipulagsmal", "skodanakannanir", "tekjusagan", "tenders", "umferd", "vedur",
     "ust_gis", "velsaeldarvisar", "vernd", "vinnumalastofnun",
 ]

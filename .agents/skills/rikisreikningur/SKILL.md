@@ -1,6 +1,6 @@
 ---
 name: rikisreikningur
-description: Icelandic state accounts actuals (ríkisreikningur, Fjársýsla) — yearly revenue and expense 2015+, 36 málefnasvið policy areas.
+description: Icelandic state accounts actuals (ríkisreikningur, Fjársýsla) — yearly revenue/expense 2015+; pre-2015 balance via Hagstofan THJ05211; 36 málefnasvið policy areas.
 ---
 
 # Ríkisreikningur — state accounts (Fjársýsla ríkisins)
@@ -111,6 +111,9 @@ uv run python scripts/rikisreikningur.py files
 
 # Download one (URL-encoding handled)
 uv run python scripts/rikisreikningur.py download --name "Rikisreikningur_gogn_2024.csv"
+
+# Pre-2015 balance (1980-2025, Hagstofan THJ05211) — the API only goes back to 2015
+uv run python scripts/hagstofan_rikissjod.py fetch
 ```
 
 ## Processed outputs
@@ -121,6 +124,7 @@ uv run python scripts/rikisreikningur.py download --name "Rikisreikningur_gogn_2
 | `data/processed/rikisreikningur_tekjur_gjold.csv` | revenue/expense sub-totals (category × year × period) |
 | `data/processed/rikisreikningur_malefni.csv` | per-málefnasvið sub-totals |
 | `data/processed/rikisreikningur_files.csv` | file manifest |
+| `data/processed/rikissjod_balance.csv` | **1980–2025** balance, Hagstofan THJ05211 (tekjur/gjöld/afkoma, % af VLF, real 2025 prices — m.kr) |
 | `data/raw/rikisreikningur/{name}` | downloaded raw XLSX/CSV/PDF |
 
 ## Snapshot (2026-04 pull)
@@ -141,14 +145,50 @@ uv run python scripts/rikisreikningur.py download --name "Rikisreikningur_gogn_2
 
 All figures in ISK billions.
 
+## Pre-2015 data — the 2008–2011 crisis years
+
+The API starts at 2015 (Caveat 2). The machine-readable way back is
+**Hagstofan's state-treasury tables** (`Efnahagur/fjaropinber/fjarmal_rikissjods/`),
+fetched by `scripts/hagstofan_rikissjod.py`:
+
+| Table | Coverage | Content |
+|-------|----------|---------|
+| `THJ05211` | 1980–2025 | **one-stop balance**: tekjur, gjöld, tekjuafgangur/-halli + % af VLF + real-2025 prices (m.kr) |
+| `THJ05221` | 1998–2025 | full ESA accounts: rekstrartekjur, rekstrarútgjöld, tekjuafgangur, capital rows |
+| `THJ95200` | 2004–2014 | cash-basis (greiðslugrunnur) monthly; month code `0` = annual total |
+
+Worked example — state budget balance during the financial crisis (THJ05211, m.kr):
+
+| Year | Tekjur   | Gjöld    | Afkoma     | % af VLF |
+|------|---------:|---------:|-----------:|---------:|
+| 2008 |  637,571 |  822,128 | **−184,556** | −11.5 |
+| 2009 |  564,394 |  678,626 | **−114,232** |  −7.0 |
+| 2010 |  541,554 |  642,474 | **−100,920** |  −5.9 |
+| 2011 |  591,297 |  708,189 | **−116,892** |  −6.5 |
+
+Context: +58.3 bn surplus in 2007 → −40.0 (2012) → −21.9 (2013). The 2008
+expenditure jump (471 → 822 bn) is ~212 bn of one-off bank-rescue capital
+transfers — the deficit peaked at 11.5 % of GDP that year.
+
+**Basis caveat:** THJ05211/05221 (ESA accounts basis) and the Fjársýsla API
+(2015+) are close but not identical — 2016 afkoma is +455.4 bn in the API vs
++310.0 bn in THJ05211 (stöðugleikaframlög outlier, both), and THJ05211's gjöld
+include capital transfers that THJ05221's rekstrarútgjöld exclude. Quote
+either series consistently; pre-2015, Hagstofan is the only option. The
+cash-basis monthly series (THJ95200) is a third basis: 2008–2011 afkoma
+−199.2 / −136.9 / −69.1 / −57.4 bn. The raw 70 MB `Heimamundur gögn fyrir 2004
+- 2016.xlsx` from `files` is the underlying per-institution ledger.
+
 ## Caveats
 
 1. **API key rotates rarely but can rotate.** If the API starts returning 401,
    re-extract from the SPA bundle — grep the current `main.*.chunk.js` for
    a UUID assigned to a short variable name, currently `Ee = "6d4d…"`.
-2. **Year 2015 starts the series.** Pre-2015 data is only available via the
-   XLSX bundles in `files` (e.g. `Heimamundur gögn fyrir 2004–2016.xlsx` —
-   70 MB).
+2. **Year 2015 starts the series** — pre-2015 balance (e.g. the 2008–2011
+   crisis deficits) comes from Hagstofan THJ05211 via
+   `scripts/hagstofan_rikissjod.py` (see "Pre-2015 data" above). The XLSX
+   bundles in `files` (`Heimamundur gögn fyrir 2004–2016.xlsx`, 70 MB) are
+   the raw per-institution ledger if you need line-item detail.
 3. **Mid-year totals are partial.** `timabil_ar=2025, timabil=06` is the
    first half of 2025 closed; do not compare it to full-year rows (`13`).
    The `summary` command preserves both; you need to filter by `timabil`.

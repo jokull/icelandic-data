@@ -87,6 +87,22 @@ curl -X POST "https://px.hagstofa.is/pxis/api/v1/is/{path}/{TABLE}.px" \
 | `1_yfirlit/Yfirlit_mannfjolda/MAN00000.px` | Key population figures 1703-2025 |
 | `1_yfirlit/Yfirlit_mannfjolda/MAN00101.px` | Population by sex and age |
 
+### State treasury — ríkissjóður fiscal aggregates
+**Path:** `Efnahagur/fjaropinber/fjarmal_rikissjods/`
+
+| Table | Period | Description |
+|-------|--------|-------------|
+| `THJ05211.px` | 1980-2025 | **One-stop state budget balance**: tekjur, gjöld, tekjuafgangur/-halli (m.kr), % af VLF, real-2025 prices |
+| `THJ05221.px` | 1998-2025 | Full ESA income statement: rekstrartekjur, rekstrarútgjöld, tekjuafgangur, capital rows |
+| `THJ05222.px` | 1998-2025 | Rekstrarreikningur ríkissjóðs |
+| `THJ95200.px` | 2004-2014 | Cash-basis (greiðslugrunnur) monthly state accounts — month code `0` = annual total |
+| `THJ05281.px` | 1998-2025 | Monetary assets and debt incl. almannatryggingar |
+
+The ríkisreikningur (Fjársýsla) API only goes back to 2015 — pre-2015 state
+budget balance (e.g. the 2008–2011 crisis deficits) comes from these tables.
+`scripts/hagstofan_rikissjod.py fetch` builds
+`data/processed/rikissjod_balance.csv` (all years, wide, m.kr).
+
 ## Tariff Codes (Bikes/E-bikes)
 
 Classification changed in 2020:
@@ -128,3 +144,14 @@ Classification changed in 2020:
    - `Tollskrárnúmer` = Tariff code
    - `Cif verð krónur` = CIF value in ISK
    - `Viðbótar magneining` = Additional unit (count)
+
+6. **PX-Web query gotchas:**
+   - `"filter": "all"` returns HTTP 400 Bad Request — always enumerate
+     `values` explicitly (`"filter": "item"`).
+   - json-stat2 responses keep `id` / `size` at the **top level**, not under
+     `dimension` (dimension keys are plain dimension names).
+   - The response's category `label` may echo the requested selection codes
+     rather than the human labels — when you need row labels, read the
+     metadata `valueTexts` in the same order as its `values`.
+   - Some tables use a "total" code: THJ95200 has month code `0` = annual
+     total (months are `1`–`12`).

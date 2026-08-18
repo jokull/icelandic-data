@@ -33,9 +33,7 @@ from tests.health.conftest import assert_fresh
 
 XLSM_TYPE = "application/vnd.ms-excel.sheet.macroenabled.12"
 
-_ASSET_RE = re.compile(
-    r"https://assets\.ctfassets\.net/[\w/]+/Talnagogn_atvinnuleysi\.xlsm"
-)
+_ASSET_RE = re.compile(r"https://assets\.ctfassets\.net/[\w/-]+\.xlsm")
 
 
 def test_excel_workbook_is_served(http):
@@ -58,8 +56,8 @@ def test_hardcoded_excel_url_is_the_current_upload(http):
 
     linked = set(_ASSET_RE.findall(r.text))
     assert linked, (
-        f"no Talnagogn_atvinnuleysi.xlsm link on {LANDING} — the page was "
-        f"restructured, or the workbook was renamed"
+        f"no .xlsm workbook link on {LANDING} — the page was "
+        f"restructured, or the workbook was removed"
     )
     assert EXCEL_URL in linked, (
         f"EXCEL_URL in scripts/vinnumalastofnun.py is behind: {LANDING} now "

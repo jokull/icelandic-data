@@ -6,10 +6,15 @@ One file per data source: `test_<source>.py`. Everything here is auto-marked
 ```bash
 uv run pytest -m health                        # every probe
 uv run pytest -m health -k hagstofan           # one source
-uv run pytest -m "health and not browser and not degraded_ok"   # required lane (daily, gates)
+uv run pytest -m "health and not degraded_ok"   # required lane (daily, gates)
 uv run pytest -m "health and degraded_ok"      # staleness / known-soft (daily, reports)
-uv run pytest -m browser                       # Playwright probes (manual only)
 ```
+
+There is no `browser` lane. The only probe ever marked `browser` was
+`samgongustofa` — plain HTTP, but geo-fenced: `bifreidatolur.samgongustofa.is`
+answers in ~50 ms from an Icelandic IP and timed out from every GitHub runner.
+The daily job now runs on the self-hosted mac-mini in Iceland (see AGENTS.md),
+so the marker and the lane went away with the geo-fence.
 
 See the `new-data-source` skill for how to write one, and `AGENTS.md` for how
 flake-vs-dead is decided.

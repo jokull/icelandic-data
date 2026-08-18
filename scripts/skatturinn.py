@@ -39,15 +39,18 @@ class Owner:
     """Beneficial owner or shareholder."""
 
     name: str
-    kennitala: str
+    kennitala: str | None = None
+    birth_year_month: str | None = None
     ownership_pct: float | None = None
+    ownership_types: list[str] = field(default_factory=list)
     is_company: bool = False
 
     def __post_init__(self):
-        # Clean kennitala (remove dash)
-        self.kennitala = self.kennitala.replace("-", "")
-        # Determine if company based on first digit (4-7 = company)
-        if self.kennitala and len(self.kennitala) >= 1:
+        # Clean kennitala (remove dash). The company page only shows birth
+        # year/month for person owners — kennitala stays None then.
+        if self.kennitala:
+            self.kennitala = self.kennitala.replace("-", "")
+            # Determine if company based on first digit (4-7 = company)
             self.is_company = self.kennitala[0] in "4567"
 
 
@@ -117,6 +120,15 @@ async def get_company_info(kennitala: str) -> Company | None:
             print(f"  Company {kennitala} not found")
             return None
 
+        # Anti-bot bounce: after rapid requests the site answers with a terms
+        # page ("Notkunarskilmálar") instead of the lookup — not a company.
+        if "Notkunarskilmálar" in html:
+            print(
+                "  Hit the terms page instead of the lookup (rate-limited) — "
+                "wait and retry"
+            )
+            return None
+
         # Extract company name from h1 (format: "Name (kennitala)")
         name = "Unknown"
         h1_match = re.search(r"<h1[^>]*>(.*?)</h1>", html, re.DOTALL)
@@ -129,56 +141,76 @@ async def get_company_info(kennitala: str) -> Company | None:
         print(f"  Found: {name}")
         company = Company(kennitala=kennitala, name=name)
 
-        # Extract beneficial owners from .collapsebox elements
-        # Each collapsebox has an h4 with the owner name and a table with ownership details
+        # Extract beneficial owners. Current page markup (2026):
+        #   <h3 class="collapse">Raunverulegir eigendur</h3>
+        #     <span><h4>Owner Name</h4></span>
+        #     <table class="annualTable">
+        #       <thead><th>Fæðingarár/mán</th><th>Búsetuland</th><th>Ríkisfang</th>
+        #              <th>Eignarhlutur</th><th>Tegund eignahalds</th></thead>
+        #       <tbody><tr><td>1964-JÚNÍ</td><td>Ísland.</td><td>Ísland</td>
+        #              <td>100%</td><td>Beint eignarhald</td></tr></tbody>
+        #     </table>
+        # The h3.collapse headers split the page into blocks (Gögn úr
+        # fyrirtækjaskrá, Gögn úr ársreikningaskrá, Raunverulegir eigendur,
+        # Hluthafar). Note: person owners show birth year/month, NOT a full
+        # kennitala — name + percentage are all the page gives for them.
+        # Listed companies (hliðstæð fyrirtæki) render no owner block at all.
         try:
-            # Find all collapsebox sections
-            collapsebox_pattern = re.compile(
-                r'<div[^>]*class="[^"]*collapsebox[^"]*"[^>]*>([\s\S]*?)</div>\s*</div>',
-                re.IGNORECASE,
-            )
-            # More robust: find sections between collapsebox markers
-            # The HTML structure has .collapsebox containing h4 + table
-            owner_sections = re.findall(
-                r'<div[^>]*class="[^"]*collapsebox[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*class="[^"]*collapsebox|$)',
-                html,
-                re.IGNORECASE,
-            )
-
-            for section in owner_sections:
-                # Get owner name from h4
-                h4_match = re.search(r"<h4[^>]*>(.*?)</h4>", section, re.DOTALL)
-                if not h4_match:
-                    continue
-                owner_name = _strip_html(h4_match.group(1)).strip()
-
-                # Check if this section has ownership data
-                if "Eignarhlutur" not in section and "%" not in section:
+            for block in re.split(r'<h3[^>]*class="collapse"[^>]*>', html)[1:]:
+                title = re.match(r"\s*([^<]*)", block).group(1).strip().lower()
+                if not any(kw in title for kw in ("eigend", "hluthaf")):
                     continue
 
-                # Extract table rows
-                rows = re.findall(
-                    r"<tr[^>]*>([\s\S]*?)</tr>", section, re.IGNORECASE
-                )
-                for row_html in rows:
-                    cells = re.findall(
-                        r"<td[^>]*>([\s\S]*?)</td>", row_html, re.IGNORECASE
-                    )
-                    if len(cells) >= 4:
-                        birth_info = _strip_html(cells[0]).strip()
-                        pct_text = _strip_html(cells[3]).strip()
+                # Each owner is <h4>Name</h4> followed by its .annualTable row(s)
+                for owner_unit in re.split(r"<h4[^>]*>", block)[1:]:
+                    name = _strip_html(owner_unit.split("</h4>", 1)[0]).strip()
+                    if not name:
+                        continue
 
-                        # Parse percentage
+                    for row_html in re.findall(
+                        r"<tr[^>]*>([\s\S]*?)</tr>", owner_unit, re.IGNORECASE
+                    ):
+                        cells = re.findall(
+                            r"<td[^>]*>([\s\S]*?)</td>", row_html, re.IGNORECASE
+                        )
+                        if len(cells) < 4:
+                            continue
+
+                        birth_year_month = _strip_html(cells[0]).strip() or None
+
+                        # Percentage from the Eignarhlutur column (index 3)
                         pct = None
-                        pct_match = re.search(r"(\d+(?:[,\.]\d+)?)\s*%?", pct_text)
+                        pct_match = re.search(
+                            r"(\d+(?:[,\.]\d+)?)\s*%?", _strip_html(cells[3]).strip()
+                        )
                         if pct_match:
                             pct = float(pct_match.group(1).replace(",", "."))
 
+                        ownership_types = []
+                        if len(cells) >= 5:
+                            ownership_types = [
+                                _strip_html(value).strip()
+                                for value in re.split(
+                                    r"<br\s*/?>", cells[4], flags=re.IGNORECASE
+                                )
+                                if _strip_html(value).strip()
+                            ]
+
+                        # Companies as owners may carry a kennitala in the
+                        # row; persons never do. None keeps the chain from
+                        # recursing into a lookup that cannot resolve.
+                        row_text = " ".join(
+                            _strip_html(c).strip() for c in cells
+                        )
+                        kt_match = KT_PATTERN.search(row_text)
+
                         company.beneficial_owners.append(
                             Owner(
-                                name=owner_name,
-                                kennitala=birth_info.replace(" ", ""),
+                                name=name,
+                                kennitala=kt_match.group(1) if kt_match else None,
+                                birth_year_month=birth_year_month,
                                 ownership_pct=pct,
+                                ownership_types=ownership_types,
                             )
                         )
         except Exception as e:
@@ -671,13 +703,16 @@ async def map_ownership_chain(
     # Recurse into company owners
     for owner in company.beneficial_owners:
         owner_data = {
-            "kennitala": owner.kennitala,
             "name": owner.name,
+            "birth_year_month": owner.birth_year_month,
             "ownership_pct": owner.ownership_pct,
+            "ownership_types": owner.ownership_types,
             "type": "company" if owner.is_company else "person",
         }
+        if owner.kennitala:
+            owner_data["kennitala"] = owner.kennitala
 
-        if owner.is_company:
+        if owner.is_company and owner.kennitala:
             # Recurse
             await asyncio.sleep(REQUEST_DELAY)  # Rate limiting
             child_chain = await map_ownership_chain(
@@ -743,8 +778,13 @@ async def info_command(kennitala: str) -> None:
     print(f"\nBeneficial owners ({len(company.beneficial_owners)}):")
     for owner in company.beneficial_owners:
         pct = f"{owner.ownership_pct}%" if owner.ownership_pct else "?"
+        identity = owner.kennitala or owner.birth_year_month or "no kt on page"
         type_str = "company" if owner.is_company else "person"
-        print(f"  - {owner.name} ({owner.kennitala}) - {pct} [{type_str}]")
+        ownership_types = ", ".join(owner.ownership_types) or "?"
+        print(
+            f"  - {owner.name} ({identity}) - {pct} "
+            f"[{type_str}; {ownership_types}]"
+        )
 
     print(f"\nAvailable reports ({len(company.available_reports)}):")
     for report in company.available_reports:

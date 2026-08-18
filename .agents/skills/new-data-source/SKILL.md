@@ -60,10 +60,11 @@ curl -s "{base}/stations" | jq '.[0]'
 curl -s "{base}/data?limit=5" | jq .
 ```
 
-**For Power BI:**
-- Open the page, look for `<iframe>` with `app.powerbi.com/view?r=`
-- Extract the embed token from the `r=` parameter
-- Use browser DevTools Network tab to find the actual data requests
+**For Power BI:** read the **`powerbi`** skill and reuse `scripts/powerbi.py`.
+It already handles the embed token, the in-iframe query replay (a cold httpx
+client 401s — the grant is origin/session/rate-bound), and DSR decompression
+(skip it and you silently undercount). `samgongustofa.py` is the reference
+implementation to copy. Don't re-solve any of this by hand.
 
 ### 1.3 Document the Schema
 

@@ -8,8 +8,8 @@ the payload.
 Everything under tests/health/ is auto-marked `slow` and `health`, so:
 
     uv run pytest -m "not slow"            # PR CI — never touches the network
-    uv run pytest -m "health and not browser"   # daily scheduled run
-    uv run pytest -m browser               # weekly / manual, Playwright probes
+    uv run pytest -m "health and not degraded_ok"   # required lane (daily)
+    uv run pytest -m "health and degraded_ok"       # staleness / known-soft
 
 Probes must not write into data/ — they hold responses in memory.
 """

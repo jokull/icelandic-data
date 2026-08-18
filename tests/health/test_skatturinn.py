@@ -34,6 +34,11 @@ BASE = "https://www.skatturinn.is/fyrirtaekjaskra/leit/kennitala"
 KENNITALA = "5402062010"
 NAME = "Festi hf."
 
+# Háaberg 29 ehf. — private single-owner property company, reports 2004-2024.
+# The one page that must keep its beneficial-owner markup: Festi is listed
+# (dispersed shareholders) and renders no owner block at all.
+OWNER_KENNITALA = "5012043070"
+
 
 @pytest.fixture(scope="module")
 def page(http):
@@ -83,4 +88,57 @@ def test_annual_report_rows_carry_itemid_and_typeid(page):
     assert "Ársreikningur" in page, (
         "the string 'Ársreikningur' is absent — either the page is no longer "
         "UTF-8 decoded, or the report table was relabelled"
+    )
+
+
+@pytest.fixture(scope="module")
+def owner_page(http):
+    r = http.get(f"{BASE}/{OWNER_KENNITALA}", headers=_HTTP_HEADERS)
+    assert r.status_code == 200, f"{r.request.url} -> {r.status_code}"
+    html = r.text
+    assert "engri niðurstöðu" not in html and "Engin fyrirtæki fundust" not in html
+    return html
+
+
+def test_beneficial_owners_markup(owner_page):
+    """get_company_info() reads owners out of <h3 class="collapse"> blocks —
+    the .collapsebox divs it was written against are gone (2026 markup: an
+    h3.collapse section header, an h4 owner name, and an .annualTable). The
+    2026 break returned 0 owners for a company that visibly has one, so the
+    whole shape is the contract: section title, h4 name, Eignarhlutur column,
+    and a percentage cell. Persons show birth year/month, never a kennitala —
+    the parser must not assume one (Owner.kennitala is None then)."""
+    blocks = re.split(r'<h3[^>]*class="collapse"[^>]*>', owner_page)[1:]
+    owner_block = next(
+        (
+            b
+            for b in blocks
+            if re.match(r"\s*Raunverulegir eigendur", b, re.IGNORECASE)
+        ),
+        None,
+    )
+    assert owner_block, (
+        "no '<h3 class=\"collapse\">Raunverulegir eigendur' block — "
+        "get_company_info() finds no owners at all when this is gone"
+    )
+    assert re.search(r"<h4[^>]*>(.*?)</h4>", owner_block, re.DOTALL), (
+        "owner block has no <h4> name — the h4-in-span markup changed"
+    )
+    assert "Eignarhlutur" in owner_block, (
+        "owner table lost its Eignarhlutur column — get_company_info() reads "
+        "the percentage from column index 3"
+    )
+    assert "Tegund eignahalds" in owner_block, (
+        "owner table lost its Tegund eignahalds column — get_company_info() "
+        "reads ownership_types from column index 4"
+    )
+    assert re.search(
+        r"<td[^>]*>\s*\d+[,.]?\d*\s*%\s*</td>", owner_block
+    ), "no percentage cell in the owner table"
+    assert re.search(r"Fæðingarár/mán", owner_block), (
+        "the birth year/month column is gone — the page may now expose full "
+        "kennitalas, which would change Owner.kennitala handling"
+    )
+    assert re.search(r"Beint eignarhald", owner_block), (
+        "the owner table has no expected ownership-type value"
     )

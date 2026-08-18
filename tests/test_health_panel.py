@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+from datetime import datetime, timedelta, timezone
 
 from scripts.health_panel import COLOR, PROBES, dot, render
 
@@ -82,10 +83,15 @@ def test_sources_with_no_history_still_get_a_dot(tmp_path):
 
 def test_history_drives_the_colour(tmp_path):
     hist = tmp_path / "history.jsonl"
+    # Relative dates: the verdict window is "now − 30 days", and hardcoded
+    # timestamps age out — this test broke exactly that way in 2026-08 when
+    # its July fixtures slid out of the window and vedur went 'unknown'.
+    now = datetime.now(timezone.utc)
     hist.write_text(
         "\n".join(
-            f'{{"ts": "2026-07-{day:02d}T06:17:00+00:00", "source": "vedur", "status": "healthy"}}'
-            for day in (14, 15, 16)
+            f'{{"ts": "{(now - timedelta(days=2 - day)).isoformat()}", '
+            f'"source": "vedur", "status": "healthy"}}'
+            for day in (0, 1, 2)  # today, yesterday, day before
         ),
         encoding="utf-8",
     )
