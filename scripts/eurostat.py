@@ -16,6 +16,9 @@ accepts single code values per dimension (codes are case-insensitive); the
 slice locally (duckdb/polars) when you need a window. `list` shows the curated
 datasets this repo cares about.
 
+Fetched tidy CSVs default to data/processed/eurostat/{dataset}.csv; pass
+`--out` to write anywhere else.
+
 Usage:
     uv run python scripts/eurostat.py list
     uv run python scripts/eurostat.py fetch prc_hicp_midx --filter geo=EA20 --filter coicop=CP00 --filter unit=I15
@@ -36,7 +39,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 BASE = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
-RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / "eurostat"
+OUT_DIR = Path(__file__).parent.parent / "data" / "processed" / "eurostat"
 
 # Curated catalog: datasets this repo actually uses, with their key dimensions.
 # Codes/labels below are verified against the live API.
@@ -122,7 +125,7 @@ def cmd_list(_args=None):
 
 
 def cmd_fetch(args):
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     filters = {}
     for kv in args.filter or []:
         k, sep, v = kv.partition("=")
@@ -132,7 +135,7 @@ def cmd_fetch(args):
     print(f"Fetching {args.dataset} {filters}", file=sys.stderr)
     js = get_json(args.dataset, filters)
     df = json_stat_to_long(js)
-    out = Path(args.out) if args.out else RAW_DIR / f"{args.dataset}.csv"
+    out = Path(args.out) if args.out else OUT_DIR / f"{args.dataset}.csv"
     df.write_csv(out)
     print(f"→ {out} ({df.height} rows × {df.width} cols)", file=sys.stderr)
     print(df.head(3))
@@ -149,7 +152,7 @@ def main():
     pf.add_argument("dataset", help="dataset code, e.g. prc_hicp_midx")
     pf.add_argument("--filter", action="append", metavar="KEY=VALUE",
                     help="dimension filter, repeatable, e.g. --filter geo=EA20 --filter unit=I15")
-    pf.add_argument("--out", help="output CSV path (default data/raw/eurostat/{dataset}.csv)")
+    pf.add_argument("--out", help="output CSV path (default data/processed/eurostat/{dataset}.csv)")
     pf.set_defaults(func=cmd_fetch)
 
     args = ap.parse_args()

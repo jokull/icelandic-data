@@ -19,7 +19,8 @@ to Hagstofan for evrusvæðið. No authentication, no rate key, plain HTTP.
 - No API key. Works from any CI runner (unlike geo-fenced Icelandic hosts).
 
 `scripts/eurostat.py` wraps this: `fetch DATASET --filter KEY=VALUE`
-(repeatable) flattens to a tidy long CSV in `data/raw/eurostat/`.
+(repeatable) flattens to a tidy long CSV in `data/processed/eurostat/`
+(`--out` overrides).
 
 ## Fetching data
 
@@ -54,18 +55,18 @@ range-filtered server-side (400) — fetch the series and slice locally
 Real compensation per employee, quarterly, 2015=100:
 
 ```sql
--- data/raw/eurostat/{namq_10_a10,namq_10_pe,prc_hicp_midx}.csv fetched per above
+-- data/processed/eurostat/{namq_10_a10,namq_10_pe,prc_hicp_midx}.csv fetched per above
 WITH ea AS (
   SELECT make_date(CAST(regexp_extract(time,'(\\d{4})',1) AS INT),
                    1+3*(CAST(regexp_extract(time,'Q(\\d)',1) AS INT)-1), 1) q, value d1
-  FROM read_csv_auto('data/raw/eurostat/namq_10_a10.csv')),
+  FROM read_csv_auto('data/processed/eurostat/namq_10_a10.csv')),
 emp AS (
   SELECT make_date(CAST(regexp_extract(time,'(\\d{4})',1) AS INT),
                    1+3*(CAST(regexp_extract(time,'Q(\\d)',1) AS INT)-1), 1) q, value e
-  FROM read_csv_auto('data/raw/eurostat/namq_10_pe.csv')),
+  FROM read_csv_auto('data/processed/eurostat/namq_10_pe.csv')),
 hicp AS (
   SELECT date_trunc('quarter', strptime(time,'%Y-%m')) q, avg(value) h
-  FROM read_csv_auto('data/raw/eurostat/prc_hicp_midx.csv') GROUP BY 1)
+  FROM read_csv_auto('data/processed/eurostat/prc_hicp_midx.csv') GROUP BY 1)
 SELECT ea.q, 100.0*(d1/e*1000/h)/
        (SELECT avg(d1/e*1000/h) FROM ea JOIN emp USING(q) JOIN hicp USING(q)
         WHERE ea.q BETWEEN date '2015-01-01' AND date '2015-12-31') idx2015

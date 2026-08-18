@@ -60,6 +60,8 @@ Per-source uptime and last error are in the
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/energy.svg" width="12"> | Energy | Electricity generation by source, energy-system tables and fuel sales (Environment & Energy Agency) |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/althingi.svg" width="12"> | Alþingi | Parliamentary XML — MPs, per-MP vote records, bills, committees, speeches (1875+) |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/eurostat.svg" width="12"> | Eurostat | Euro-area / EU statistics — HICP, compensation of employees, employment, labour costs (official REST API) |
+| <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/housing_completions.svg" width="12"> | Housing completions | Completed dwellings 1970–2025 — Hagstofan IDN03001 + HMS húsnæðisáætlanir |
+| <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/income_distribution.svg" width="12"> | Income distribution | Hagstofan TEK01001 — mean/median income by source, age, gender + tax burden (1990–2024) |
 
 ### Government dashboards (_mælaborð_)
 

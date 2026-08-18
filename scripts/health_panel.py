@@ -54,7 +54,7 @@ PROBES = [
     "althingi", "byggdastofnun", "car", "co2", "domstolar", "eea_sdi", "farsaeld_barna",
     "energy", "ferdamalastofa", "fiskistofa", "fjarlog", "fuel", "gengi", "hafogvatn", "hagstofan", "heimsmarkmid",
     "eurostat",
-    "hms", "landlaeknir", "lanamal", "laun", "lmi", "lmi_hrl", "loftgaedi",
+    "hms", "housing_completions", "income_distribution", "landlaeknir", "lanamal", "laun", "lmi", "lmi_hrl", "loftgaedi",
     "maelabord_landbunadarins", "maskina", "nasdaq", "natt", "opnirreikningar",
     "reykjavik", "rikisreikningur", "samgongustofa", "sedlabanki", "sedlabanki_fx", "skatturinn",
     "skipulagsmal", "skodanakannanir", "tekjusagan", "tenders", "umferd", "vedur",
