@@ -1,6 +1,6 @@
 ---
 name: skodanakannanir
-description: RÚV + Vísir + Heimildin opinion-poll aggregators (skoðanakannanir) — all-pollster party support (Alþingi + Reykjavík) and ESB polling; try the maskina skill first.
+description: RÚV + Vísir + Heimildin opinion-poll aggregators — all-pollster party support (Alþingi + Reykjavík) and ESB; try maskina first.
 ---
 
 # Skoðanakannanir — RÚV + Vísir + Heimildin Opinion-Poll Aggregators
@@ -970,6 +970,32 @@ uv run python scripts/skodanakannanir.py fetch visir-20262904348               #
 uv run python scripts/skodanakannanir.py fetch heimildin-23196                 # errors clearly: not implemented yet, prints the URL to read by hand
 uv run python scripts/skodanakannanir.py fetch --all --limit 20                # batch over cached RÚV + Vísir articles (Heimildin excluded, not built)
 ```
+
+## Eval Suite
+
+The `eval/` directory holds the evidence trail behind every extraction rule in
+this skill: five rounds of question-answer baselines, each run against real
+articles, with the gaps found in one round driving the fixes verified in the
+next. Reading it in order (round 1 → round 5) shows *why* the prose fallback,
+false-positive rejection and canonicalization rules exist — do not "simplify"
+those rules without re-running an eval round.
+
+| File | What it is |
+|------|-----------|
+| `questions.json` | Round-1 question set (30 questions, answers in `baseline-2026-07-20.json`) |
+| `questions-round2.json` … `questions-round5.json` | Later rounds' question sets, each targeting the named gaps from the previous round |
+| `baseline-2026-07-20.json` | Round-1 recorded answers (**historical snapshot** — predates Vísir fetch support; rounds 2–5 supersede it) |
+| `baseline-round2-2026-07-20.json` … `baseline-round5-…json` | Rounds 2–5 recorded answers against the current tooling |
+
+**How to run a round:** take a `questions-*.json` file and answer each question
+using only `scripts/skodanakannanir.py`'s actual output — the cached
+`data/raw/skodanakannanir/articles.json` + `data/processed/skodanakannanir.csv`
+plus ad-hoc queries against that same cache (the round-1 `method` field
+describes the exact workflow). There is no automated runner: the value is the
+agent actually exercising the tooling and recording what it could and could
+not answer. Record results into a new `baseline-{date}.json` with the same
+schema (`run_date`, `against_commit`, `method`, `summary`, `results`,
+`gap_patterns`, `highest_value_next_steps`).
 
 ## Data Files
 

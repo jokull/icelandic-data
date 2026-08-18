@@ -198,5 +198,6 @@
     "Build Vísir fetch (chart/prose extraction on visir.is articles) — directly fixes the staleness pattern hit by 5 of the 30 questions (Q1, Q2, Q3, Q5, Q6), the single largest gap cluster.",
     "Extract sample size + field dates as structured fields alongside party/pct when present in prose — cheap addition, fixes 3 questions (Q14, Q15, Q16).",
     "A 'fetch every poll matching a filter' batch mode plus a trend/average query helper would turn 6 partial answers (Q10, Q11, Q13, Q20, Q27) into one-command answers instead of N manual fetches + hand-written SQL."
-  ]
+  ],
+  "note": "HISTORICAL SNAPSHOT: round 1 predates Vísir fetch support — its gap_patterns say 'fetch not built' and several 'unable' answers are stale for that reason. Rounds 2-5 (baseline-round2..round5-2026-07-20.json) were run against the current tooling and supersede this file; see the Eval Suite section of SKILL.md."
 }

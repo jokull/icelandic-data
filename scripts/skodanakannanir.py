@@ -392,11 +392,6 @@ _TENS = {
     "tuttugu": 20, "þrjátíu": 30, "fjörutíu": 40, "fimmtíu": 50,
     "sextíu": 60, "sjötíu": 70, "áttatíu": 80, "níutíu": 90,
 }
-_NUMBER_WORD_RE = re.compile(
-    r"\b(?:(?:" + "|".join(_TENS) + r")(?:\s+og\s+(?:" + "|".join(_ONES) + r"))?"
-    r"|(?:" + "|".join(_ONES) + r"))\b(?:\s+og\s+hálf\w*)?",
-    re.IGNORECASE,
-)
 _DIGIT_NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?")
 # "úr X í Y" ("from X to Y") is a second, independently reliable current-value
 # marker — verified on a real Vísir article comparing Gallup's new þjóðarpúls
@@ -1022,6 +1017,7 @@ def fetch_visir_article_list(max_pages: int = 40, stop_before_year: int | None =
             break  # end of pagination (verified: page 40 returns 0 <article> blocks)
 
         page_had_recent_enough = False
+        page_had_any_parsed_date = False
         for block in blocks:
             link_m = _VISIR_LINK_RE.search(block)
             title_m = _VISIR_TITLE_RE.search(block)
@@ -1031,6 +1027,8 @@ def fetch_visir_article_list(max_pages: int = 40, stop_before_year: int | None =
             text_m = _VISIR_TEXT_RE.search(block)
 
             published_at = _visir_date_to_iso(time_m.group(1).strip())
+            if published_at:
+                page_had_any_parsed_date = True
             if stop_before_year and published_at and int(published_at[:4]) < stop_before_year:
                 continue
             if published_at and (not stop_before_year or int(published_at[:4]) >= stop_before_year):
@@ -1052,8 +1050,12 @@ def fetch_visir_article_list(max_pages: int = 40, stop_before_year: int | None =
                 "topic": _guess_topic(title, subtitle),
             }
 
-        if stop_before_year and not page_had_recent_enough:
-            break  # every item on this page is older than the cutoff — pages are date-descending, so done
+        # Only end pagination when a parsed date on this page proves
+        # everything is older than the cutoff. A page whose dates all fail
+        # to parse can't prove that — breaking would silently truncate
+        # recent articles (an unparseable date is never evidence of oldness).
+        if stop_before_year and page_had_any_parsed_date and not page_had_recent_enough:
+            break
 
     return sorted(seen.values(), key=lambda r: r["published_at"] or "", reverse=True)
 
@@ -1488,10 +1490,38 @@ def cmd_fetch(args):
     fetched, failed = asyncio.run(_fetch_targets(targets))
 
     rows = []
+    no_figures_no_methodology = 0
     for meta, result in fetched:
-        if not result["parties"]:
-            continue
         methodology = result.get("methodology") or {}
+        if not result["parties"]:
+            # Zero party figures is a real outcome (chart + prose both
+            # yielded nothing) — but the poll still exists, and its
+            # methodology (pollster, sample size, response rate, fielded
+            # note) is still worth keeping. Preserve it as a party-less
+            # row instead of dropping the article silently (round-5 eval
+            # data-loss gap); only articles with neither figures nor
+            # methodology are skipped, and those are counted, not hidden.
+            if not any(v is not None for v in methodology.values()):
+                no_figures_no_methodology += 1
+                continue
+            rows.append(
+                {
+                    "article_id": meta["id"],
+                    "published_at": meta["published_at"],
+                    "scope": meta["scope"],
+                    "pollster": meta["pollster"],
+                    "title": meta["title"],
+                    "topic": meta.get("topic") or "parties",
+                    "party": None,
+                    "pct": None,
+                    "approx": False,
+                    "source": result["source"],
+                    "sample_size": methodology.get("sample_size"),
+                    "response_rate_pct": methodology.get("response_rate_pct"),
+                    "fielded_note": methodology.get("fielded_note"),
+                }
+            )
+            continue
         for p in result["parties"]:
             rows.append(
                 {
@@ -1516,6 +1546,12 @@ def cmd_fetch(args):
 
     if failed:
         print(f"  {len(failed)} article(s) failed and were skipped: {[f['id'] for f in failed]}")
+
+    if no_figures_no_methodology:
+        print(
+            f"  {no_figures_no_methodology} article(s) had neither party figures "
+            "nor methodology and were skipped"
+        )
 
     if not rows:
         print("No poll data extracted.")
