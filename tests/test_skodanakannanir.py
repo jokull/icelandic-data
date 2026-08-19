@@ -145,6 +145,43 @@ def test_esb_prose_figures_single_answer_with_historical_marker():
     assert andvigt and andvigt[0]["pct"] == 46.0
 
 
+def test_esb_prose_figures_a_moti_ballot_phrasing():
+    """visir-20262921428 (Gallup þjóðarpúls, 2026-08-15): the ballot pair is
+    "greiða atkvæði með" / "á móti", with no já or nei word anywhere. Before
+    "á móti" was a recognized Nei phrasing this was one answer term against
+    two numbers, and nearest-gap attached the number four characters away
+    (48,5 — the Nei figure) to the lone Já match, publishing the poll
+    backwards."""
+    results, skipped = s.extract_esb_prose_figures(
+        [
+            "Samkvæmt honum er svo mjótt á munum fylkinganna að hann er ekki "
+            "tölfræðilega marktækur en 51,5% þeirra sem tóku afstöðu sögðust "
+            "ætla að greiða atkvæði með og 48,5% þeirra á móti."
+        ]
+    )
+    assert [(r["party"], r["pct"]) for r in results] == [("Já", 51.5), ("Nei", 48.5)]
+
+
+def test_esb_prose_figures_a_moti_connective_not_an_answer():
+    """"Á móti kemur að ..." is the discourse connective ("on the other
+    hand"), not a ballot answer — it must not create a Nei row."""
+    results, _ = s.extract_esb_prose_figures(
+        ["Á móti kemur að 30 prósent aðspurðra eru andvíg aðildarviðræðum."]
+    )
+    assert [(r["party"], r["pct"]) for r in results] == [("Andvígt", 30.0)]
+
+
+def test_esb_prose_figures_declined_to_answer_singular_verb():
+    """A percentage takes a singular verb in Icelandic ("1% vildi ekki
+    svara", visir-20262921428). With only the plural "vildu" recognized,
+    "óákveðin" stood alone against two numbers and nearest-gap took the 1%
+    that FOLLOWS the label over the 7% that precedes it."""
+    results, _ = s.extract_esb_prose_figures(
+        ["Af þeim sem svöruðu könnuninni voru 7% enn óákveðin og 1% vildi ekki svara."]
+    )
+    assert [(r["party"], r["pct"]) for r in results] == [("Óákveðin", 7.0)]
+
+
 def test_esb_prose_figures_nato_excluded():
     """NATO sentences use the same hlynnt/andvíg vocabulary about a
     different question — excluded, not extracted as EU-membership answers."""
@@ -205,6 +242,69 @@ def test_methodology_fielded_note():
     assert meta["fielded_note"] == "5. til 31. janúar 2026"
 
 
+def test_methodology_fielded_note_without_year():
+    """visir-20262920711 (Maskína, 2026-08-13) ends the range at the month:
+    "Könnunin var gerð dagana 7. til 11. ágúst og svöruðu 1.205 manns." The
+    year-terminated pattern ran past it and matched nothing at all."""
+    meta = s.extract_methodology(
+        ["Könnunin var gerð dagana 7. til 11. ágúst og svöruðu 1.205 manns."]
+    )
+    assert meta["fielded_note"] == "7. til 11. ágúst"
+
+
+def test_methodology_fielded_note_range_crossing_a_month():
+    """visir-20262838574: "dagana 21. janúar til 2. febrúar" names two
+    months, and a pattern that stops at the first one records half the field
+    period — a truncation that looks like a valid answer."""
+    meta = s.extract_methodology(
+        [
+            "Könnunin var gerð dagana 21. janúar til 2. febrúar. "
+            "1.672 voru í úrtaki og var þátttökuhlutfallið 48,8%."
+        ]
+    )
+    assert meta["fielded_note"] == "21. janúar til 2. febrúar"
+    assert meta["sample_size"] == 1672
+    assert meta["response_rate_pct"] == 48.8
+
+
+def test_methodology_sample_size_bare_urtaksstaerd():
+    """visir-20262866089: Gallup writes the bare compound "úrtaksstærð
+    2.198"; the heildarúrtak-only stem matched nothing."""
+    meta = s.extract_methodology(
+        [
+            "Könnun Gallup var framkvæmd dagana 19. til 31. mars. Svarendur "
+            "voru 817 talsins og úrtaksstærð 2.198. Nam þátttökuhlutfall því "
+            "37,2 prósentum."
+        ]
+    )
+    assert meta["sample_size"] == 2198
+    assert meta["fielded_note"] == "19. til 31. mars"
+
+
+def test_methodology_sample_size_not_taken_from_bare_mention():
+    """"voru í úrtaki og var þátttökuhlutfallið 48,8%" mentions the sample
+    with no size after it — the widened stem must not pull the response rate
+    in as a sample size."""
+    meta = s.extract_methodology(["Þau voru í úrtaki og var þátttökuhlutfallið 48,8%."])
+    assert meta["sample_size"] is None
+    assert meta["response_rate_pct"] == 48.8
+
+
+def test_methodology_fielded_note_subject_is_not_konnunin():
+    """ruv-483977 writes the same construction with a different subject:
+    "Nýi þjóðarpúlsinn var gerður dagana 1.–13. ágúst." The pattern anchors
+    on the verb phrase, not on "Könnunin"."""
+    meta = s.extract_methodology(
+        [
+            "Nýi þjóðarpúlsinn var gerður dagana 1.–13. ágúst.",
+            "Í nýjum þjóðarpúlsi var heildarúrtaksstærð 4.128. Þátttökuhlutfall var 41,9%.",
+        ]
+    )
+    assert meta["fielded_note"] == "1.–13. ágúst"
+    assert meta["sample_size"] == 4128
+    assert meta["response_rate_pct"] == 41.9
+
+
 # --------------------------------------------------------------------------
 # _guess_topic — discovery-time ESB vs party-support classification
 # --------------------------------------------------------------------------
@@ -227,3 +327,37 @@ def test_guess_topic_parties():
         "parties"
     )
     assert s._guess_topic("Meirihluti hlynntur aðild", "") == "parties"
+    assert (
+        s._guess_topic(
+            "Marktækur munur á fylgi Samfylkingar og Sjálfstæðisflokks",
+            "Fylgi Samfylkingarinnar hækkar milli mánaða í Þjóðarpúlsi Gallup.",
+        )
+        == "parties"
+    )
+
+
+def test_guess_topic_referendum_campaign_vocabulary():
+    """Once the referendum has a date, coverage stops naming its subject.
+    All three headlines are real August 2026 poll articles that the
+    EU-noun-only classifier filed as party support and never listed under
+    --topic esb."""
+    assert (
+        s._guess_topic(
+            "Hnífjafnt í nýrri könnun",
+            "Ný könnun Gallup ... um afstöðu þeirra í komandi þjóðaratkvæðagreiðslu.",
+        )
+        == "esb"
+    )
+    assert (
+        s._guess_topic(
+            "Enginn marktækur munur á jáurum og neiurum",
+            "Ögn fleiri eru hlynnt áframhaldandi viðræðum.",
+        )
+        == "esb"
+    )
+    assert (
+        s._guess_topic(
+            "Forskot Já-hliðarinnar mælist minna", "Ný könnun Maskínu."
+        )
+        == "esb"
+    )

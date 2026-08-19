@@ -475,16 +475,31 @@ a chart or from prose:
 
 - `sample_size` — from `heildarúrtak` ("total sample") or `í úrtaki voru`
   ("the sample consisted of"), an integer with Icelandic thousand-separator
-  dots stripped.
+  dots stripped. Deliberately **not** widened to `svöruðu N manns`
+  ("N people answered"): that is the respondent count, not the drawn
+  sample, and the two differ by the response rate — `ruv-483052` reports
+  both (`1.996` in the sample, `804` answered). Recording respondents under
+  `sample_size` would silently corrupt the column; a separate field is the
+  honest fix and has not been added.
 - `response_rate_pct` — from `þátttökuhlutfall`/`svarhlutfall`
   ("participation/response rate"), tolerating `var`/`rétt`/`rúmlega` filler
   words between the label and the number.
-- `fielded_note` — the raw field-date phrase after `Könnunin var
-  framkvæmd/gerð dagana` ("the survey was conducted on the days"), kept as
-  free text rather than parsed into a date range (Icelandic date ranges use
-  inconsistent separators — `1.–30. júní 2026`, `5. til 31. janúar 2026` —
-  parsing them isn't worth it when the raw phrase is already
-  human-readable).
+- `fielded_note` — the raw field-date phrase after `var framkvæmd/gerð(ur)
+  dagana` ("was conducted on the days"), kept as free text rather than
+  parsed into a date range (Icelandic date ranges use inconsistent
+  separators — `1.–30. júní 2026`, `5. til 31. janúar 2026` — parsing them
+  isn't worth it when the raw phrase is already human-readable).
+
+  Two widenings on 2026-08-19, both from articles that returned `None`:
+  the pattern anchors on the **verb phrase**, not on the subject, since
+  `Könnun Gallup var gerð dagana` and `Nýi þjóðarpúlsinn var gerður dagana`
+  (`ruv-483977`) are the same construction with a different subject; and the
+  **year is not always written** — `Könnunin var gerð dagana 7. til 11.
+  ágúst og svöruðu 1.205 manns.` (`visir-20262920711`) ends the range at the
+  month, so the year-terminated pattern ran straight past it and matched
+  nothing. A month-terminated pattern is tried only after the
+  year-terminated one fails, so a dated range still keeps its year instead
+  of being truncated at the month.
 
 Verified end-to-end against two real articles with different phrasings:
 
@@ -723,6 +738,27 @@ draft also carried "`aðild` within 40 chars of an anchor" alternatives;
 they were dead code — any string they match already contains a standalone
 anchor — and were removed.)
 
+**Referendum-campaign vocabulary (added 2026-08-19).** The EU-noun-only
+version above went blind exactly when polling got densest. Once the
+referendum had a date, coverage stopped naming its subject — the campaign
+*was* the context — and three real August 2026 poll articles were filed as
+party support and never appeared under `--topic esb`: `visir-20262917613`
+"Hnífjafnt í nýrri könnun" (the Gallup poll commissioned by Áfram Ísland),
+`visir-20262921222` "Enginn marktækur munur á jáurum og neiurum" (the
+Gallup þjóðarpúls), and `visir-20262921337` "Velti allt á því hverjir mæti
+á kjörstað". `_ESB_TOPIC_RE` now also triggers on `þjóðaratkvæðagreiðsl\w*`,
+`áframhaldandi\s+viðræð\w*`, and the campaign coinages `jáur\w*` /
+`neiur\w*` / `já-hlið\w*` / `nei-hlið\w*`, which appear in no other
+polling context. Swept over both cached corpora afterwards: exactly 3 Vísir
+articles and 1 RÚV article (`ruv-483992`, the þjóðarpúls companion piece)
+flip to `esb`, all four correct, and no party-support article moves.
+
+Know what this buys: `þjóðaratkvæðagreiðsla` is not EU-specific in
+principle, so a future referendum on another subject would classify as
+`esb` until this line is revisited. Taken deliberately — Iceland has held
+two national referendums since 1944, and a silent miss during a live
+campaign costs more than a loud false positive between campaigns.
+
 `--topic` on `list` filters the **printed view only**, the same way
 `--scope` already does (see Caveat 2) — `articles.json` always holds the
 full unfiltered set for whatever `--source` was requested, with `topic`
@@ -739,8 +775,8 @@ topic).
 
 ### ESB Answer Vocabulary
 
-`_ESB_ANSWER_STEMS` recognizes `Já`/`Nei`/`Hlynnt` (incl. `fylgjandi`)/
-`Andvígt` (incl. `mótfallin`)/`Óákveðin` (`veit ekki`, `vildu ekki svara`,
+`_ESB_ANSWER_STEMS` recognizes `Já`/`Nei` (incl. `á móti`)/`Hlynnt` (incl. `fylgjandi`)/
+`Andvígt` (incl. `mótfallin`)/`Óákveðin` (`veit ekki`, `vild[iu] ekki svara`,
 `ekki vilja svara`, `hvorki fylgjandi né andvígt` in either word order).
 `Já`/`Nei` are kept as their own canonical labels, deliberately not merged
 into `Hlynnt`/`Andvígt` — they answer the literal referendum-ballot framing
@@ -755,7 +791,34 @@ að …" / "greiddi atkvæði **gegn** því" / "sögðust **kjósa með**
 demographic-subgroup numbers (age groups, women's numbers) be extracted as
 the article's result instead; `atkvæði með`/`kjós\w* með` → `Já` and
 `atkvæði gegn` → `Nei`. ("myndu vilja hætta þeim" as a Nei-phrasing has one
-example so far and stays unrecognized — its number lands in the skip log.) `extract_esb_prose_figures()`
+example so far and stays unrecognized — its number lands in the skip log.)
+
+**Two 2026-08-19 fixes, both the same failure shape: an unrecognized
+phrasing leaves its counterpart alone in the sentence, and the direction-
+agnostic nearest-gap tie-break then hands it the wrong number.** Both were
+found by reading the published article against the extracted row, not by a
+test.
+
+- **`á móti` is the ballot counterpart of `atkvæði með`** and carries no
+  `nei` word: `visir-20262921428` (Gallup þjóðarpúls) reads "51,5% þeirra
+  sem tóku afstöðu sögðust ætla að greiða atkvæði **með** og 48,5% þeirra
+  **á móti**." With only `atkvæði með` recognized, one answer term faced
+  two numbers; the gap from `með` to `48,5%` is four characters and to
+  `51,5%` sixty, so the poll was published as **Já 48,5** — the Nei figure
+  under the Já label. Recognizing the counterpart restores equal counts and
+  lets positional pairing decide. `Á móti kemur að …` (the discourse
+  connective, "on the other hand") is excluded by lookahead.
+- **A percentage takes a singular verb**: `1% vild**i** ekki svara`, where
+  only the plural `vildu ekki svara` was recognized. That left `óákveðin`
+  alone in "voru 7% enn óákveðin og 1% vildi ekki svara", and nearest-gap
+  took the 1% that *follows* the label over the 7% that precedes it.
+
+The general lesson, worth applying before adding the next stem: Icelandic
+puts the percentage **before** its answer term, so any number that follows
+the label is the next answer's, and a lone recognized term next to two
+numbers is nearly always a missing phrasing rather than a pairing problem.
+Adding the counterpart phrasing (equal counts → positional pairing) is the
+fix; tuning the gap metric is not. `extract_esb_prose_figures()`
 is a parallel function to `extract_prose_poll_figures()`, not a branch of
 it — an ESB answer term is almost always named in the same sentence as its
 percentage (no need for the party parser's cross-sentence `current_party`
@@ -1061,6 +1124,29 @@ schema (`run_date`, `against_commit`, `method`, `summary`, `results`,
    `WebSearch site:ruv.is` (the same fallback the [`ruv`](../ruv/SKILL.md)
    skill documents for `/sok`) remains a fine one-off check, just not the
    first move anymore.
+
+   A second instance, 2026-08-19: the Gallup poll commissioned by **Áfram
+   Ísland** (fielded 15.–30. júlí, published 6 August) is covered by RÚV at
+   `ruv-483052` with a clean, fully extractable topline — and that article
+   carries no `Skoðanakönnun` tag, so `list --source ruv` cannot see it at
+   any `--since`. Vísir *does* list it (`visir-20262917613`), but its prose
+   states the result as **one number covering two answers** — "Átta prósent
+   segjast óákveðin en 46 prósent eru síðan á sitt hvorri hliðinni, já og
+   nei" — which the extractor correctly declines to guess at (2 numbers vs 3
+   answer terms), leaving a methodology-only row. So the poll is reachable
+   from one source and parseable from the other, and from neither at once.
+   Its row in `data/processed/skodanakannanir.csv` is `source=manual`, keyed
+   to the RÚV id. Worth remembering that the shared-number shape exists
+   before trusting a fetch's silence as "no figures published"; it has one
+   confirmed example so far, below this file's 2–3-examples bar for
+   encoding a phrasing.
+
+   The poll is also a reminder to read the commissioner, not just the
+   pollster: it is Gallup's fieldwork, paid for by a campaign organisation
+   on one side of the ballot, and its 46/46 counts **all** respondents while
+   the þjóðarpúls's 51,5/48,5 counts only those taking a stance. Neither
+   figure is wrong; putting them in one column without that distinction
+   would be.
 
 8. **Heimildin discovery is built (`--source heimildin`); a real login was
    also tested and works.** Playwright login against the stored
