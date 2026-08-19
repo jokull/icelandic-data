@@ -139,9 +139,18 @@ scales with output pixels — measured, national coverage:
 Country-scale renders in this repo draw at 120–200 m/px, so even 100 m is
 sufficient for a map; 20 m is for detail work.
 
+**Native 5 m — only if you need patch-level geometry.** ~45 min end to end
+(582 of 1,924 tiles carry the class, found with a `scaleFactor` sampling pass
+first) versus ~2 min for the 50 m mask. Request `compression=Deflate` on
+GetCoverage — a tile drops ~18× (8.4 MB → 0.47 MB), which is what makes a
+native pass affordable at all. And gis.natt.is has returned a `502` partway
+through a long tile sequence, so cache per tile and retry before starting.
+
 **Regression check:** L14.2 (cultivated land) must come out at ≈1,806 km²,
-matching the ~1,800 km² on the natt.is habitat page. The three resolutions agree
-to within 0.1%, so the number is a property of the data, not of the sampling.
+matching the ~1,800 km² on the natt.is habitat page. The three resolutions
+agree to within 0.1%, and an independent native-5 m extract lands at exactly
+1,806 km² (Guðröður / gudrodur, cross-check on PR #14) — the number is a
+property of the data, not of the sampling.
 
 ## Other vector layers in the WFS
 
