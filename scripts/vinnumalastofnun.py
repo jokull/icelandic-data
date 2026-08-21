@@ -36,8 +36,8 @@ POWERBI_PAGE = "ReportSection7e7dca64570c18a74eb9"
 # degraded when they drift apart.
 LANDING = "https://island.is/s/vinnumalastofnun/maelabord-og-toelulegar-upplysingar"
 EXCEL_URL = (
-    "https://assets.ctfassets.net/8k0h54kbe6bj/3PPeybECQyGMiHHm2VDOIZ/"
-    "9efa303333890212d17888a5fa09524e/17c81787-999e-4a0c-bb23-a27d8c1fc74b.xlsm"
+    "https://assets.ctfassets.net/8k0h54kbe6bj/7BrzfSxUGzwSYipW36rSwK/"
+    "f52da59cd4da46e37008a705a386b7fc/Talnagogn_atvinnuleysi.xlsm"
 )
 
 
