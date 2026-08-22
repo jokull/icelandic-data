@@ -320,10 +320,9 @@ Store extracted data in `/data/processed/skatturinn/`:
     /ownership_chains.json      # Full chain mapping
 ```
 
-SQL queries in `/evidence-reports/sources/skatturinn/`:
+Example query — ownership network (DuckDB):
 
 ```sql
--- ownership_network.sql
 SELECT
     parent_kt,
     child_kt,

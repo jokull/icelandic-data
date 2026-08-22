@@ -371,12 +371,11 @@ mlr --icsv --ifs ';' --ocsv cat data/raw/reykjavik/file.csv
 | Þolandi | Victim |
 | Þjónustumiðstöð | Service center |
 
-## Evidence Integration
+## Example queries (DuckDB)
 
-SQL queries go in `/evidence-reports/sources/reykjavik/`:
+Population time series from raw data:
 
 ```sql
--- Example: Population time series from raw data
 SELECT
   Ár as year,
   Fjöldi as population
@@ -393,4 +392,3 @@ FROM read_csv('../data/processed/reykjavik_population.csv')
 ORDER BY year
 ```
 
-Run `npm run sources` to regenerate parquet files after updating CSVs.

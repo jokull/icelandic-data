@@ -386,10 +386,9 @@ Store extracted financials in `/data/processed/financials/`:
     /summary.csv        # Multi-year comparison
 ```
 
-SQL queries in `/evidence-reports/sources/financials/`:
+Example query — company trends (DuckDB):
 
 ```sql
--- company_trends.sql
 SELECT
     fiscal_year,
     income_revenue,
