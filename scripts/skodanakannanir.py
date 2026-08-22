@@ -169,9 +169,14 @@ _ESB_ANSWER_STEMS = [
     # number is shorter than the quote-mark-laden connector before the
     # first, so plain character-gap picked the wrong one; recognizing both
     # phrasings as the same Óákveðin answer sidesteps the gap measurement
-    # entirely via positional pairing instead).
+    # entirely via positional pairing instead). The verb is matched in both
+    # numbers -- "vildu" (plural) and "vildi" (singular, agreeing with a
+    # percentage treated as one quantity: "1% vildi ekki svara",
+    # visir-20262921428). With only the plural form recognized that sentence
+    # left "óákveðin" alone against two numbers, and nearest-gap took the
+    # 1% that FOLLOWS the label over the 7% that precedes it.
     ("Óákveðin", r"hvorki\s+(?:vera\s+)?(?:fylgjandi|hlynnt\w*|andvíg\w*)\s+né\s+(?:vera\s+)?(?:fylgjandi|hlynnt\w*|andvíg\w*)"
-                 r"|óákveðin\w*|veit\s+ekki|vildu\s+ekki\s+svara|ekki\s+vilja\s+svara"),
+                 r"|óákveðin\w*|veit\s+ekki|vild[iu]\s+ekki\s+svara|ekki\s+vilja\s+svara"),
     # The referendum-vote phrasing carries no já/nei/hlynnt/andvígt word at
     # all -- "greiða atkvæði með því að ..." / "greiddi atkvæði gegn því" /
     # "sögðust kjósa með áframhaldandi aðildarviðræðum". Verified in two
@@ -184,7 +189,20 @@ _ESB_ANSWER_STEMS = [
     # unrecognized, per the 2-3-independent-examples rule; the paired
     # number lands in the skip log.)
     ("Já", r"\bjá\b|atkvæði\s+með\b|kjós\w*\s+með\b"),
-    ("Nei", r"\bnei\b|atkvæði\s+gegn\b"),
+    # "á móti" is the ballot counterpart of "atkvæði með" and carries no
+    # "nei" word at all -- verified live, visir-20262921428 (Gallup
+    # þjóðarpúlsi, 2026-08-15): "51,5% ... sögðust ætla að greiða atkvæði
+    # með og 48,5% þeirra á móti." With only "atkvæði með" recognized the
+    # sentence became one answer term against two numbers, and the
+    # nearest-gap tie-break attached the SECOND number to it (the gap
+    # from "með" to "48,5%" is four characters, to "51,5%" sixty), so the
+    # article was recorded as Já 48,5 -- the Nei figure under the Já
+    # label. Recognizing the counterpart restores equal counts and lets
+    # positional pairing decide, the same fix shape as the Óákveðin
+    # "vildu ekki svara" phrasing above. "Á móti kemur að ..." is the
+    # ordinary discourse connective ("on the other hand"), never an
+    # answer, so it is excluded.
+    ("Nei", r"\bnei\b|atkvæði\s+gegn\b|á\s+móti\b(?!\s+kemur)"),
     ("Hlynnt", r"hlynnt\w*|fylgjandi"),
     ("Andvígt", r"andvíg\w*|mótfallin\w*"),
 ]
@@ -806,8 +824,19 @@ _TOPIC_EXTRACTORS = {"parties": extract_prose_poll_figures, "esb": extract_esb_p
 # mis-parsing rather than just missing; left as a documented gap rather than
 # a half-built parser, consistent with not shipping something confidently
 # wrong. `fielded_note`, if present, is the matched raw sentence fragment.
+# "úrtak\w*" rather than "heildarúrtak\w*": Gallup writes the bare compound
+# ("úrtaksstærð 2.198", visir-20262866089) as often as the heildar- one, and
+# the narrower stem matched neither it nor "úrtakið var". Requiring the digits
+# immediately after (with at most a "var" between) keeps it from firing on
+# prose that merely mentions the sample — "voru í úrtaki og var
+# þátttökuhlutfallið 48,8%" has no number in that position and is left alone.
 _SAMPLE_SIZE_RE = re.compile(
-    r"(?:heildarúrtak\w*|í\s+úrtaki\s+voru)\s+(?:var\s+)?(\d[\d.,]*\d|\d)", re.IGNORECASE
+    r"(?:úrtak\w*|í\s+úrtaki\s+voru)\s+(?:var\s+)?(\d[\d.,]*\d|\d)", re.IGNORECASE
+)
+# Icelandic puts the number first about as often: "1.672 voru í úrtaki"
+# (visir-20262838574). Tried only after the label-first pattern fails.
+_SAMPLE_SIZE_NUMBER_FIRST_RE = re.compile(
+    r"(\d[\d.,]*\d|\d)\s+(?:manns\s+)?(?:voru|var)\s+í\s+úrtaki", re.IGNORECASE
 )
 _RESPONSE_RATE_RE = re.compile(
     r"(?:þátttöku|svar)hlutfall\w*\s*(?:\w+\s+){0,3}?(?:var\s+)?"
@@ -818,21 +847,45 @@ _RESPONSE_RATE_RE = re.compile(
 # ordinal dates ("5. til 31. janúar") contain periods that are NOT sentence
 # boundaries, so "[^.]+\." truncated at "dagana 5." and silently dropped
 # the actual date range. Verified live on a real VB sentence before fixing.
-_FIELD_DATES_RE = re.compile(
-    # Stop at the first 4-digit year, not a fixed token count — the earlier
-    # {1,8}-token window over-captured into the *next* sentence on a real
-    # article (a short date needs only ~3 tokens, so a generous window
-    # swept up "Heildarúrtak var 12.102 og þátttökuhlutfall 38,5" too,
-    # since nothing bounded it at the actual sentence end). A poll's field
-    # dates always end with a year in every phrasing checked so far.
-    r"[Kk]önnunin\s+var\s+(?:framkvæmd|gerð)\s+dagana\s+((?:\S+\s+)*?\d{4})", re.IGNORECASE
+# Anchored on the VERB PHRASE, not the subject: "Könnunin var gerð dagana",
+# "Könnun Gallup var gerð dagana" and "Nýi þjóðarpúlsinn var gerður dagana"
+# (RÚV 483977, 2026-08-14) are the same construction with three different
+# subjects, and the subject-anchored earlier version matched only the first.
+_FIELD_DATES_PREFIX = r"var\s+(?:framkvæmd|gerð)\w*\s+dagana\s+"
+# Two passes, year-terminated first. Stop at the first 4-digit year, not a
+# fixed token count — the earlier {1,8}-token window over-captured into the
+# *next* sentence on a real article (a short date needs only ~3 tokens, so a
+# generous window swept up "Heildarúrtak var 12.102 og þátttökuhlutfall
+# 38,5" too, since nothing bounded it at the actual sentence end).
+_FIELD_DATES_RE = re.compile(_FIELD_DATES_PREFIX + r"((?:\S+\s+)*?\d{4})", re.IGNORECASE)
+# The year is NOT always written: "Könnunin var gerð dagana 7. til 11. ágúst
+# og svöruðu 1.205 manns." (visir-20262920711, Maskína 2026-08-13) ends the
+# range at the month, and the year-only pattern above ran past it into the
+# rest of the sentence and matched nothing. A month name bounds the range
+# just as reliably; it is tried only after the year pattern fails, so a
+# dated range still keeps its year rather than being truncated at the month.
+_MONTH_ALT = (
+    r"janúar|febrúar|mars|apríl|maí|júní|júlí|ágúst"
+    r"|september|október|nóvember|desember"
+)
+# The optional tail is required, not decoration: a range that CROSSES a month
+# boundary names two months ("dagana 21. janúar til 2. febrúar",
+# visir-20262838574), and the non-greedy body stops at the first one, which
+# silently recorded half the field period. The tail lets exactly one "til
+# <day>. <month>" continuation through — bounded, so it still cannot run into
+# the following sentence the way an unbounded window did.
+_FIELD_DATES_NO_YEAR_RE = re.compile(
+    _FIELD_DATES_PREFIX
+    + r"((?:\S+\s+)*?(?:" + _MONTH_ALT + r")"
+    r"(?:\s*(?:til|–|-)\s*\d+\.?\s*(?:" + _MONTH_ALT + r"))?)",
+    re.IGNORECASE,
 )
 
 
 def extract_methodology(paragraphs: list[str]) -> dict:
     text = " ".join(paragraphs)
     sample_size = None
-    m = _SAMPLE_SIZE_RE.search(text)
+    m = _SAMPLE_SIZE_RE.search(text) or _SAMPLE_SIZE_NUMBER_FIRST_RE.search(text)
     if m:
         try:
             sample_size = int(m.group(1).replace(".", "").replace(",", ""))
@@ -845,7 +898,7 @@ def extract_methodology(paragraphs: list[str]) -> dict:
         response_rate = float(m.group(1).replace(",", "."))
 
     fielded_note = None
-    m = _FIELD_DATES_RE.search(text)
+    m = _FIELD_DATES_RE.search(text) or _FIELD_DATES_NO_YEAR_RE.search(text)
     if m:
         fielded_note = m.group(1).rstrip(".").strip()
 
@@ -901,8 +954,25 @@ def _guess_pollster(title: str, subtitle: str) -> str | None:
 # alternatives — dead code by construction (any string they match already
 # contains a standalone anchor), removed rather than left narrating a
 # constraint they never enforced.
+# Referendum-campaign vocabulary, added 2026-08-19 after three real August
+# 2026 articles were classified "parties" and never listed under
+# --topic esb: visir-20262917613 "Hnífjafnt í nýrri könnun" (the Gallup poll
+# commissioned by Áfram Ísland), visir-20262921222 "Enginn marktækur munur á
+# jáurum og neiurum" (the Gallup þjóðarpúls), and visir-20262921337 "Velti
+# allt á því hverjir mæti á kjörstað". Once a referendum has a date, coverage
+# stops naming its subject in the headline and the subtitle -- the campaign
+# IS the context -- so an EU-noun-only classifier goes blind exactly when
+# polling is densest. "jáur/neiur" (coinages for yes- and no-voters) and the
+# "já-hliðin/nei-hliðin" camp nouns appear in no other polling context.
+# NOTE the scope this buys: "þjóðaratkvæðagreiðsla" is not EU-specific in
+# principle, and a future referendum on another subject would be classified
+# "esb" until this line is revisited. Accepted deliberately -- Iceland has
+# held two national referendums since 1944, and a silent miss during a live
+# campaign costs more than a loud false positive between campaigns.
 _ESB_TOPIC_RE = re.compile(
-    r"\bESB\b|Evrópusamband\w*|evrusvæð\w*|aðildarviðræð\w*",
+    r"\bESB\b|Evrópusamband\w*|evrusvæð\w*|aðildarviðræð\w*"
+    r"|þjóðaratkvæðagreiðsl\w*|áframhaldandi\s+viðræð\w*"
+    r"|\bjáur\w*|\bneiur\w*|já-hlið\w*|nei-hlið\w*",
     re.IGNORECASE,
 )
 
