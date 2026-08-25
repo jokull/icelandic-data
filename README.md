@@ -1,5 +1,7 @@
 # Icelandic Data
 
+<img src="assets/icelandic-data.png" alt="Icelandic Data" width="640">
+
 [![data sources](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjokull%2Ficelandic-data%2Fhealth-history%2Fbadge.json)](https://github.com/jokull/icelandic-data/actions/workflows/source-health.yml)
 [![CI](https://github.com/jokull/icelandic-data/actions/workflows/ci.yml/badge.svg)](https://github.com/jokull/icelandic-data/actions/workflows/ci.yml)
 
