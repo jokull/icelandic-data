@@ -5,7 +5,7 @@
 [![data sources](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjokull%2Ficelandic-data%2Fhealth-history%2Fbadge.json)](https://github.com/jokull/icelandic-data/actions/workflows/source-health.yml)
 [![CI](https://github.com/jokull/icelandic-data/actions/workflows/ci.yml/badge.svg)](https://github.com/jokull/icelandic-data/actions/workflows/ci.yml)
 
-Data toolkit for Icelandic public data, built around [Claude Code](https://claude.com/claude-code) and [Codex](https://developers.openai.com/codex). The `.agents/skills/` files document each data source — API endpoints, series codes, encoding quirks, classification changes — and the `scripts/` directory has Python scripts that fetch, clean, and transform the data.
+Data toolkit for Icelandic public data. The `.agents/skills/` files document each data source — API endpoints, series codes, encoding quirks, classification changes — and the `scripts/` directory has Python scripts that fetch, clean, and transform the data. It's harness-agnostic: any agent that can read the skills and run the scripts they reference (Claude Code, Codex, and others) works.
 
 The **data sources** badge reports upstream health, not this repo's code: a source only turns it
 red after **7 straight days** down or returning the wrong shape. Anything shorter is weather —
