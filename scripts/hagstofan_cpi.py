@@ -80,9 +80,15 @@ SERIES = [
     ("CP11", "11 Hótel og veitingastaðir", "11 Restaurants and accommodation", "COICOP-1",
      "Efnahagur/visitolur/1_vnv/4_eldraefni/VIS01304.px", "IS11",
      "Efnahagur/visitolur/1_vnv/2_undirvisitolur/VIS01300.px", "CP11"),
-    ("CP12", "12 Aðrar vörur og þjónusta", "12 Miscellaneous goods and services", "COICOP-1",
-     "Efnahagur/visitolur/1_vnv/4_eldraefni/VIS01304.px", "IS12",
+    ("CP12", "12 Tryggingar og fjármálaþjónusta", "12 Insurance and financial services", "COICOP-1",
+     # Old IS12 included personal care and other services: not comparable.
+     None, None,
      "Efnahagur/visitolur/1_vnv/2_undirvisitolur/VIS01300.px", "CP12"),
+
+    ("CP13", "13 Persónuleg umhirða, félagsþjónusta og ýmsar vörur og þjónusta",
+     "13 Personal care, social protection and miscellaneous goods and services", "COICOP-1",
+     None, None,
+     "Efnahagur/visitolur/1_vnv/2_undirvisitolur/VIS01300.px", "CP13"),
 
     # Housing sub-components
     ("CP041", "041 Greidd húsaleiga", "041 Actual rentals for housing", "COICOP-3",
@@ -438,6 +444,11 @@ def cmd_fetch(args) -> int:
     ])
     master = master.sort(["series_code", "date"])
 
+    expected = {s[0] for s in SERIES}
+    missing = expected - set(master["series_code"].unique().to_list())
+    if failed_fetches or missing:
+        print(f"ERROR: preserving previous output; failed={failed_fetches}, missing={sorted(missing)}", file=sys.stderr)
+        return 1
     PROCESSED.parent.mkdir(parents=True, exist_ok=True)
     master.write_csv(PROCESSED)
     print(f"\nWrote {len(master)} rows to {PROCESSED}")

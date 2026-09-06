@@ -161,3 +161,5 @@ Classification changed in 2020:
 `uv run python scripts/hagstofan_query.py fetch <relative-table-path> --filters '{"dimension-code":["value-code"]}' --since 2015 --out /path/result.json`
 
 `list <path>` returns metadata/catalogue. Fetch outputs long-form JSON records with original dimension codes and metadata labels; preserves nulls and archives raw JSON by SHA-256. Useful as a CLI dependency for external projects. Do not trust JSON-stat `updated` as publication time: hotel tables have returned 2015 or year 9999 with current observations.
+
+Current VIS01300 uses CP01–CP13. CP12 is insurance/financial services, CP13 personal care/social protection/other services. `hagstofan_cpi.py` keeps CP12/CP13 current-only because old IS12 is not comparable. It preserves previous output and exits nonzero if any fetch fails. Other historical category concordances still need care.

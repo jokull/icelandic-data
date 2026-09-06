@@ -360,3 +360,7 @@ mkdir -p data/processed/ferdamalastofa
 # data/processed/ferdamalastofa/stays_by_accommodation.csv
 # data/processed/ferdamalastofa/hotel_occupancy.csv
 ```
+
+## Direct Hagstofa alternatives (verified September 2026)
+
+Monthly hotel nights SAM01102, room occupancy SAM01104 and room/bed supply SAM01202 are available via PX-Web under `Atvinnuvegir/ferdathjonusta/Gisting/1_hotelgistiheimili/`. SAM02001 under `Atvinnuvegir/ferdathjonusta/ferdaidnadurhagvisar/` provides monthly Keflavík passengers by nationality (not only annual SAM01601). Prefer these direct APIs for matching published coverage over scraping Power BI. Latest hotel observations are provisional; exclude aggregate month code `0` in monthly time series. Tourism VAT turnover SAM08050 is two-monthly, not monthly.
