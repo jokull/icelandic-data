@@ -319,3 +319,8 @@ FROM read_csv('../data/processed/sedlabanki_fx_intervention.csv')
 WHERE date BETWEEN DATE '2020-01-01' AND DATE '2021-12-31'
 ORDER BY date
 ```
+
+## Direct policy rate and household lending CLI
+
+`scripts/sedlabanki_household.py rates|mortgages --out /path/result.json`.
+Policy rate can be fetched without Power BI: XML timeseries `TimeSeriesID=17923`, `Type=csv`, explicit `DagsFra`. Verified September 2026. Mortgages preserves bank/pension lender coverage and indexation; bank residential mortgages and pension household lending are distinct scopes. Raw downloads archived by hash; bank workbook labels and pension totals are checked.

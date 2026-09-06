@@ -153,3 +153,7 @@ Open data, attribution required: "Byggir á upplýsingum frá Húsnæðis- og ma
 
 - [iceaddr](https://github.com/sveinbjornt/iceaddr) - Icelandic address geocoding
 - [Kaupverðsjá](https://hms.is/gogn-og-maelabord/maelabordfasteignaskra/kaupverdsja) - HMS interactive price viewer
+
+## Public CSV download CLI
+
+`scripts/hms_public.py kaupvisitala|leiguvisitala|kaupskra --out /path/output.csv` downloads public object-storage files and archives original bytes by hash. Index CSVs are UTF-8; purchase registry is converted from ISO-8859-1. This does not apply market filters or infer completed/unsold housing.

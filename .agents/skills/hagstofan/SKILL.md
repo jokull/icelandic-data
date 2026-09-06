@@ -155,3 +155,9 @@ Classification changed in 2020:
      metadata `valueTexts` in the same order as its `values`.
    - Some tables use a "total" code: THJ95200 has month code `0` = annual
      total (months are `1`–`12`).
+
+## Generic labelled query CLI
+
+`uv run python scripts/hagstofan_query.py fetch <relative-table-path> --filters '{"dimension-code":["value-code"]}' --since 2015 --out /path/result.json`
+
+`list <path>` returns metadata/catalogue. Fetch outputs long-form JSON records with original dimension codes and metadata labels; preserves nulls and archives raw JSON by SHA-256. Useful as a CLI dependency for external projects. Do not trust JSON-stat `updated` as publication time: hotel tables have returned 2015 or year 9999 with current observations.
