@@ -44,27 +44,19 @@ All core series are on Hagstofan's PX-Web API (`https://px.hagstofa.is/pxis/api/
 
 ### `THJ01102` — Current account from SNA
 
-Rows (`Skipting` code):
+Rows use zero-based API codes, **not the numbered labels**. Verified September 2026:
 
-| Code | Row | Meaning |
+| API code | Label | Meaning |
 |---|---|---|
-| `6` | Útflutningur alls | Total exports |
-| `6.1` | Vörur, fob | Goods exports |
-| `6.2` | Þjónusta | Services exports |
-| `7` | Innflutningur alls | Total imports |
-| `7.1` | Vörur, fob | Goods imports |
-| `7.2` | Þjónusta | Services imports |
-| `8` | Verg landsframleiðsla | GDP (use to normalise) |
-| `9` | Launa- og eignatekjur frá útlöndum, nettó | Net primary income |
-| `11` | Viðskiptajöfnuður án rekstrarframlaga | CA excl. secondary transfers |
-| `11.1` | Vöruskiptajöfnuður fob/fob | Goods balance |
-| `11.2` | Þjónustujöfnuður | Services balance |
-| `11.3` | Launa- og eignatekjur frá útlöndum, nettó | Primary income (same as `9`) |
-| `14` | Rekstrarframlög, nettó frá útlöndum | Secondary income / transfers |
+| `11` | 8. Verg landsframleiðsla | Nominal GDP |
+| `18` | 11. Viðskiptajöfnuður án rekstrarframlaga | CA excluding secondary transfers |
+| `19` | 11.1 Vöruskiptajöfnuður fob/fob | Goods balance |
+| `20` | 11.2 Þjónustujöfnuður | Services balance |
+| `21` | 11.3 Launa- og eignatekjur frá útlöndum, nettó | Primary income |
+| `24` | 14. Rekstrarframlög, nettó frá útlöndum | Secondary income |
 
-Full current account = row `11` + row `14`.
-
-**Unit:** millions ISK, nominal.
+Full current account = codes `18 + 24` (or `19 + 20 + 21 + 24`).
+**Unit:** millions ISK, nominal. Fetch metadata to resolve other rows; label numbers are not API codes.
 
 ### `UTA05002` — BoP bridge table, quarterly
 
@@ -110,7 +102,7 @@ curl -s -X POST \
   -d '{
     "query": [
       {"code": "Skipting", "selection": {"filter": "item",
-        "values": ["6.1","6.2","7.1","7.2","8","11","11.1","11.2","11.3","14"]}}
+        "values": ["11","18","19","20","21","24"]}}
     ],
     "response": {"format": "csv"}
   }' -o current_account_annual.csv
@@ -155,21 +147,13 @@ curl -s -X POST \
   -d '{"query": [], "response": {"format": "csv"}}' -o government_headline.csv
 ```
 
-## Computing the sectoral balances identity
+## Computing sectoral financial balances
 
-For a given year (% of GDP):
+With consistent net-lending definitions: domestic non-government + general government + rest of world = 0. A surplus is positive. The familiar simplified identity is private surplus = government **deficit** + current-account surplus (not minus government deficit). Capital-account items and statistical discrepancies must be reconciled before substituting the current account for external net lending.
 
-```
-Private sector (households + firms) surplus
-  = − Government deficit
-  − Current account deficit   (i.e. + current account surplus)
-```
+For a directly reported financial-account measure, use `THJ10001` with `Mælikvarði=Transactions`: FA0 minus FL0 for each sector. Combine S11 + S12 + S14 + S15 as domestic non-government; S13 is general government and S2 is rest of world. This includes financial corporations (including S121, the central bank, per national accounts sectoring); do not call it households alone. Never use balance-sheet stocks or stock differences as net lending.
 
-Sources:
-
-- **Current account** (% GDP) → row `11 + 14` of `THJ01102` / row `8` (GDP)
-- **Government balance** → `THJ05111` headline balance / GDP
-- **Private sector balance** → residual (or directly from `THJ10001` S11 + S14 net lending, which requires the `Transactions` measure, not `Stocks`)
+Divide by nominal GDP, `THJ01102` code `11`, for the matching year. Keep financial-account balances distinct from nonfinancial-account net lending and the current account: discrepancies between these measures can be material. Financial accounts currently run through 2024; national accounts through 2025 (checked September 2026).
 
 ## NIIP attribution (the pension fund story)
 

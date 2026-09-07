@@ -80,3 +80,19 @@ def test_proxy_reports_a_missing_table_rather_than_lying(http):
         f"expected 404 for a nonexistent table, got {r.status_code} — the proxy "
         f"may no longer pass upstream status through"
     )
+
+
+def test_reserve_workbook_date_and_value_columns(http):
+    from io import BytesIO
+    from datetime import datetime
+    from openpyxl import load_workbook
+    url='https://sedlabanki.is/library?itemid=c0126d81-fd88-42bd-aee3-449e09b9089f'
+    r=http.post(PROXY,json={'url':url})
+    assert r.status_code==200, f'reserves proxy -> {r.status_code}'
+    w=load_workbook(BytesIO(r.content),read_only=True,data_only=True)
+    s=w['Sedlabanki']
+    assert s.cell(9,1).value=='M.kr.'
+    assert 'Gjaldeyrisforði' in str(s.cell(60,1).value)
+    assert isinstance(s.cell(9,2).value,datetime)
+    assert isinstance(s.cell(60,2).value,(float,int))
+    w.close()
