@@ -82,3 +82,7 @@ uv run python scripts/vinnumalastofnun.py powerbi
 |--------|---------|
 | [hagstofan](../hagstofan/SKILL.md) | ILO unemployment via labour-force survey (VIN01101, VIN01000) |
 | [opnirreikningar](../opnirreikningar/SKILL.md) | VMST benefit payments appear in government invoice data |
+
+## Validated records export
+
+`uv run python scripts/vinnumalastofnun.py records --out /tmp/unemployment.json` resolves the current workbook link on the official landing page (no static fallback), archives its SHA-256, and exports G2 monthly-average regional rates in percent and G4 month-end duration counts. Rates and month-end counts have different denominators and timing. Source-native group/label keys are retained. Blank cells are omitted, never converted to zero. The latest national duration bands must sum to the total. Updates are monthly, normally the following month; a successful fetch is not a new observation.

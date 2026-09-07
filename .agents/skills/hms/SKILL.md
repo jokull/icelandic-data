@@ -157,3 +157,7 @@ Open data, attribution required: "Byggir á upplýsingum frá Húsnæðis- og ma
 ## Public CSV download CLI
 
 `scripts/hms_public.py kaupvisitala|leiguvisitala|kaupskra --out /path/output.csv` downloads public object-storage files and archives original bytes by hash. Index CSVs are UTF-8; purchase registry is converted from ISO-8859-1. This does not apply market filters or infer completed/unsold housing.
+
+## Public rent index coverage correction
+
+`leiguvisitala.csv` covers capital-area market rents in recent contracts, not a national rent index. `hms_indices.py` attaches rent only to `capital_area`. Do not compare its geographic coverage silently with the national purchase index. See https://hms.is/frettir/visitolur-hms-eru-olikar-maelingum-hagstofu-islands-a-husnaediskostnadi .
