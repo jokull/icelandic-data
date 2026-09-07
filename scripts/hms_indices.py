@@ -21,12 +21,28 @@ national rent both = 100 at 2023-05, the first rent observation).
 """
 from __future__ import annotations
 
+import argparse
+import io
+from tempfile import TemporaryDirectory
+import sys
 from pathlib import Path
 
 import polars as pl
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 RAW = Path(__file__).resolve().parent.parent / "data" / "raw" / "hms" / "indices"
 OUT = Path(__file__).resolve().parent.parent / "data" / "processed" / "hms_rent_vs_price_index.csv"
+
+# The visitala page (hms.is/gogn-og-maelabord/visitolur) is behind a Vercel
+# checkpoint, but the CSVs it links live on public object storage and fetch
+# directly. Imported by tests/health/test_hms.py to probe freshness.
+OCI = "https://frs3o1zldvgn.objectstorage.eu-frankfurt-1.oci.customer-oci.com/n/frs3o1zldvgn/b/public_data_for_download/o"
+KAUPVISITALA_URL = f"{OCI}/kaupvisitala.csv"
+LEIGUVISITALA_URL = f"{OCI}/leiguvisitala.csv"
+HEADERS = {"User-Agent": "icelandic-data/1.0 (data toolkit fetcher)"}
 
 
 def load_kaup() -> pl.DataFrame:
@@ -70,7 +86,44 @@ def rebase_to(df: pl.DataFrame, col: str, anchor_date) -> pl.DataFrame:
     return df.with_columns((pl.col(col) / base * 100.0).alias(col))
 
 
-def main() -> None:
+def cmd_fetch(args: argparse.Namespace) -> None:
+    """Download kaup-/leiguvísitala CSVs from public object storage.
+
+    The hms.is visitala page is behind a Vercel checkpoint, but the CSVs it
+    links live on OCI object storage and fetch directly. Both are small (a few
+    KB), so this downloads them in full rather than streaming.
+    """
+    import httpx
+
+    RAW.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(dir=RAW, prefix="indices-") as staging:
+        for url, name in ((KAUPVISITALA_URL, "kaupvisitala.csv"),
+                          (LEIGUVISITALA_URL, "leiguvisitala.csv")):
+            r = httpx.get(url, timeout=60, headers=HEADERS, follow_redirects=True)
+            r.raise_for_status()
+            df = pl.read_csv(io.BytesIO(r.content))
+            required = {"AR", "MANUDUR", "VISITALA"}
+            if name == "kaupvisitala.csv":
+                required |= {"VISITALA_HOFUDBORGARSVAEDI", "VISITALA_LANDSBYGGD"}
+            if not required <= set(df.columns) or not df.height:
+                raise ValueError(f"Invalid index schema: {name}")
+            (Path(staging) / name).write_bytes(r.content)
+        # Both responses have been fetched and checked before replacing either.
+        for name in ("kaupvisitala.csv", "leiguvisitala.csv"):
+            (Path(staging) / name).replace(RAW / name)
+            print(f"  saved: {RAW / name}")
+
+    print("\nNow run the processor (bare `python scripts/hms_indices.py`) to build the merged index.")
+
+
+def cmd_process(args: argparse.Namespace) -> None:
+    for name in ("kaupvisitala.csv", "leiguvisitala.csv"):
+        if not (RAW / name).exists():
+            sys.exit(
+                f"Missing raw file {RAW / name}. Run `fetch` first — the visitala CSVs "
+                f"are downloaded from public object storage, not the Vercel-guarded page."
+            )
+
     kaup = load_kaup()
     leigu = load_leigu()
 
@@ -152,6 +205,19 @@ def main() -> None:
     print(f"  As of {d}: national price_index={p:.1f}, rent_index={r:.1f}")
     print(f"  Price cum Δ = {p - 100:+.1f} pts, Rent cum Δ = {r - 100:+.1f} pts")
     print(f"  Divergence (price − rent) = {p - r:+.1f} pts")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    sub = ap.add_subparsers(dest="cmd")
+    f = sub.add_parser("fetch", help="download kaup-/leiguvísitala CSVs from object storage")
+    f.set_defaults(func=cmd_fetch)
+    p = sub.add_parser("process", help="build the merged rent-vs-price index from raw CSVs")
+    p.set_defaults(func=cmd_process)
+    # Bare run == process (AGENTS.md quick command, and the pre-existing behaviour).
+    ap.set_defaults(func=cmd_process)
+    args = ap.parse_args()
+    args.func(args)
 
 
 if __name__ == "__main__":

@@ -182,8 +182,18 @@ uv run python scripts/income_distribution.py
 uv run python scripts/laun.py 1000000
 
 # HMS: house-price (kaupvísitala) vs rental-price (leiguvísitala) indices, rebased to 2023-05=100
-# Requires data/raw/hms/indices/{kaup,leigu}visitala.csv — manual downloads from hms.is
-uv run python scripts/hms_indices.py
+# The visitala page is Vercel-guarded, but the CSVs fetch straight from object storage.
+uv run python scripts/hms_indices.py fetch     # -> data/raw/hms/indices/{kaup,leigu}visitala.csv
+uv run python scripts/hms_indices.py           # -> data/processed/hms_rent_vs_price_index.csv
+
+# HMS kaupskrá: fetch the 48 MB property-transaction CSV, convert Latin-1 -> UTF-8, report freshness
+uv run python scripts/kaupskra_fetch.py        # -> data/raw/hms/kaupskra_utf8.csv
+uv run python scripts/kaupskra_fetch.py report
+
+# HMS húsnæðisáætlanir (annual housing plans): completions vs need, waitlists, plots
+uv run python scripts/hms_housing_plans.py            # parse the newest local workbook
+uv run python scripts/hms_housing_plans.py --year 2026
+uv run python scripts/hms_housing_plans.py list
 
 # Housing completions 1970–2025 — Hagstofan IDN03001 + HMS húsnæðisáætlanir -> data/processed/iceland_housing_completions.csv
 uv run python scripts/housing_completions.py

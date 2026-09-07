@@ -1,6 +1,6 @@
 ---
 name: hms
-description: HMS property registry — kaupskrá fasteigna (222k geocoded property transactions) and landeignaskrá (89k land parcels with polygons).
+description: HMS — kaupskrá fasteigna (222k transactions), landeignaskrá parcels, kaup/leiguvísitala price-rent indices, húsnæðisáætlanir housing plans.
 ---
 
 # HMS - Húsnæðis- og mannvirkjastofnun
@@ -13,7 +13,19 @@ Property registry and housing market data from Iceland's Housing and Constructio
 
 **URL:** `https://frs3o1zldvgn.objectstorage.eu-frankfurt-1.oci.customer-oci.com/n/frs3o1zldvgn/b/public_data_for_download/o/kaupskra.csv`
 
-**Format:** CSV (semicolon delimited, ISO-8859-1 encoded)
+**Format:** CSV (semicolon delimited, **ISO-8859-1 encoded**)
+
+**Local file:** `data/raw/hms/kaupskra_utf8.csv` — the raw download re-decoded to
+UTF-8. Fetch + convert + freshness report with `scripts/kaupskra_fetch.py`:
+
+```bash
+uv run python scripts/kaupskra_fetch.py          # download, convert Latin-1→UTF-8, report
+uv run python scripts/kaupskra_fetch.py report   # re-report an existing copy
+```
+
+The download is staged, decoded and schema-checked before replacing the UTF-8
+copy. Original Latin-1 bytes are retained in `data/raw/hms/kaupskra.csv`. The script prints the row count and newest
+`THINGLYSTDAGS` — if the newest is months old, refresh.
 
 **Update frequency:** Daily
 
@@ -144,6 +156,63 @@ Most recent counts (March 2025): **7,181 units under construction**, 69.7% in th
 **Complementary sources:**
 - [hagstofan](../hagstofan/SKILL.md) table FAS01302 — completed dwellings by year (historical, not real-time).
 - [skipulagsmal](../skipulagsmal/SKILL.md) — Planitor building-permit data (case-level, 5 municipalities).
+
+## Kaupvísitala og Leiguvísitala (Price & Rent Indices)
+
+The visitala page (`https://hms.is/gogn-og-maelabord/visitolur`) is behind a
+**Vercel anti-bot checkpoint**, so `curl`/`httpx` get the challenge HTML. **Do
+not** scrape it — the two CSVs it links sit on public object storage and fetch
+directly:
+
+- `https://frs3o1zldvgn.objectstorage.eu-frankfurt-1.oci.customer-oci.com/n/frs3o1zldvgn/b/public_data_for_download/o/kaupvisitala.csv`
+- `https://frs3o1zldvgn.objectstorage.eu-frankfurt-1.oci.customer-oci.com/n/frs3o1zldvgn/b/public_data_for_download/o/leiguvisitala.csv`
+
+`scripts/hms_indices.py` downloads them (`fetch`) and builds the merged
+rebased index (`process`, bare run):
+
+```bash
+uv run python scripts/hms_indices.py fetch    # → data/raw/hms/indices/{kaup,leigu}visitala.csv
+uv run python scripts/hms_indices.py          # → data/processed/hms_rent_vs_price_index.csv
+```
+
+**Columns:** `UTGAFUDAGUR` (publication date — blank on old kaupvísitala rows),
+`AR`, `MANUDUR`, `VISITALA`, then regional splits. The kaupvísitala file has
+regional breakdowns; the leiguvísitala CSV is **national only**. Note the
+monthly publication cadence: the newest `UTGAFUDAGUR` can lag a
+month or two.
+
+## Húsnæðisáætlanir (Housing Plans)
+
+Annual published workbook with the authoritative housing-policy numbers:
+completions vs the HMS "real need" band, non-market rental waitlists by
+category, and buildable-plot availability by region. Sheet map:
+
+| Sheet | Contents |
+|-------|----------|
+| `2.1` | Annual completions + forecast band (Miðspá / Spábil neðri/efri mörk), all Iceland |
+| `3.1` / `3.2` | "Real need" lower/upper bounds, national and capital area |
+| `4.2` | Plot availability ratio to the labelled need year, by region |
+| `5.2` | Non-market rental waitlists by category, by year |
+
+**Source page:** `https://hms.is/skyrslur/husnaedisaaetlanir` (the annual
+workbook `husnaedisaaetlanir_<year>_gogn.xlsx` is linked here, but the page is
+Vercel-guarded — download by hand into `data/raw/hms/`). The script parses the
+workbook into three processed CSVs:
+
+```bash
+uv run python scripts/hms_housing_plans.py            # parse the newest local workbook
+uv run python scripts/hms_housing_plans.py --year 2026
+uv run python scripts/hms_housing_plans.py list       # what workbooks are local
+```
+
+Outputs: `data/processed/hms_husnaedisaaetlanir_{completions_vs_need,
+nonmarket_rental_waitlist,plot_availability_by_region}.csv`. Sheet 2.1's
+completed-dwellings feed `scripts/housing_completions.py` automatically (it
+reads observed counts from the parsed CSV, retaining historical reference
+counts for years absent from a newer workbook). Forecast-only rows are not
+completions. Plot output includes `need_year`, taken from the sheet header.
+The workbook remains a manual input; these changes do not automate discovery
+or downloading of future annual reports.
 
 ## License
 
