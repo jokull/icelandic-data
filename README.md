@@ -7,6 +7,16 @@
 
 Data toolkit for Icelandic public data. The `.agents/skills/` files document each data source — API endpoints, series codes, encoding quirks, classification changes — and the `scripts/` directory has Python scripts that fetch, clean, and transform the data. It's harness-agnostic: any agent that can read the skills and run the scripts they reference (Claude Code, Codex, and others) works.
 
+<blockquote>
+  <p>“I spent a good chunk of my career, including an entire startup, DataMarket, making public data accessible. This project cracks the problem from the angle I now believe is the right one: <strong>don't build another portal, make the data agent-ready.</strong> Ask a question in plain language and watch it pull together answers from dozens of official sources. I've been showing it to people in government as a direct demonstration of what such an approach can deliver.”</p>
+  <p>
+    <a href="https://hjalli.com/about/"><img src="assets/hjalmar-gislason.jpg" alt="Hjálmar Gíslason" width="64" height="64" align="left"></a>
+    &nbsp; <strong><a href="https://hjalli.com/about/">Hjálmar Gíslason</a></strong><br>
+    &nbsp; Founder &amp; CEO of GRID<br>
+    &nbsp; Previously founder of DataMarket (acquired by Qlik)
+  </p>
+</blockquote>
+
 The **data sources** badge reports upstream health, not this repo's code: a source only turns it
 red after **7 straight days** down or returning the wrong shape. Anything shorter is weather —
 these are public APIs and they blink. Details in
