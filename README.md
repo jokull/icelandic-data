@@ -168,6 +168,9 @@ You need a terminal once, for setup. After that, an agent does the typing.
 3. **Open the folder in your agent.** Claude Code, Codex, the Code tab in Claude
    Desktop, or ChatGPT Desktop (Codex) all read the skills from the repo. Ask a question
    such as *"What is the median price per m² of apartments in Reykjavík since 2020?"*
+   Codex asks whether to trust the folder the first time — say yes. That loads
+   `.codex/config.toml`, which lets the sandbox reach the Icelandic APIs; without it
+   every fetch fails with a DNS error.
 
 That is **Tier 0** and covers 41 of the 56 skills. The rest need one more
 opt-in install; each skill says which at the top of its `SKILL.md`:
@@ -180,7 +183,24 @@ opt-in install; each skill says which at the top of its `SKILL.md`:
 | 3 pdf | `uv sync --group pdf` | Docling AI table extraction (pulls in torch, ~2 GB) |
 | 4 restricted | — | needs an Icelandic IP or private credentials; documented, not portable |
 
-`scripts/setup_check.py` prints which tiers are installed. On Windows `setup.ps1`
+`scripts/setup_check.py` prints which tiers are installed.
+
+### What a first run looks like
+
+Measured on a fresh macOS user account and a bare Ubuntu container, both with only
+`curl` on PATH: `setup.sh` finishes in 20–30 s, the environment is about 500 MB, and
+the maps tier adds a couple of seconds. Where newcomers can stall, and the fix:
+
+| Stops at | Why | Fix |
+|---|---|---|
+| Claude Desktop Code tab on Windows | needs Git for Windows | install Git, restart the app |
+| PowerShell refuses `setup.ps1` | execution policy | run it as shown above, with `-ExecutionPolicy Bypass` |
+| `uv: command not found` right after install | new PATH not in the current shell | open a new terminal, or re-run `setup.sh` |
+| Codex: every fetch fails with a DNS error | sandbox has no network until the folder is trusted | trust the folder when asked |
+| Power BI / Tableau skill fails to start a browser | Tier 2 not installed | `uv run playwright install chromium` |
+| A map script exits asking for the maps tier | Tier 1 not installed | `uv sync --group maps` |
+| Samgöngustofa times out | geo-fenced to Icelandic IPs | run from Iceland or skip |
+ On Windows `setup.ps1`
 sets `PYTHONUTF8=1` for your user account so Icelandic characters print correctly.
 
 Every command in the docs is of the form `uv run python scripts/<name>.py ...` and

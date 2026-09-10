@@ -1,0 +1,10 @@
+# Codex / ChatGPT Desktop project config. Loaded once you mark this folder as trusted.
+#
+# Every script here calls a public Icelandic API, so the workspace-write sandbox
+# needs outbound network. uv also needs a writable cache; the default one lives
+# outside the workspace, so keep it inside the repo (.uv/ is gitignored).
+[sandbox_workspace_write]
+network_access = true
+
+[shell_environment_policy.set]
+UV_CACHE_DIR = ".uv/cache"

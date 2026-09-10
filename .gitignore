@@ -22,8 +22,9 @@ __pycache__/
 reports/*
 !reports/.gitkeep
 
-# Claude plans
+# Claude plans and agent worktrees
 .claude/plans/
+.claude/worktrees/
 
 # Local Claude settings (machine-specific permission grants)
 .claude/settings.local.json
