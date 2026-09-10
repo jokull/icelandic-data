@@ -46,7 +46,7 @@ def load_ocds():
         print(f"OCDS data not found at {path}. Run: uv run python scripts/tenders.py download-ocds", file=sys.stderr)
         sys.exit(1)
     records = []
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:

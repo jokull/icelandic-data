@@ -13,7 +13,7 @@ these are public APIs and they blink. Details in
 [`AGENTS.md`](AGENTS.md#flake-vs-dead); raw history is on the
 [`health-history`](https://github.com/jokull/icelandic-data/tree/health-history) branch.
 
-Not a portable skill library. The skills reference co-located scripts, assume local tooling (`uv`, `duckdb`, `playwright`), and work as a unit. Clone the repo, run setup, and use an agent to research questions, join data sources, or produce outputs — a gist, a CSV, an HTML report, whatever fits.
+Not a portable skill library. The skills reference co-located scripts and work as a unit. Get the repo, run setup, and use an agent to research questions, join data sources, or produce outputs — a gist, a CSV, an HTML report, whatever fits. It is plain Python and runs on macOS, Linux and Windows.
 
 ## Structure
 
@@ -146,11 +146,34 @@ Systematic coverage of public dashboards published under Iceland's data-access l
 
 ## Setup
 
+You need a terminal once, for setup. After that, an agent does the typing.
+
+1. **Get the repo.** `git clone https://github.com/jokull/icelandic-data` — or, without
+   git, use **Code → Download ZIP** on GitHub and unzip it.
+2. **Run setup.** It installs [`uv`](https://docs.astral.sh/uv/) if you don't have it,
+   which then downloads Python and every dependency. Nothing else is required — no
+   Homebrew, no system Python.
+
+   ```bash
+   ./setup.sh                                          # macOS / Linux
+   powershell -ExecutionPolicy Bypass -File .\setup.ps1  # Windows
+   ```
+
+   Setup ends by running `scripts/setup_check.py`, which reports what works and
+   repairs the `.claude/skills` link if git or the ZIP download flattened it.
+3. **Open the folder in your agent.** Claude Code, Codex, the Code tab in Claude
+   Desktop, or ChatGPT Desktop (Codex) all read the skills from the repo. Ask a question
+   such as *"What is the median price per m² of apartments in Reykjavík since 2020?"*
+
+Optional, only for the browser-driven scrapers (Power BI, Tableau, the skatturinn cart):
+
 ```bash
-./setup.sh          # Install CLI tools (jq, duckdb, uv, etc.)
-uv sync             # Install Python dependencies
-uv run playwright install chromium   # Only if you plan to use Power BI / SPA scrapers
+uv run playwright install chromium
 ```
+
+Every command in the docs is of the form `uv run python scripts/<name>.py ...` and
+works the same in bash, zsh, fish and PowerShell. SQL against the processed files
+goes through `uv run python scripts/sql.py "SELECT ..."`, so no DuckDB binary is needed.
 
 ## Usage
 
@@ -160,7 +183,7 @@ uv run python scripts/sedlabanki.py
 uv run python scripts/fuel.py
 
 # Query with DuckDB
-duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
+uv run python scripts/sql.py "SELECT * FROM 'data/processed/fuel_prices_daily.csv' LIMIT 10"
 
 # Company financials pipeline
 uv run python scripts/financials.py company <kennitala> --year 2024

@@ -7,6 +7,8 @@ description: Cached Icelandic company annual reports (ársreikningar) via fetch-
 
 **Always use `scripts/fetch-annual-report.sh` when fetching annual reports.**
 
+The script is bash-only and expects R2 credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `R2_ENDPOINT`) plus a checkout at `/home/sprite/icelandic-data` — it runs inside the Sprite worker. On a laptop, or on Windows, or without those credentials, skip it and use the `skatturinn` + `financials` skills directly.
+
 This script handles R2 caching transparently — you don't need to manage the cache yourself.
 
 ## Usage

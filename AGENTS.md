@@ -64,12 +64,30 @@ Follow the methodology in the `new-data-source` skill — covers discovery, prob
 
 ## Tools
 
-Installed via `./setup.sh`:
-- `jq` - JSON processing
-- `duckdb` - SQL on local files
-- `uv` - Python package manager
+Everything runs on macOS, Linux and Windows. The only prerequisite is `uv`
+(https://docs.astral.sh/uv/) — it downloads Python and every dependency itself.
+`./setup.sh` (macOS/Linux) or `.\setup.ps1` (Windows) installs `uv` if missing,
+runs `uv sync`, and then `scripts/setup_check.py`, which verifies imports and
+repairs the `.claude/skills` link (git on Windows and GitHub ZIP downloads turn
+symlinks into plain files; the checker recreates a symlink or a junction).
+
+No Homebrew, no system Python, no DuckDB binary. SQL on local files goes through
+`scripts/sql.py`, which wraps the `duckdb` Python package:
+
+```bash
+uv run python scripts/sql.py "SELECT * FROM 'data/processed/fuel_prices_daily.csv' LIMIT 5"
+uv run python scripts/sql.py --csv "SELECT ..." > out.csv
+```
+
+`jq` is optional; `uv run python -m json.tool` pretty-prints JSON on every platform.
+
+Windows: use `uv run python scripts/...` exactly as documented (works in
+PowerShell). `setup.ps1` sets `PYTHONUTF8=1` so Icelandic characters print
+correctly. Always pass `encoding="utf-8"` to `open()` / `read_text()` /
+`write_text()` in scripts — Windows defaults to cp1252 otherwise.
 
 Python (managed by `uv`):
+- `duckdb` - SQL on CSV/Parquet/JSON (via `scripts/sql.py`)
 - `polars` - Fast DataFrame library
 - `openpyxl` - Excel file reading
 - `httpx` - HTTP client
@@ -92,7 +110,7 @@ uv run python scripts/sedlabanki_fx.py list
 uv run python scripts/gengi.py USD,EUR --history 6m
 
 # Query processed data
-duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
+uv run python scripts/sql.py "SELECT * FROM 'data/processed/fuel_prices_daily.csv' LIMIT 10"
 
 # Get company info and annual reports list
 uv run python scripts/skatturinn.py info <kennitala>
@@ -116,7 +134,7 @@ uv run python scripts/eurostat.py fetch namq_10_pe --filter geo=EA20 --filter na
 uv run python reports/real_wages_is_vs_euro.py
 
 # Property price analysis
-duckdb -c "SELECT YEAR(kaupsamningur_dags), median(kaupverd*1000/einflm_m2) FROM 'data/processed/kaupskra_geocoded.parquet' WHERE NOT onothaefur AND tegund='Fjölbýli' GROUP BY 1 ORDER BY 1"
+uv run python scripts/sql.py "SELECT YEAR(kaupsamningur_dags), median(kaupverd*1000/einflm_m2) FROM 'data/processed/kaupskra_geocoded.parquet' WHERE NOT onothaefur AND tegund='Fjölbýli' GROUP BY 1 ORDER BY 1"
 
 # Geocode an Icelandic address
 uv run python -c "from iceaddr import iceaddr_lookup; print(iceaddr_lookup('Laugavegur', number=22, postcode=101))"
@@ -438,7 +456,7 @@ observed*, not *down* — and uptime is `healthy/observed`, never `healthy/elaps
 ```bash
 # Uptime per source, straight off the JSONL — no ingest step
 git fetch origin health-history && git show origin/health-history:history.jsonl > /tmp/h.jsonl
-duckdb -c "
+uv run python scripts/sql.py "
 SELECT source,
        round(100.0 * count(*) FILTER (WHERE status='healthy') / count(*), 1) AS uptime_pct,
        count(*) AS observations,

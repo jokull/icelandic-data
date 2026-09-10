@@ -150,11 +150,12 @@ print(conf.mean_grade)     # QualityGrade.GOOD / EXCELLENT
 ### Icelandic OCR (scanned PDFs only)
 
 ```python
-from docling.datamodel.pipeline_options import OcrMacOptions  # macOS
+from docling.datamodel.pipeline_options import OcrMacOptions  # macOS only (Apple Vision)
 
 po.do_ocr = True
 po.ocr_options = OcrMacOptions(lang=["is-IS", "en-US"])  # Apple Vision
-# Tesseract alternative: lang=["isl"] (needs isl.traineddata)
+# Linux/Windows: use TesseractOcrOptions(lang=["isl"]) instead (needs tesseract + isl.traineddata),
+# or EasyOcrOptions(lang=["is"]) which needs no system install.
 ```
 
 Most Icelandic public PDFs (skatturinn, sedlabanki, Hagstofan) are native text — `do_ocr=False` is correct.

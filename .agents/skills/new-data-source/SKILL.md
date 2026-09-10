@@ -31,7 +31,7 @@ Most Icelandic public data is served via one of these patterns:
 curl -s "https://{domain}/geoserver/wfs?service=WFS&request=GetCapabilities" | head -50
 
 # Check for REST API
-curl -s "https://{domain}/api/" | jq .
+curl -s "https://{domain}/api/" | uv run python -m json.tool   # jq works too, if installed
 
 # Check for CKAN
 curl -s "https://{domain}/api/3/action/package_list" | jq '.result[:10]'
@@ -221,10 +221,10 @@ uv run python scripts/{source}.py list
 uv run python scripts/{source}.py fetch
 
 # 3. Query the output
-duckdb -c "SELECT count(*), min(date), max(date) FROM 'data/processed/{output_file}'"
+uv run python scripts/sql.py "SELECT count(*), min(date), max(date) FROM 'data/processed/{output_file}'"
 
 # 4. Spot-check values
-duckdb -c "SELECT * FROM 'data/processed/{output_file}' LIMIT 5"
+uv run python scripts/sql.py "SELECT * FROM 'data/processed/{output_file}' LIMIT 5"
 ```
 
 **What to check:**

@@ -121,7 +121,7 @@ and the combined budget is ~8,000 chars, so brevity is a hard constraint.
 
 ## l) Verify before you call it done
 
-- `duckdb -c "SELECT * FROM 'data/processed/{output}' LIMIT 5"` — dates parse,
+- `uv run python scripts/sql.py "SELECT * FROM 'data/processed/{output}' LIMIT 5"` — dates parse,
   numbers are numeric, Icelandic chars render.
 - `uv run pytest -m "not slow"` green, and still offline.
 - The health probe passes against the live source.
@@ -137,4 +137,4 @@ and the combined budget is ~8,000 chars, so brevity is a hard constraint.
 - [ ] compressed `SKILL.md` (no template) with `description` ≤160
 - [ ] health probe registered (PROBES / README / quick command)
 - [ ] offline unit tests for parsing logic
-- [ ] duckdb spot-check + full fast suite green
+- [ ] `scripts/sql.py` spot-check + full fast suite green

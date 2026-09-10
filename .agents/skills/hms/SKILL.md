@@ -93,10 +93,10 @@ Includes all kaupskra fields plus:
 
 ```bash
 # Summary stats
-duckdb -c "SELECT count(*), count(lat), median(kaupverd*1000/einflm_m2) FROM 'data/processed/kaupskra_geocoded.parquet' WHERE NOT onothaefur AND tegund='Fjölbýli'"
+uv run python scripts/sql.py "SELECT count(*), count(lat), median(kaupverd*1000/einflm_m2) FROM 'data/processed/kaupskra_geocoded.parquet' WHERE NOT onothaefur AND tegund='Fjölbýli'"
 
 # Recent Reykjavík sales
-duckdb -c "SELECT heimilisfang, kaupverd*1000 as kr, einflm_m2 FROM 'data/processed/kaupskra_geocoded.parquet' WHERE postnr BETWEEN 101 AND 128 AND kaupsamningur_dags >= '2024-01-01' ORDER BY kaupsamningur_dags DESC LIMIT 20"
+uv run python scripts/sql.py "SELECT heimilisfang, kaupverd*1000 as kr, einflm_m2 FROM 'data/processed/kaupskra_geocoded.parquet' WHERE postnr BETWEEN 101 AND 128 AND kaupsamningur_dags >= '2024-01-01' ORDER BY kaupsamningur_dags DESC LIMIT 20"
 ```
 
 ## Landeignaskrá (Land Parcel Registry)
