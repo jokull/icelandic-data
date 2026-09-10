@@ -5,6 +5,8 @@ description: Icelandic income distribution — Hagstofan TEK01001 by source/age/
 
 # Income distribution (TEK01001)
 
+**Requires:** Tier 0 (core).
+
 Hagstofan income-by-source statistics: mean and median income by income type,
 age band and gender, 1990–2024. PX-Web table TEK01001 at
 

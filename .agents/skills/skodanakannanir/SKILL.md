@@ -5,6 +5,8 @@ description: RÚV + Vísir + Heimildin opinion-poll aggregators — all-pollster
 
 # Skoðanakannanir — RÚV + Vísir + Heimildin Opinion-Poll Aggregators
 
+**Requires:** Tier 0 (core) for Vísir and Heimildin; Tier 2 (browser) for RÚV articles.
+
 Three outlets' discovery mechanisms, each surfacing news coverage of opinion
 polls from every major Icelandic pollster — not just one firm's own
 dashboard. Use this skill for "what's the latest party support / fylgi

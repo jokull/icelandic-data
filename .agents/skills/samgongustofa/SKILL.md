@@ -5,6 +5,8 @@ description: Icelandic vehicle registrations by make, fuel, class, model (Samgö
 
 # Samgöngustofa (Iceland Transport Authority) — bifreiðatölur
 
+**Requires:** Tier 4 (restricted) — geo-fenced to Icelandic IPs; also Tier 2 (browser) for the SPA fallback.
+
 Vehicle-registration statistics from `https://bifreidatolur.samgongustofa.is/`.
 The site is a thin SPA that embeds a **separate Power BI report per section**,
 each with its own resource key. `scripts/samgongustofa.py` extracts tidy CSVs

@@ -5,6 +5,8 @@ description: Icelandic fuel market — Gasvaktin pump prices for N1, Olís, Orka
 
 # Fuel — Icelandic Fuel Market
 
+**Requires:** Tier 0 (core).
+
 ## Companies
 
 | Retailer | Kennitala | Parent | Parent kt | Stations |

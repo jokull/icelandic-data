@@ -5,6 +5,8 @@ description: Icelandic public procurement — TED API and OCDS bulk data, 3,494+
 
 # Public Procurement (Útboð)
 
+**Requires:** Tier 0 (core).
+
 Icelandic public tender data from three sources: TED API (EU-threshold, real-time), OCDS bulk data (historical), and utbodsvefur.is (domestic, web-only).
 
 ## Data Sources

@@ -18,7 +18,10 @@ raster is, and it kept the codes. See `.agents/skills/natt/SKILL.md`.
 """
 from __future__ import annotations
 
-from scripts.natt import COVERAGE, DEFAULT_DN, WCS, WMS, WMS_LAYER
+import pytest
+
+pytest.importorskip("rasterio", reason="maps tier not installed (uv sync --group maps)")
+from scripts.natt import COVERAGE, DEFAULT_DN, WCS, WMS, WMS_LAYER  # noqa: E402
 
 L14_2 = "L14.2 Tún og akurlendi"
 

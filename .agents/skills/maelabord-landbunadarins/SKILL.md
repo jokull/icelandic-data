@@ -5,6 +5,8 @@ description: Icelandic agricultural subsidies (búvörusamningar), market and li
 
 # Mælaborð landbúnaðarins (Agriculture Dashboard)
 
+**Requires:** Tier 2 (browser) — Power BI scrape needs Chromium (`uv run playwright install chromium`); `scripts/nautgripa_map.py` also needs Tier 1 (maps).
+
 Agricultural production, subsidies, and market data via Power BI dashboards on the Ministry of Agriculture website.
 
 ## Data Source

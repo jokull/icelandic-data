@@ -59,23 +59,73 @@ Follow the methodology in the `new-data-source` skill — covers discovery, prob
 3. **Script** — create `scripts/{source}.py` with `list`/`fetch` subcommands (polars + httpx)
 4. **Test** — verify output with DuckDB, check Icelandic encoding, spot-check values
 5. **Health probe** — add `tests/health/test_{source}.py` so upstream breakage surfaces on its own
-6. **Visualize** — HTML report (Chart.js/Leaflet) or static map (geopandas + cached LMI layers)
+6. **Visualize** — HTML report (Chart.js/Leaflet) or static map (geopandas + cached LMI layers — Tier 1, `--group maps`)
 7. **Register** — add a Quick Command below (the skill's `description` is its own index entry)
+
+## Requirement tiers
+
+Every skill belongs to exactly one tier, declared in a `**Requires:**` line
+directly under its title. Tier 0 must stay installable with a single `uv sync`
+on macOS, Linux and Windows — that is the contract that lets a newcomer with
+Claude Desktop or ChatGPT Desktop use the toolkit. Anything heavier is opt-in.
+
+| Tier | Name | Install | What it gates | Rule |
+|---|---|---|---|---|
+| 0 | core | `uv sync` | polars, httpx, duckdb, openpyxl, iceaddr, playwright (package only) | Pure-Python wheels, no system libraries, no browser download. ~40 skills. |
+| 1 | maps | `uv sync --group maps` | geopandas, rasterio, pyproj, shapely, matplotlib, numpy | Wheels exist on all platforms but are large. Map scripts import these lazily or live in map-only scripts. |
+| 2 | browser | `uv run playwright install chromium` | Chromium for Playwright | Power BI, Tableau, JS-rendered pages. The Python package is Tier 0; only the ~150 MB browser is opt-in. |
+| 3 | pdf | `uv sync --group pdf` | docling, liteparse | Torch-sized. `pdfplumber` (Tier 0) covers native-text PDFs; this tier is for scanned/complex tables. |
+| 4 | restricted | none | Icelandic IP (samgongustofa), Sprite/R2 credentials (annual-report-cache), mac-mini ops | Documented so an agent can explain why, never silently required. |
+
+Rules when adding or changing a skill:
+
+- Put `**Requires:** Tier N (name) — one-line reason` as the first body line. Tier 0
+  skills say `**Requires:** Tier 0 (core).` so the absence is never ambiguous.
+- A Tier 0 script must not import a Tier 1/3 package at module top; import it
+  inside the function that needs it, with a clear error naming the group.
+- A skill that is mostly Tier 0 with one heavier command (e.g. `hms` + landeignaskrá
+  build) stays Tier 0 and names the exception in its `Requires` line.
+- Never add a dependency to the core list in `pyproject.toml` that needs a compiler,
+  a system library, or a browser. Put it in a group and, if new, add a tier row here.
+- `scripts/setup_check.py` reports which tiers are present; keep its module lists in
+  step with this table. CI runs the fast suite core-only and with `maps` on all three
+  OSes.
 
 ## Tools
 
-Installed via `./setup.sh`:
-- `jq` - JSON processing
-- `duckdb` - SQL on local files
-- `uv` - Python package manager
+Everything runs on macOS, Linux and Windows. The only prerequisite is `uv`
+(https://docs.astral.sh/uv/) — it downloads Python and every dependency itself.
+`./setup.sh` (macOS/Linux) or `.\setup.ps1` (Windows) installs `uv` if missing,
+runs `uv sync`, and then `scripts/setup_check.py`, which verifies imports and
+repairs the `.claude/skills` link (git on Windows and GitHub ZIP downloads turn
+symlinks into plain files; the checker recreates a symlink or a junction). After a
+junction repair on Windows, `git status` shows `.claude/skills` as a typechange
+permanently — expected; do not `git checkout -- .claude/skills`, that brings the
+text file back.
 
-Python (managed by `uv`):
+No Homebrew, no system Python, no DuckDB binary. SQL on local files goes through
+`scripts/sql.py`, which wraps the `duckdb` Python package:
+
+```bash
+uv run python scripts/sql.py "SELECT * FROM 'data/processed/fuel_prices_daily.csv' LIMIT 5"
+uv run python scripts/sql.py --csv "SELECT ..." > out.csv
+```
+
+`jq` is optional; `uv run python -m json.tool` pretty-prints JSON on every platform.
+
+Windows: use `uv run python scripts/...` exactly as documented (works in
+PowerShell). `setup.ps1` sets `PYTHONUTF8=1` so Icelandic characters print
+correctly. Always pass `encoding="utf-8"` to `open()` / `read_text()` /
+`write_text()` in scripts — Windows defaults to cp1252 otherwise.
+
+Python (managed by `uv`; Tier 0 unless noted):
+- `duckdb` - SQL on CSV/Parquet/JSON (via `scripts/sql.py`)
 - `polars` - Fast DataFrame library
 - `openpyxl` - Excel file reading
 - `httpx` - HTTP client
-- `playwright` - Headless browser automation (for skatturinn.is)
+- `playwright` - Headless browser automation (Tier 2 once Chromium is installed)
 - `pdfplumber` - PDF text/table extraction
-- `docling` - AI-powered PDF extraction with 97.9% table accuracy (IBM)
+- `docling` - AI-powered PDF extraction with 97.9% table accuracy (IBM) — Tier 3, `--group pdf`
 - `iceaddr` - Icelandic address geocoding (bundled SQLite from Staðfangaskrá)
 
 ## Quick Commands
@@ -92,7 +142,7 @@ uv run python scripts/sedlabanki_fx.py list
 uv run python scripts/gengi.py USD,EUR --history 6m
 
 # Query processed data
-duckdb -c "SELECT * FROM 'data/processed/*.csv' LIMIT 10"
+uv run python scripts/sql.py "SELECT * FROM 'data/processed/fuel_prices_daily.csv' LIMIT 10"
 
 # Get company info and annual reports list
 uv run python scripts/skatturinn.py info <kennitala>
@@ -116,7 +166,7 @@ uv run python scripts/eurostat.py fetch namq_10_pe --filter geo=EA20 --filter na
 uv run python reports/real_wages_is_vs_euro.py
 
 # Property price analysis
-duckdb -c "SELECT YEAR(kaupsamningur_dags), median(kaupverd*1000/einflm_m2) FROM 'data/processed/kaupskra_geocoded.parquet' WHERE NOT onothaefur AND tegund='Fjölbýli' GROUP BY 1 ORDER BY 1"
+uv run python scripts/sql.py "SELECT YEAR(kaupsamningur_dags), median(kaupverd*1000/einflm_m2) FROM 'data/processed/kaupskra_geocoded.parquet' WHERE NOT onothaefur AND tegund='Fjölbýli' GROUP BY 1 ORDER BY 1"
 
 # Geocode an Icelandic address
 uv run python -c "from iceaddr import iceaddr_lookup; print(iceaddr_lookup('Laugavegur', number=22, postcode=101))"
@@ -438,7 +488,7 @@ observed*, not *down* — and uptime is `healthy/observed`, never `healthy/elaps
 ```bash
 # Uptime per source, straight off the JSONL — no ingest step
 git fetch origin health-history && git show origin/health-history:history.jsonl > /tmp/h.jsonl
-duckdb -c "
+uv run python scripts/sql.py "
 SELECT source,
        round(100.0 * count(*) FILTER (WHERE status='healthy') / count(*), 1) AS uptime_pct,
        count(*) AS observations,

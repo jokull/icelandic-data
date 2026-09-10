@@ -5,6 +5,8 @@ description: Fiskistofa — public WFS layers for fishing closures, regulations 
 
 # Fiskistofa — Directorate of Fisheries
 
+**Requires:** Tier 0 (core).
+
 The public Hafsjá GeoServer exposes current fisheries restrictions and areas.
 
 ## API

@@ -5,6 +5,8 @@ description: Environment Agency of Iceland GIS — open WFS layers for contamina
 
 # UST GIS — Umhverfis- og orkustofnun
 
+**Requires:** Tier 0 (core).
+
 The agency's GeoServer is a public spatial catalogue separate from the existing
 air-quality API integration.
 

@@ -5,6 +5,8 @@ description: Hafrannsóknastofnun / MFRI — annual fish-stock assessments, advi
 
 # Hafrannsóknastofnun — Marine and Freshwater Research Institute
 
+**Requires:** Tier 0 (core).
+
 MFRI publishes annual stock advice with current assessment tables embedded as
 JSON inside static HTML pages.
 

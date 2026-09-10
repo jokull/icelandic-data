@@ -32,6 +32,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    import geopandas  # noqa: F401  — Tier 1 (maps) sentinel
+except ImportError:
+    raise SystemExit(
+        "This script needs the maps tier (geopandas, rasterio, matplotlib). "
+        "Install it with: uv sync --group maps   (see AGENTS.md 'Requirement tiers')"
+    ) from None
+
 import geopandas as gpd
 import numpy as np
 import rasterio

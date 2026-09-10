@@ -5,6 +5,8 @@ description: Náttúrufræðistofnun habitat types, species and geology via GeoS
 
 # Náttúrufræðistofnun (NÍ) — Open data
 
+**Requires:** Tier 1 (maps) — rasterio/numpy for the WCS raster mask; `uv sync --group maps`.
+
 Náttúrufræðistofnun Íslands (Icelandic Institute of Natural History) publishes
 habitat-type, species-distribution, and geological data as open data.
 

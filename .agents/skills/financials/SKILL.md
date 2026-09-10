@@ -1,9 +1,11 @@
 ---
 name: financials
-description: Extract structured financials from Icelandic annual report PDFs using Docling — income statement, balance sheet, cash flow, ratios.
+description: Extract structured financials from Icelandic annual report PDFs with pdfplumber (Docling optional) — income statement, balance sheet, cash flow, ratios.
 ---
 
 # Financials (Annual Report Extraction)
+
+**Requires:** Tier 0 (core) — pdfplumber pipeline. Docling OCR path needs Tier 3 (pdf).
 
 Extract structured financial data from Icelandic annual reports (ársreikningar) using AI-powered PDF parsing.
 

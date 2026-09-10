@@ -5,6 +5,8 @@ description: Icelandic air quality (UST) — PM10, PM2.5, NO2, H2S from 57 monit
 
 # Loftgæði (Air Quality) — UST / Reykjavik
 
+**Requires:** Tier 0 (core).
+
 PM10, PM2.5, NO2, SO2, H2S monitoring via Umhverfisstofnun (Environment Agency).
 
 ## API

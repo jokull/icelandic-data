@@ -5,6 +5,8 @@ description: Icelandic state accounts actuals (Fjársýsla) — yearly revenue/e
 
 # Ríkisreikningur — state accounts (Fjársýsla ríkisins)
 
+**Requires:** Tier 0 (core).
+
 Government-wide revenue, expenditure, and surplus/deficit from the state
 treasury. `rikisreikningur.is` is the public disclosure portal operated by
 **Fjársýsla ríkisins** (State Treasury / Financial Management Authority).

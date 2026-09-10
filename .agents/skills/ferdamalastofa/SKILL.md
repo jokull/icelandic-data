@@ -5,6 +5,8 @@ description: Icelandic Tourist Board — Keflavík passenger counts by nationali
 
 # Ferðamálastofa (Icelandic Tourist Board)
 
+**Requires:** Tier 2 (browser) — Power BI capture needs Chromium: `uv run playwright install chromium`.
+
 Inbound tourism statistics via Power BI dashboard scraping. Passenger counts through Keflavík airport by nationality, month, and year.
 
 ## Data Source

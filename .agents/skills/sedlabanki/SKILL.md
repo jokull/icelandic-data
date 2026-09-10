@@ -5,6 +5,8 @@ description: Central Bank of Iceland — SDMX balance sheets + new credit, key i
 
 # Seðlabanki Íslands (Central Bank of Iceland)
 
+**Requires:** Tier 0 (core) for SDMX and FX; Tier 2 (browser) for the gagnabanki interest-rate scrape.
+
 Monetary and financial statistics: interest rates, balance sheets, and new credit.
 
 **Important:** Both sedlabanki.is and gagnabanki.is are JavaScript SPAs (Blazor / Angular).

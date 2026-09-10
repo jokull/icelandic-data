@@ -5,6 +5,8 @@ description: Icelandic registered unemployment, job seekers and work permits (Vi
 
 # Vinnumálastofnun — Directorate of Labour (VMST)
 
+**Requires:** Tier 0 (core) for the Excel files; Tier 2 (browser) for the Power BI capture.
+
 Unemployment, job vacancies, and work-permit statistics. Monthly data with a rolling multi-year window. The Hagtalnanefnd report (March 2026) explicitly cites VMST's *mælaborð, Excel and PDF* triple-publication pattern.
 
 ## Landing page

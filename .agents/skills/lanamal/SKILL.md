@@ -5,6 +5,8 @@ description: Government Debt Management Iceland (lanamal.is) — RIKB/RIKS gover
 
 # Lánamál ríkisins (Government Debt Management Iceland)
 
+**Requires:** Tier 0 (core).
+
 Market data for Icelandic government bonds — yields, prices, chart history.
 Publishes the RIKB (óverðtryggð, non-indexed) and RIKS (verðtryggð, indexed)
 series that lanamal.is quotes on its `/markadsyfirlit` pages.

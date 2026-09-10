@@ -5,6 +5,8 @@ description: Icelandic insurance market — Sjóvá, Skagi/VÍS, TM, Vörður; c
 
 # Insurance — Icelandic Insurance Market
 
+**Requires:** Tier 0 (core).
+
 ## Companies
 
 | Company | Kennitala | Parent | Listed | Notes |

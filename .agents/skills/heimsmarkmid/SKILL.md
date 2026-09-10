@@ -5,6 +5,8 @@ description: Iceland's UN Sustainable Development Goal statistics (open-sdg) —
 
 # Heimsmarkmið — Iceland's UN Sustainable Development Goal statistics
 
+**Requires:** Tier 0 (core).
+
 Iceland's implementation of the UN 2030 Agenda. Hagstofa Íslands publishes
 137 national SDG indicators (all 17 goals) via a public `open-sdg` instance.
 

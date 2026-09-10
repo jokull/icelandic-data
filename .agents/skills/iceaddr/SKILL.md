@@ -5,6 +5,8 @@ description: Icelandic address geocoding — address lookup, reverse geocoding, 
 
 # iceaddr - Icelandic Address Geocoding
 
+**Requires:** Tier 0 (core).
+
 Python library for Icelandic address lookup, geocoding, and reverse geocoding. Uses a bundled SQLite database from Staðfangaskrá (official address registry).
 
 **Install:** `uv add iceaddr`

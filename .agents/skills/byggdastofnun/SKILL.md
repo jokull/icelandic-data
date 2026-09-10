@@ -5,6 +5,8 @@ description: Byggðastofnun regional-development dashboards (Tableau) — popula
 
 # Byggdastofnun — Regional-development dashboards
 
+**Requires:** Tier 0 (core).
+
 Iceland's Regional Development Institute (**Byggdastofnun**, from
 `byggdastofnun.is`) publishes 11 Tableau-Public dashboards covering rural and
 regional statistics: population, income, property taxes, energy, state

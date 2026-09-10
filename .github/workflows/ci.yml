@@ -11,9 +11,17 @@ concurrency:
 
 jobs:
   test:
-    name: Fast tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    name: Fast tests (${{ matrix.os }}, ${{ matrix.tier }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # The toolkit is plain Python; this matrix is what backs that claim.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Tier 0 (core) must pass on its own; the maps tier is the heavy opt-in.
+        # See AGENTS.md "Requirement tiers".
+        tier: [core, maps]
     steps:
       - uses: actions/checkout@v4
 
@@ -24,9 +32,12 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --locked
+        run: uv sync --locked ${{ matrix.tier == 'maps' && '--group maps' || '' }}
 
       # Deselects the `slow` marker (network + browser), so this job never
       # depends on third-party service availability.
+      - name: Check setup (imports, skills link)
+        run: uv run python scripts/setup_check.py
+
       - name: Run tests
         run: uv run pytest -m "not slow"

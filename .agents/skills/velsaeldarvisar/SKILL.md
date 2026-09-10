@@ -5,6 +5,8 @@ description: Hagstofa indicator catalogs on visar.hagstofa.is — velsældarvís
 
 # Velsældarvísar / Félagsvísar / Menningarvísar — Hagstofa indicator catalogs
 
+**Requires:** Tier 0 (core).
+
 Three curated Hagstofa Íslands indicator sites that wrap subsets of the PX-Web
 data tree with narrative context. All three share the same host
 (`visar.hagstofa.is`), same tech stack (Webflow), and the same per-indicator

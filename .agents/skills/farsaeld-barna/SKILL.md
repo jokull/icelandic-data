@@ -5,6 +5,8 @@ description: Child wellbeing dashboard (farsaeldbarna.is) from Barna- og fjölsk
 
 # Farsæld barna — Child Wellbeing Dashboard
 
+**Requires:** Tier 2 (browser) — Power BI capture needs Chromium: `uv run playwright install chromium`.
+
 Statistical indicators on child wellbeing in Iceland: health, happiness, education, safety, opportunities, living standards, social relationships, family life, participation, and influence on decisions.
 
 Run by **Barna- og fjölskyldustofa (BOFS)**, operational since 1 January 2022 (merged from Barnaverndarstofa). Explicitly named in the Hagtalnanefnd report (March 2026, footnote 71) as an example of a dashboard where raw data is not made available — only the dashboard and reports.

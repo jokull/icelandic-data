@@ -5,6 +5,8 @@ description: Landmælingar Íslands vector geodata via GeoServer WFS — landmas
 
 # LMI (Landmælingar Íslands) — National Land Survey
 
+**Requires:** Tier 1 (maps) — WFS download is core, rendering via kortagerð needs `uv sync --group maps`.
+
 Vector geodata for Iceland mapping via GeoServer WFS. Pre-cached layers in `data/geodata/` for fast map generation.
 
 ## API

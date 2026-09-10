@@ -5,6 +5,8 @@ description: Iceland's climate action plan (co2.is) — 106 numbered actions wit
 
 # CO2 — Aðgerðaáætlun í loftslagsmálum
 
+**Requires:** Tier 0 (core).
+
 Iceland's climate action plan tracker, covering every numbered action through
 2035. Published at `co2.is` by **Umhverfis-, orku- og loftslagsráðuneytið**.
 

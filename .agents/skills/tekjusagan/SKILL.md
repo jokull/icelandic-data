@@ -5,6 +5,8 @@ description: Icelandic income history (tekjusagan.is) — token-gated Power BI, 
 
 # Tekjusagan — "The Income Story" (Prime Minister's Office)
 
+**Requires:** Tier 2 (browser) — token-gated Power BI driven via Playwright; `uv run playwright install chromium`.
+
 Iceland's most widely-cited public income/inequality tool. Interactive dashboard showing changes in living standards for demographic groups over ~25 years (income, assets, gender, education). Owned by **Forsætisráðuneytið**; data source Hagstofa Íslands.
 
 ## Architecture

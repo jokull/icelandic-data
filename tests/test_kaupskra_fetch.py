@@ -36,7 +36,7 @@ def test_invalid_download_preserves_previous_copy(tmp_path, monkeypatch):
         yield httpx.Response(200,content=b'<html>upstream error</html>',request=httpx.Request('GET',m.URL))
     monkeypatch.setattr(httpx,'stream',response)
     with pytest.raises(ValueError,match='schema'):m.cmd_fetch(argparse.Namespace())
-    assert m.DST.read_text()=='previous valid data'
+    assert m.DST.read_text(encoding='utf-8')=='previous valid data'
     assert list(tmp_path.iterdir())==[m.DST]
 
 

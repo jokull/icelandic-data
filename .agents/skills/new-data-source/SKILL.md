@@ -31,7 +31,7 @@ Most Icelandic public data is served via one of these patterns:
 curl -s "https://{domain}/geoserver/wfs?service=WFS&request=GetCapabilities" | head -50
 
 # Check for REST API
-curl -s "https://{domain}/api/" | jq .
+curl -s "https://{domain}/api/" | uv run python -m json.tool   # jq works too, if installed
 
 # Check for CKAN
 curl -s "https://{domain}/api/3/action/package_list" | jq '.result[:10]'
@@ -91,6 +91,10 @@ Answer these questions before writing code:
 - **Format size:** Will the raw download be <10 MB or >1 GB?
 
 ## Phase 2: Build the Skill File
+
+First body line after the title is the requirement tier (see AGENTS.md "Requirement
+tiers"): `**Requires:** Tier 0 (core).` or `**Requires:** Tier 2 (browser) — Power BI
+SPA, needs Chromium.` Default to Tier 0 and import heavy packages lazily.
 
 **Create `.agents/skills/{source}/SKILL.md`** — a directory with a `SKILL.md`
 inside, never a flat `.md`. Both Claude Code and Codex discover skills by
@@ -221,10 +225,10 @@ uv run python scripts/{source}.py list
 uv run python scripts/{source}.py fetch
 
 # 3. Query the output
-duckdb -c "SELECT count(*), min(date), max(date) FROM 'data/processed/{output_file}'"
+uv run python scripts/sql.py "SELECT count(*), min(date), max(date) FROM 'data/processed/{output_file}'"
 
 # 4. Spot-check values
-duckdb -c "SELECT * FROM 'data/processed/{output_file}' LIMIT 5"
+uv run python scripts/sql.py "SELECT * FROM 'data/processed/{output_file}' LIMIT 5"
 ```
 
 **What to check:**
@@ -345,7 +349,8 @@ Before considering a new data source complete:
 - [ ] Script in `scripts/{source}.py` with `list`/`fetch` subcommands
 - [ ] Raw data saved to `data/raw/{source}/`
 - [ ] Processed data saved to `data/processed/`
-- [ ] Output verified with DuckDB query
+- [ ] `**Requires:** Tier N` line under the skill title; no Tier 1/3 import at module top of a Tier 0 script
+- [ ] Output verified with `scripts/sql.py` query
 - [ ] Icelandic characters confirmed working
 - [ ] Health probe at `tests/health/test_{source}.py`, verified against the live source
 - [ ] `uv run pytest -m "not slow"` still green and still offline

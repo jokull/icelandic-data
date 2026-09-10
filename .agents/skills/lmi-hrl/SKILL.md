@@ -5,6 +5,8 @@ description: Copernicus High Resolution Layer rasters for Iceland 2015 at 20 m �
 
 # LMI High Resolution Layers (Copernicus HRL Iceland 2015)
 
+**Requires:** Tier 1 (maps) — rasterio for the 20 m GeoTIFFs; `uv sync --group maps`.
+
 Pan-European Copernicus Land Monitoring Service "High Resolution Layers"
 clipped to Iceland and re-served by Landmælingar Íslands. Five thematic
 binary/percentage rasters, all from the 2015 reference year, all 20 m

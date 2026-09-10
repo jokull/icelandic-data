@@ -5,6 +5,8 @@ description: Iceland energy authority — electricity generation, use, fuel sale
 
 # Energy — Umhverfis- og orkustofnun
 
+**Requires:** Tier 0 (core).
+
 The Energy Authority publishes downloadable numerical energy tables and a live
 electricity-indicators dashboard. This source starts with the stable XLSX archive.
 

@@ -138,5 +138,5 @@ def test_invalid_present_completions_file_does_not_fall_back(tmp_path,monkeypatc
     from scripts import housing_completions as m
     p=tmp_path/'hms.csv';monkeypatch.setattr(m,'HMS_PROCESSED',p)
     for content in ['year,completed_national\n2025,\n','year,completed_national\n2025,3.5\n','year,completed_national\n2025,1\n2025,2\n']:
-        p.write_text(content)
+        p.write_text(content, encoding='utf-8')
         with pytest.raises(ValueError):m.load_hms_completions()

@@ -5,6 +5,8 @@ description: Generate Iceland maps from cached LMI data — static (matplotlib) 
 
 # Kortagerð (Mapmaking) — Iceland Maps
 
+**Requires:** Tier 1 (maps) — geopandas + matplotlib rendering; `uv sync --group maps`.
+
 Generate high-quality maps of Iceland using cached LMI geodata. Supports interactive HTML (Leaflet) and static PNG/SVG (geopandas + matplotlib).
 
 ## Quick Start

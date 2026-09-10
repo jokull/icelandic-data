@@ -8,9 +8,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import numpy as np
 import pytest
-import rasterio
+
+pytest.importorskip("numpy", reason="maps tier not installed (uv sync --group maps)")
+import numpy as np  # noqa: E402
+
 
 from scripts.utils.cache import (  # imported via tests/conftest.py adding REPO_ROOT
     CONSTANTS_PATH, RASTERS_DIR, ROOT, sha256_file,

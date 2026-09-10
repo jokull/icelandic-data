@@ -5,6 +5,8 @@ description: Icelandic currency exchange rates via Borgun (card rates, not inter
 
 # Exchange Rates (Gengi)
 
+**Requires:** Tier 0 (core).
+
 Current card rates (Borgun) and historical ECB reference rates.
 
 ## Usage

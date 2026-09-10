@@ -5,6 +5,8 @@ description: Iceland international-protection (asylum) monthly stats from Ríkis
 
 # Vernd — Lykilupplýsingar um umsækjendur um alþjóðlega vernd
 
+**Requires:** Tier 2 (browser) — Power BI capture needs Chromium: `uv run playwright install chromium`.
+
 Key monthly/weekly stats on **international-protection (asylum) applicants** to
 Iceland. Power BI dashboard published by **Ríkislögreglustjóri** (National
 Commissioner of Police) via the Ministry of Justice's mælaborð index at

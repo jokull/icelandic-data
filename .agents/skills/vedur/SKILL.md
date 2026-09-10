@@ -5,6 +5,8 @@ description: Icelandic Met Office (Veðurstofa) — weather observations, statio
 
 # Veðurstofa Íslands (Icelandic Meteorological Office)
 
+**Requires:** Tier 0 (core).
+
 Weather observations, forecasts, climatological data and **earthquakes** for Iceland.
 
 ## API — use `api.vedur.is` (JSON, OpenAPI)

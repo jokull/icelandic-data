@@ -5,6 +5,8 @@ description: Maskína public opinion polls — structured data via Tableau VizQL
 
 # Maskína — Public Opinion Polls
 
+**Requires:** Tier 0 (core).
+
 Public opinion polls and surveys from Iceland's leading polling company. Two data sources: WordPress articles (prose) and Tableau Public dashboard (structured).
 
 **This is the first stop for opinion-poll questions.** The data here comes

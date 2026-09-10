@@ -5,6 +5,8 @@ description: Hagstofan / Statistics Iceland PX-Web API. Use for Icelandic nation
 
 # Hagstofan (Statistics Iceland)
 
+**Requires:** Tier 0 (core).
+
 Official statistics for Iceland via PX-Web API.
 
 ## API

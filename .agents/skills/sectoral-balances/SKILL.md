@@ -5,6 +5,8 @@ description: Iceland current account decomposition, NIIP attribution, pension fu
 
 # Sectoral Balances & External Sector (Iceland)
 
+**Requires:** Tier 0 (core).
+
 Analytical skill for computing sectoral financial balances in the Godley/MMT accounting sense:
 
 ```

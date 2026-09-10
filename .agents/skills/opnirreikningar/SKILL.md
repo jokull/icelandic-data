@@ -5,6 +5,8 @@ description: Icelandic government invoice data (opnirreikningar.is) — paid inv
 
 # Opnir Reikningar — Government Invoice Data
 
+**Requires:** Tier 0 (core).
+
 ## Overview
 
 [opnirreikningar.is](https://opnirreikningar.is) publishes paid invoices from Icelandic government agencies (ministries, directorates). No auth required.

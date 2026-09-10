@@ -5,6 +5,8 @@ description: Icelandic court rulings — héraðsdómstólar, Landsréttur, Hæs
 
 # Icelandic Courts (dómstólar)
 
+**Requires:** Tier 0 (core) via RSS + pagination; Tier 2 (browser) only for JS-rendered search.
+
 Three independent court sites — no unified API, all HTML scraping.
 
 ## Sites

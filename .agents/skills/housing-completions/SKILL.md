@@ -5,6 +5,8 @@ description: Iceland housing completions 1970–2025 — Hagstofan IDN03001 + HM
 
 # Housing completions (fullgerðar íbúðir)
 
+**Requires:** Tier 0 (core).
+
 Long-run annual count of completed dwellings in Iceland, built from two halves:
 
 - **Hagstofan IDN03001** — 1970–2021 via PX-Web POST to

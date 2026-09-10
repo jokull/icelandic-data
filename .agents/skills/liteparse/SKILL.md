@@ -5,6 +5,8 @@ description: Local PDF parsing via liteparse — text with bounding boxes, page 
 
 # LiteParse — PDF Parsing & Visual Extraction
 
+**Requires:** Tier 3 (pdf) — `uv sync --group pdf`.
+
 Fast, local PDF parser (LlamaIndex) for text extraction with bounding box coordinates, page screenshots, and visual element detection. Wraps a Node.js CLI (`lit`) via a Python wrapper.
 
 ## Installation

@@ -5,6 +5,8 @@ description: Directorate of Health (landlæknir) — ~30 Power BI dashboards: mo
 
 # Landlæknir — Directorate of Health (Embætti landlæknis)
 
+**Requires:** Tier 2 (browser) — Power BI dashboards need Chromium: `uv run playwright install chromium`.
+
 Health statistics for Iceland: mortality, medication use, healthcare services, workforce, infectious disease surveillance, and public health indicators. Primary portal is **Mælaborð embættis landlæknis** (~30 Power BI dashboards); secondary is **Talnabrunnur**, a PDF newsletter series (2007–present).
 
 Listed by the Hagtalnanefnd report (March 2026) as one of four other European-statistics producers for Iceland (alongside Seðlabanki, Ríkislögreglustjóri, Samgöngustofa). Produces European health statistics under regulation (EC) No 1338/2008.

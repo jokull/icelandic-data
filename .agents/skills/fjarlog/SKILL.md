@@ -5,6 +5,8 @@ description: Icelandic state budget (fjárlög) — appropriations + 5-year plan
 
 # Fjárlög — Icelandic state budget (appropriations + 5-year plan)
 
+**Requires:** Tier 0 (core).
+
 The **forward-looking** counterpart to [rikisreikningur](../rikisreikningur/SKILL.md)
 (which is *actuals*). Where ríkisreikningur answers "what was spent",
 fjárlög answers "what was appropriated / planned". The newspaper tables on
@@ -113,7 +115,7 @@ flokkun_ny, malefnasvid, malefnasvid_nr, malaflokkur, malaflokkur_nr,
 raduneyti, lidur, vidfang, tegund, mkr`. Query with DuckDB:
 
 ```bash
-duckdb -c "SELECT ar, afurd, SUM(mkr)/1000 AS bn FROM 'data/processed/fjarlog.parquet'
+uv run python scripts/sql.py "SELECT ar, afurd, SUM(mkr)/1000 AS bn FROM 'data/processed/fjarlog.parquet'
            WHERE tegund='Gjöld' GROUP BY 1,2 ORDER BY 1"   -- total spending by year
 ```
 

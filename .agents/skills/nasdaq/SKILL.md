@@ -5,6 +5,8 @@ description: Nasdaq Iceland — exchange notices, annual reports, insider tradin
 
 # Nasdaq Iceland
 
+**Requires:** Tier 0 (core).
+
 Exchange notices for Icelandic listed companies (2000-present).
 
 ## Usage

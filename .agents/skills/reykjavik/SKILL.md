@@ -5,6 +5,8 @@ description: Reykjavík municipality CKAN + PX-Web — services, demographics, w
 
 # Reykjavíkurborg (Reykjavík Municipality)
 
+**Requires:** Tier 0 (core).
+
 Open data from Reykjavík City via two APIs:
 1. **CKAN API** at gagnagatt.reykjavik.is - downloadable CSV files
 2. **PX-Web API** at velstat.reykjavik.is - welfare statistics (requires POST queries)

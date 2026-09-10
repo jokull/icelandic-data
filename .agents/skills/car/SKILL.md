@@ -5,6 +5,8 @@ description: Icelandic vehicle lookup by plate or VIN via the island.is public G
 
 # Island.is Vehicle Lookup
 
+**Requires:** Tier 0 (core).
+
 Individual vehicle lookup via the island.is public GraphQL API.
 
 ## API

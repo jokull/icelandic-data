@@ -5,6 +5,8 @@ description: Icelandic traffic counters (Vegagerðin) — real-time 15-min count
 
 # Umferð (Traffic) — Vegagerðin
 
+**Requires:** Tier 0 (core). Only `scripts/umferd_map.py` needs Tier 1 (maps).
+
 Real-time traffic counter data from the Icelandic Road Administration via GeoServer WFS.
 
 ## API

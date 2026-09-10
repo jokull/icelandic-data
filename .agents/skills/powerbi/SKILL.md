@@ -5,6 +5,8 @@ description: Reverse-engineer public Power BI dashboards (app.powerbi.com/view e
 
 # Power BI dashboard reverse-engineering
 
+**Requires:** Tier 2 (browser) — token capture needs Chromium; query replay afterwards is core.
+
 Icelandic public bodies publish a lot of data only as embedded **Power BI**
 dashboards (`https://app.powerbi.com/view?r=<token>`, often inside an
 `<iframe>` on the agency's site). They all speak one protocol, so

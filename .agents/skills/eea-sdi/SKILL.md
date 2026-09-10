@@ -5,6 +5,8 @@ description: European Environment Agency geospatial catalogue (sdi.eea.europa.eu
 
 # EEA SDI — European Environment Agency geospatial catalogue
 
+**Requires:** Tier 0 (core). Only `scripts/grassland_probability_heatmap.py` needs Tier 1 (maps).
+
 European Environment Agency's geospatial-data Spatial Data Infrastructure
 (SDI). Front-end at <https://sdi.eea.europa.eu/catalogue/>. The catalogue
 is run on **GeoNetwork 4.4** and surfaces ~10 000 datasets covering land

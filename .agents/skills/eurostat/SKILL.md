@@ -5,6 +5,8 @@ description: Eurostat (EU statistics office) REST API — wages, HICP, GDP, unem
 
 # Eurostat (Statistical Office of the EU)
 
+**Requires:** Tier 0 (core).
+
 Official statistics for the European Union and euro area — the counterpart
 to Hagstofan for evrusvæðið. No authentication, no rate key, plain HTTP.
 

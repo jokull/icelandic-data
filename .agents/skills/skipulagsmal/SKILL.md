@@ -5,6 +5,8 @@ description: Icelandic planning and building permits (Planitor) — cases, minut
 
 # Skipulagsmál — Planitor (Planning & Building Permits)
 
+**Requires:** Tier 0 (core).
+
 Planitor aggregates municipal planning and building committee data across Iceland. Tracks cases, permits, meeting minutes, entities (applicants), and addresses.
 
 **Base URL:** `https://www.planitor.io`

@@ -5,6 +5,8 @@ description: Alþingi XML — MPs, per-MP vote records, bills, committees, speec
 
 # Alþingi — Parliament XML
 
+**Requires:** Tier 0 (core).
+
 Open XML feeds from the Alþingi database: every MP since 1875, per-MP roll-call
 votes, the parliamentary matter catalogue, committee membership, speeches, ministerial
 appointments and consultation submissions.

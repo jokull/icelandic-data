@@ -5,6 +5,8 @@ description: Icelandic take-home salary calculator (payday.is) — tax and pensi
 
 # Payday.is Salary Calculator (Laun)
 
+**Requires:** Tier 0 (core).
+
 Icelandic take-home salary calculator via payday.is public API.
 
 ## API

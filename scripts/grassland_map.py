@@ -23,6 +23,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+try:
+    import geopandas  # noqa: F401  — Tier 1 (maps) sentinel
+except ImportError:
+    raise SystemExit(
+        "This script needs the maps tier (geopandas, rasterio, matplotlib). "
+        "Install it with: uv sync --group maps   (see AGENTS.md 'Requirement tiers')"
+    ) from None
+
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
