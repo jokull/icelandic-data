@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import re
 import sys
 from pathlib import Path
@@ -17,8 +18,13 @@ from pathlib import Path
 import httpx
 import polars as pl
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from hagstofan_query import document_table, query_filters, record_fetch, write_sidecar  # noqa: E402
+
 BASE_URL = "https://px.hagstofa.is/pxis/api/v1/is"
 HEADERS = {"User-Agent": "icelandic-data/1.0 (data toolkit fetcher)"}
+CLIENT = httpx.Client(timeout=60, headers=HEADERS)
+TABLE_DOCS: dict = {}  # table code -> px header documentation, written as the sidecar
 
 # Tariff code mappings - see .agents/skills/hagstofan/SKILL.md
 TARIFF_CATEGORIES = {
@@ -46,7 +52,7 @@ def fetch_table(path: str, tariff_codes: list[str]) -> str | None:
     
     # First get metadata to find the correct variable code
     try:
-        meta = httpx.get(url, timeout=30, headers=HEADERS).json()
+        meta = CLIENT.get(url, timeout=30).json()
     except Exception as e:
         print(f"  WARN: metadata fetch failed for {path}: {e}", file=sys.stderr)
         return None
@@ -89,15 +95,21 @@ def fetch_table(path: str, tariff_codes: list[str]) -> str | None:
     }
     
     try:
-        resp = httpx.post(url, json=query, timeout=60, headers=HEADERS)
+        resp = CLIENT.post(url, json=query)
         if resp.status_code != 200:
             print(f"  WARN: fetch failed for {path}: HTTP {resp.status_code} — {resp.text[:200]}",
                   file=sys.stderr)
             return None
-        return resp.text
     except Exception as e:
         print(f"  WARN: fetch failed for {path}: {e}", file=sys.stderr)
         return None
+    # Table documentation (LAST-UPDATED, notes) with the same selection, plus
+    # the vintage line in the shared index. A header failure is reported and
+    # skipped; it never breaks the data pipeline.
+    doc = document_table(CLIENT, path, query["query"], TABLE_DOCS)
+    record_fetch(path, query_filters(query["query"]), "", doc["last_updated"] if doc else None,
+                 hashlib.sha256(resp.content).hexdigest())
+    return resp.text
 
 
 def parse_wide_csv(raw_file: Path) -> pl.DataFrame:
@@ -257,6 +269,9 @@ def cmd_fetch(args) -> int:
     output.write_csv(output_file)
     print(f"\nSaved {len(output)} rows to {output_file}")
     print(output)
+    sidecar = output_file.with_suffix(".meta.json")
+    write_sidecar(sidecar, TABLE_DOCS)
+    print(f"Saved table documentation for {len(TABLE_DOCS)} tables to {sidecar}")
     
     if failed_tables:
         print(f"WARN: {len(failed_tables)} of {len(TABLES)} tables failed to fetch "

@@ -17,16 +17,25 @@ Outputs:
 """
 
 import argparse
+import hashlib
 import json
+import sys
 from pathlib import Path
 
 import httpx
 import polars as pl
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from hagstofan_query import document_table, query_filters, record_fetch, write_sidecar  # noqa: E402
+
 BASE = "https://px.hagstofa.is/pxis/api/v1/is"
 ROOT = Path(__file__).parent.parent
 RAW = ROOT / "data" / "raw" / "hagstofan"
 OUT = ROOT / "data" / "processed"
+# One sidecar per script, next to the primary output; keyed by table code.
+SIDECAR = OUT / "hagstofan_population_by_citizenship.meta.json"
+CLIENT = httpx.Client(timeout=120, headers={"User-Agent": "icelandic-data/1.0"})
+TABLE_DOCS: dict = {}
 
 POPULATION_DIR = RAW / "population"
 WAGES_DIR = RAW / "wages"
@@ -78,13 +87,19 @@ def post_json(path: str, query: list[dict]) -> dict:
     """Post a PX-Web query and return JSON-stat-like dict."""
     url = f"{BASE}/{path}"
     body = {"query": query, "response": {"format": "json-stat2"}}
-    r = httpx.post(url, json=body, timeout=120)
+    r = CLIENT.post(url, json=body)
     r.raise_for_status()
+    # Table documentation (LAST-UPDATED, notes) with the same selection, plus
+    # the vintage line in the shared index. A header failure is reported and
+    # skipped; it never breaks the data pipeline.
+    doc = document_table(CLIENT, path, query, TABLE_DOCS)
+    record_fetch(path, query_filters(query), "", doc["last_updated"] if doc else None,
+                 hashlib.sha256(r.content).hexdigest())
     return r.json()
 
 
 def fetch_metadata(path: str) -> dict:
-    r = httpx.get(f"{BASE}/{path}", timeout=60)
+    r = CLIENT.get(f"{BASE}/{path}")
     r.raise_for_status()
     return r.json()
 
@@ -580,6 +595,9 @@ def cmd_fetch(args) -> int:
     lab_out = OUT / "hagstofan_foreign_labor_share.csv"
     lab_df.write_csv(lab_out)
     print(f"Saved labor CSV: {lab_out} ({len(lab_df)} rows)")
+
+    write_sidecar(SIDECAR, TABLE_DOCS)
+    print(f"Saved table documentation: {SIDECAR} ({len(TABLE_DOCS)} tables)")
 
     # ---- Quick stats printout for the report ----
     print()

@@ -27,18 +27,28 @@ Depends on data/raw/hagstofan/cpi_full.csv being present for CPI deflation.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import sys
 import time
 from pathlib import Path
 
 import httpx
 import polars as pl
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from hagstofan_query import BASE as PX_BASE  # noqa: E402
+from hagstofan_query import document_table, query_filters, record_fetch, write_sidecar  # noqa: E402
+
 BASE = "https://px.hagstofa.is/pxis/api/v1/is/Samfelag/launogtekjur"
 ROOT = Path(__file__).resolve().parent.parent
 RAW_WAGE = ROOT / "data/raw/hagstofan/wage_index_general"
 RAW_INC = ROOT / "data/raw/hagstofan/income"
 PROC = ROOT / "data/processed"
+# One sidecar per script, next to the primary output; keyed by table code.
+SIDECAR = PROC / "hagstofan_income_distribution.meta.json"
+CLIENT = httpx.Client(timeout=120, headers={"User-Agent": "icelandic-data/1.0"})
+TABLE_DOCS: dict = {}
 RAW_WAGE.mkdir(parents=True, exist_ok=True)
 RAW_INC.mkdir(parents=True, exist_ok=True)
 PROC.mkdir(parents=True, exist_ok=True)
@@ -49,13 +59,20 @@ def post_json(path: str, query: list[dict]) -> dict:
     url = f"{BASE}/{path}"
     body = {"query": query, "response": {"format": "json-stat2"}}
     for attempt in range(5):
-        r = httpx.post(url, json=body, timeout=120)
+        r = CLIENT.post(url, json=body)
         if r.status_code == 429:
             wait = 10 * (attempt + 1)
             print(f"  429, sleeping {wait}s...")
             time.sleep(wait)
             continue
         r.raise_for_status()
+        # Table documentation (LAST-UPDATED, notes) with the same selection,
+        # plus the vintage line in the shared index. A header failure is
+        # reported and skipped; it never breaks the data pipeline.
+        px_path = url.removeprefix(PX_BASE)
+        doc = document_table(CLIENT, px_path, query, TABLE_DOCS)
+        record_fetch(px_path, query_filters(query), "", doc["last_updated"] if doc else None,
+                     hashlib.sha256(r.content).hexdigest())
         return r.json()
     raise RuntimeError("exhausted retries")
 
@@ -456,6 +473,8 @@ def cmd_fetch(args) -> int:
 
     proc = build_processed_csv(lab, tot)
     bg = build_background_csv(bg_raw)
+    write_sidecar(SIDECAR, TABLE_DOCS)
+    print(f"  wrote {SIDECAR.name} ({len(TABLE_DOCS)} tables)")
     compute_headline(wi, proc, bg)
     return 0
 

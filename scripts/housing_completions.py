@@ -24,14 +24,21 @@ the fallback so this script still works standalone.
 """
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 
 import httpx
 import polars as pl
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from hagstofan_query import BASE as PX_BASE  # noqa: E402
+from hagstofan_query import document_table, query_filters, record_fetch, write_sidecar  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 DST = ROOT / "data" / "processed" / "iceland_housing_completions.csv"
+SIDECAR = DST.with_suffix(".meta.json")  # Hagstofan table documentation, keyed by table code
+TABLE_DOCS: dict = {}
 RAW_HAG = ROOT / "data" / "raw" / "hagstofan" / "IDN03001_housing_completions.csv"
 HEADERS = {"User-Agent": "icelandic-data/1.0 (data toolkit fetcher)"}
 
@@ -39,6 +46,7 @@ HAGSTOFAN_URL = (
     "https://px.hagstofa.is/pxis/api/v1/is/"
     "Atvinnuvegir/idnadur/byggingar/IDN03001.px"
 )
+HAGSTOFAN_PATH = HAGSTOFAN_URL.removeprefix(PX_BASE)
 
 # Query: byggingarstaða=2 (Fullgert á árinu), eining=0 (Fjöldi íbúða)
 HAGSTOFAN_QUERY = {
@@ -103,9 +111,17 @@ def _parse_completions(text: str) -> dict[int, int]:
 
 
 def fetch_hagstofan() -> dict[int, int]:
-    """Fetch Hagstofan completions 1970–2021 and cache the raw response."""
-    resp = httpx.post(HAGSTOFAN_URL, json=HAGSTOFAN_QUERY, timeout=30, headers=HEADERS)
-    resp.raise_for_status()
+    """Fetch Hagstofan completions 1970–2021 and cache the raw response.
+
+    Also fetches the table's px header (LAST-UPDATED, notes) with the same
+    selection into ``TABLE_DOCS`` and records the vintage in the shared
+    index; a header failure is reported and skipped, never fatal."""
+    with httpx.Client(timeout=60, headers=HEADERS) as client:
+        resp = client.post(HAGSTOFAN_URL, json=HAGSTOFAN_QUERY, timeout=30)
+        resp.raise_for_status()
+        doc = document_table(client, HAGSTOFAN_PATH, HAGSTOFAN_QUERY["query"], TABLE_DOCS)
+    record_fetch(HAGSTOFAN_PATH, query_filters(HAGSTOFAN_QUERY["query"]), "",
+                 doc["last_updated"] if doc else None, hashlib.sha256(resp.content).hexdigest())
     # CSV uses ISO-8859-1; decode from bytes
     text = resp.content.decode("iso-8859-1")
     RAW_HAG.parent.mkdir(parents=True, exist_ok=True)
@@ -172,6 +188,9 @@ def cmd_fetch(args) -> int:
     DST.parent.mkdir(parents=True, exist_ok=True)
     df.write_csv(DST)
     print(f"\nWrote {len(df)} years to {DST}")
+    if TABLE_DOCS:  # --use-cached made no request, so leave the previous sidecar alone
+        write_sidecar(SIDECAR, TABLE_DOCS)
+        print(f"Wrote table documentation to {SIDECAR}")
 
     # Recent summary
     print("\nRecent completions:")

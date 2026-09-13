@@ -28,6 +28,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -35,6 +36,9 @@ from pathlib import Path
 
 import httpx
 import polars as pl
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from hagstofan_query import document_table, query_filters, record_fetch, write_sidecar  # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -48,6 +52,9 @@ RAW.mkdir(parents=True, exist_ok=True)
 PROC.mkdir(parents=True, exist_ok=True)
 
 OUT_CSV = PROC / "rikissjod_balance.csv"
+SIDECAR = OUT_CSV.with_suffix(".meta.json")  # table documentation, keyed by table code
+CLIENT = httpx.Client(timeout=120, headers={"User-Agent": "icelandic-data/1.0"})
+TABLE_DOCS: dict = {}
 
 # code -> English column name for the 14 THJ05211 rows (codes are stable;
 # labels are only used as a fallback if a row is missing/renamed).
@@ -81,13 +88,19 @@ def post_json(path: str, query: list[dict]) -> dict:
     url = f"{BASE}/{path}"
     body = {"query": query, "response": {"format": "json-stat2"}}
     for attempt in range(5):
-        r = httpx.post(url, json=body, timeout=120)
+        r = CLIENT.post(url, json=body)
         if r.status_code == 429:
             wait = 10 * (attempt + 1)
             print(f"  429, sleeping {wait}s...")
             time.sleep(wait)
             continue
         r.raise_for_status()
+        # Table documentation (LAST-UPDATED, notes) with the same selection,
+        # plus the vintage line in the shared index. A header failure is
+        # reported and skipped; it never breaks the data pipeline.
+        doc = document_table(CLIENT, path, query, TABLE_DOCS)
+        record_fetch(path, query_filters(query), "", doc["last_updated"] if doc else None,
+                     hashlib.sha256(r.content).hexdigest())
         return r.json()
     raise RuntimeError("exhausted retries")
 
@@ -132,7 +145,7 @@ def jsonstat_to_df(js: dict) -> pl.DataFrame:
 
 def fetch_balance() -> pl.DataFrame:
     print(f"[1/1] THJ05211 — Helstu hagstærðir ríkissjóðs 1980-2025...")
-    meta = httpx.get(f"{BASE}/{TABLE}", timeout=60).json()
+    meta = CLIENT.get(f"{BASE}/{TABLE}").json()
     sk = next(v for v in meta["variables"] if v["code"] == "Skipting")
     ar = next(v for v in meta["variables"] if v["code"] == "Ár")
     codes = sk["values"]
@@ -178,6 +191,8 @@ def cmd_fetch(args):
     df = fetch_balance()
     df.write_csv(OUT_CSV)
     print(f"\n→ {OUT_CSV}  ({df.height} rows × {df.width - 1} indicators)")
+    write_sidecar(SIDECAR, TABLE_DOCS)
+    print(f"→ {SIDECAR}  ({len(TABLE_DOCS)} tables documented)")
     # Sanity: the crisis years the table exists for
     crisis = df.filter(pl.col("Ár").is_in(["2008", "2009", "2010", "2011"]))
     for row in crisis.iter_rows(named=True):

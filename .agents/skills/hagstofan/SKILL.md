@@ -202,6 +202,18 @@ uv run python scripts/sql.py "SELECT path, last_updated, count(DISTINCT raw_sha2
   FROM read_json_auto('data/raw/hagstofan/query/index.jsonl') GROUP BY 1,2 ORDER BY 1,2"
 ```
 
+**Curated scripts carry the same documentation.** Every curated Hagstofan
+script (`hagstofan_cpi.py`, `hagstofan_income.py`, `hagstofan_population_wages.py`,
+`hagstofan_rikissjod.py`, `hagstofan.py`, `housing_completions.py`,
+`income_distribution.py`) writes a `data/processed/{output stem}.meta.json`
+sidecar next to its primary output — a JSON object keyed by table code with
+`path`, `last_updated`, `fetched_at`, `units`, `refperiod`, `notes`,
+`value_notes` and `links`, fetched with the same selection as the data — and
+appends every data POST to the shared `index.jsonl` above, so the vintage
+query covers curated outputs too. Each run prints one stderr breadcrumb per
+table (`VIS01300: last updated 2026-08-27T09:00, 3 notes`); a header failure
+is printed and skipped, never fatal to the data.
+
 Known note quirks: some English notes have an unterminated `<A HREF=... TARGET=_`
 anchor upstream, so the sentence after the link runs on; the script strips the
 tag and keeps the href in `links`.

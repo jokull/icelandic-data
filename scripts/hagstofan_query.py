@@ -163,6 +163,68 @@ def fetch_header(c, path, query):
     return parse_px_header(r.content)
 
 
+def record_fetch(path: str, filters: dict, since: str, last_updated: str | None, sha: str) -> None:
+    """Append one vintage line to data/raw/hagstofan/query/index.jsonl.
+
+    The vintage of a dataset is (path, last_updated); two lines for the same
+    vintage with different raw_sha256 are a revision. Curated scripts call
+    this too, so the index covers every Hagstofan fetch the repo makes."""
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    fetched_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    with (RAW_DIR / 'index.jsonl').open('a', encoding='utf-8') as f:
+        f.write(json.dumps({'fetched_at': fetched_at, 'path': path, 'last_updated': last_updated,
+                            'filters': filters, 'since': since, 'raw_sha256': sha}, ensure_ascii=False) + '\n')
+
+
+def table_code(path: str) -> str:
+    """'Efnahagur/.../VIS01300.px' -> 'VIS01300'."""
+    return path.rsplit('/', 1)[-1].removesuffix('.px')
+
+
+def document_table(c, path: str, query: list, sidecar: dict) -> dict | None:
+    """Fetch the px header for one data selection and merge it into ``sidecar``
+    (keyed by table code) for a curated script's ``.meta.json``.
+
+    Never raises on an HTTP failure: the data pipeline must not depend on the
+    notes, so the reason goes to stderr and the entry is simply absent. A
+    repeat table (same code, another selection) merges value_notes and links
+    instead of overwriting. Prints one stderr breadcrumb per table."""
+    code = table_code(path)
+    try:
+        doc = fetch_header(c, path, query)
+    except httpx.HTTPError as e:
+        print(f"{code}: notes unavailable ({type(e).__name__}: {e})", file=sys.stderr)
+        return None
+    entry = sidecar.get(code)
+    if entry is None:
+        sidecar[code] = {'path': path, 'last_updated': doc['last_updated'],
+                         'fetched_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                         'units': doc['units'], 'refperiod': doc['refperiod'], 'notes': doc['notes'],
+                         'value_notes': list(doc['value_notes']), 'links': list(doc['links'])}
+        print(f"{code}: last updated {doc['last_updated']}, {sum(map(len, doc['notes'].values()))} notes", file=sys.stderr)
+    else:
+        seen = {(v['variable'], v['value_label'], v['lang']) for v in entry['value_notes']}
+        entry['value_notes'] += [v for v in doc['value_notes'] if (v['variable'], v['value_label'], v['lang']) not in seen]
+        entry['links'] = list(dict.fromkeys(entry['links'] + doc['links']))
+    return doc
+
+
+def write_sidecar(file: Path, sidecar: dict, merge: bool = False) -> None:
+    """Write a curated script's ``.meta.json``; ``merge`` keeps entries from a
+    previous run for tables this run did not touch (partial fetches)."""
+    out = {}
+    if merge and file.exists():
+        out = json.loads(file.read_text(encoding='utf-8'))
+    out.update(sidecar)
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def query_filters(query: list) -> dict:
+    """The {dimension: [values]} form of a PX query, for record_fetch."""
+    return {q['code']: q['selection']['values'] for q in query}
+
+
 def breadcrumb(doc: dict) -> dict:
     """The short form of a table's documentation, for listings and stderr."""
     first = next((p for paras in doc['notes'].values() for p in paras), '')
@@ -246,9 +308,7 @@ def main():
         r=c.post(BASE+a.path,json={'query':q,'response':{'format':'json-stat2'}});r.raise_for_status()
         doc = fetch_header(c, a.path, q)
         sha=hashlib.sha256(r.content).hexdigest();raw=RAW_DIR/f'{sha}.json';raw.parent.mkdir(parents=True,exist_ok=True);raw.write_bytes(r.content)
-        with (RAW_DIR/'index.jsonl').open('a', encoding='utf-8') as f:
-            f.write(json.dumps({'fetched_at': fetched_at, 'path': a.path, 'last_updated': doc['last_updated'],
-                                'filters': filters, 'since': a.since, 'raw_sha256': sha}, ensure_ascii=False) + '\n')
+        record_fetch(a.path, filters, a.since, doc['last_updated'], sha)
         result={'source':BASE+a.path,'path':a.path,'title':meta['title'],**doc,'fetched_at':fetched_at,'raw_sha256':sha,'rows':unpack(r.json(),meta)}
         text=json.dumps(result,ensure_ascii=False,allow_nan=False)
         b = breadcrumb(doc)

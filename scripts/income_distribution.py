@@ -7,21 +7,39 @@ Usage:
 """
 
 import argparse
+import hashlib
+import sys
 from pathlib import Path
 
 import httpx
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from hagstofan_query import BASE as PX_BASE  # noqa: E402
+from hagstofan_query import document_table, query_filters, record_fetch, write_sidecar  # noqa: E402
+
 BASE = "https://px.hagstofa.is/pxis/api/v1/is/Samfelag/launogtekjur"
 OUT = Path(__file__).resolve().parent.parent / "data" / "processed"
 OUT.mkdir(parents=True, exist_ok=True)
+# One sidecar per script, next to the primary output; keyed by table code.
+# TEK01001 is fetched four times with different selections — value notes merge.
+SIDECAR = OUT / "income_by_source.meta.json"
+CLIENT = httpx.Client(timeout=60, headers={"User-Agent": "icelandic-data/1.0"})
+TABLE_DOCS: dict = {}
 
 
 def fetch_table(path: str, query: list[dict] | None = None) -> str:
     """Fetch CSV data from PX-Web API."""
     url = f"{BASE}/{path}"
     body = {"query": query or [], "response": {"format": "csv"}}
-    r = httpx.post(url, json=body, timeout=60)
+    r = CLIENT.post(url, json=body)
     r.raise_for_status()
+    # Table documentation (LAST-UPDATED, notes) with the same selection, plus
+    # the vintage line in the shared index. A header failure is reported and
+    # skipped; it never breaks the data pipeline.
+    px_path = url.removeprefix(PX_BASE)
+    doc = document_table(CLIENT, px_path, query or [], TABLE_DOCS)
+    record_fetch(px_path, query_filters(query or []), "", doc["last_updated"] if doc else None,
+                 hashlib.sha256(r.content).hexdigest())
     # API returns UTF-8-BOM; decode properly and strip BOM
     text = r.content.decode("utf-8-sig")
     return text
@@ -204,6 +222,9 @@ def cmd_fetch(args) -> int:
     fns = {name: fn for name, fn, _ in DATASETS}
     for name in args.tables:
         fns[name]()
+    # merge=True: a --tables subset must not erase the other tables' entries
+    write_sidecar(SIDECAR, TABLE_DOCS, merge=True)
+    print(f"  Saved {SIDECAR} ({len(TABLE_DOCS)} tables documented this run)")
     print("Done!")
     return 0
 

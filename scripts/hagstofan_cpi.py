@@ -18,6 +18,7 @@ series onto the Jan 2008 = 100 base (matching VIS01304 / VIS01102).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import datetime
@@ -26,12 +27,23 @@ from pathlib import Path
 import httpx
 import polars as pl
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from hagstofan_query import document_table, query_filters, record_fetch, write_sidecar  # noqa: E402
+
 BASE_URL = "https://px.hagstofa.is/pxis/api/v1/is"
 HEADERS = {"User-Agent": "icelandic-data/1.0 (data toolkit fetcher)"}
 ROOT = Path(__file__).parent.parent
 RAW_DIR = ROOT / "data" / "raw" / "hagstofan" / "cpi"
 PROCESSED = ROOT / "data" / "processed" / "hagstofan_cpi_components.csv"
+SIDECAR = PROCESSED.with_suffix(".meta.json")
 RAW_DIR.mkdir(parents=True, exist_ok=True)
+
+# One shared client per run; every data POST records its vintage and its
+# selection, so the table documentation (px header) can be fetched once per
+# table with the union of what the series actually selected.
+CLIENT = httpx.Client(timeout=60, headers=HEADERS)
+SELECTIONS: dict[str, dict[str, list[str]]] = {}
+FETCHES: list[tuple[str, dict, str]] = []  # (table_path, filters, sha256) — recorded once last_updated is known
 
 START = "2015M01"  # earliest month we want
 
@@ -115,19 +127,39 @@ SERIES = [
 
 # --- Fetch helpers ------------------------------------------------------------
 
-def _post(url: str, body: dict) -> dict:
-    r = httpx.post(url, json=body, timeout=60, headers=HEADERS)
+def _post(url: str, body: dict) -> httpx.Response:
+    r = CLIENT.post(url, json=body)
     r.raise_for_status()
-    return r.json()
+    return r
 
 
 def fetch_json(table_path: str, query: list[dict], out_file: Path) -> dict:
-    """POST to PX-Web; save raw JSON and return parsed body."""
+    """POST to PX-Web; save raw JSON, record the vintage, return parsed body."""
     url = f"{BASE_URL}/{table_path}"
     body = {"query": query, "response": {"format": "json"}}
-    data = _post(url, body)
+    r = _post(url, body)
+    data = r.json()
     out_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    FETCHES.append((table_path, query_filters(query), hashlib.sha256(r.content).hexdigest()))
+    sel = SELECTIONS.setdefault(table_path, {})
+    for q in query:
+        vals = sel.setdefault(q["code"], [])
+        vals += [v for v in q["selection"]["values"] if v not in vals]
     return data
+
+
+def document_tables() -> None:
+    """Fetch each table's px header (LAST-UPDATED, notes, value notes) with the
+    union of the selections the data POSTs used, and write the sidecar."""
+    sidecar: dict = {}
+    for table_path, sel in SELECTIONS.items():
+        query = [{"code": c, "selection": {"filter": "item", "values": v}} for c, v in sel.items()]
+        doc = document_table(CLIENT, table_path, query, sidecar)
+        for path, filters, sha in FETCHES:
+            if path == table_path:
+                record_fetch(path, filters, "", doc["last_updated"] if doc else None, sha)
+    write_sidecar(SIDECAR, sidecar)
+    print(f"Wrote table documentation for {len(sidecar)} tables to {SIDECAR}")
 
 
 def px_to_df(payload: dict) -> pl.DataFrame:
@@ -452,6 +484,7 @@ def cmd_fetch(args) -> int:
     PROCESSED.parent.mkdir(parents=True, exist_ok=True)
     master.write_csv(PROCESSED)
     print(f"\nWrote {len(master)} rows to {PROCESSED}")
+    document_tables()
     print(master.group_by("series_code").agg(
         pl.col("date").min().alias("from"),
         pl.col("date").max().alias("to"),
