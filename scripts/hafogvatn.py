@@ -50,6 +50,21 @@ def assessment_table(html: str) -> pl.DataFrame:
     raise ValueError("no embedded Assessment summary DataTables JSON found")
 
 
+def mark_projections(df: pl.DataFrame, assessment_year: int) -> pl.DataFrame:
+    """Flag rows that are short-term forecasts, not assessment estimates.
+
+    MFRI's summary table runs past the last year with observed catch: the
+    assessment-year row (and any later one) carries projected SSB and
+    recruitment with F and Landings null, and nothing in the table says so.
+    A row is a projection when its year is at or after the assessment year
+    or when it has no landings; the two coincide in the current tables and
+    the second guards against a table that projects further ahead.
+    """
+    return df.with_columns(
+        ((pl.col("Year") >= assessment_year) | pl.col("Landings").is_null()).alias("is_projection")
+    )
+
+
 def cmd_list(_: argparse.Namespace) -> None:
     print("MFRI annual advice catalogue\t" + CATALOGUE)
     print("cod assessment tables\t" + tables_url("cod", 2026))
@@ -63,13 +78,17 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     raw = RAW_DIR / f"{args.stock}_{args.year}_tables.html"
     raw.write_text(response.text, encoding="utf-8")
-    df = assessment_table(response.text).with_columns(
-        pl.lit(args.stock).alias("stock"), pl.lit(args.year).alias("assessment_year")
+    df = mark_projections(
+        assessment_table(response.text).with_columns(
+            pl.lit(args.stock).alias("stock"), pl.lit(args.year).alias("assessment_year")
+        ),
+        args.year,
     )
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out = OUT_DIR / f"hafogvatn_{args.stock}_assessment.parquet"
     df.write_parquet(out)
-    print(f"  {len(df):,} {args.stock} assessment rows")
+    projected = df.filter(pl.col("is_projection"))["Year"].to_list()
+    print(f"  {len(df):,} {args.stock} assessment rows; projections (not estimates): {projected}")
     print(f"  Wrote {raw} and {out}")
 
 

@@ -28,6 +28,11 @@ uv run python scripts/hafogvatn.py fetch --stock cod --year 2026
 ## Caveats
 
 1. Assessment vintages revise historic estimates: retain publication year.
-2. The per-stock table schemas and assessment methods differ.
-3. The old `data.hafro.is` CSV archive is useful historically but is not the
+2. **The table runs past the observed data.** The assessment-year row (2026
+   in the 2026 tables) is a short-term projection: SSB and recruitment are
+   forecast, F and Landings are null, and nothing in the HTML marks it. The
+   parquet carries `is_projection` (year ≥ assessment year, or no landings)
+   — filter it out before quoting a stock estimate.
+3. The per-stock table schemas and assessment methods differ.
+4. The old `data.hafro.is` CSV archive is useful historically but is not the
    current annual publication channel.
