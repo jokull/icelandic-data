@@ -122,7 +122,7 @@ uv run python scripts/hagstofan_rikissjod.py fetch
 
 | Path | Contents |
 |------|----------|
-| `data/processed/rikisreikningur_summary.csv` | `ar, tekjur, gjold, afkoma` (one row per year, values in ISK) |
+| `data/processed/rikisreikningur_summary.csv` | `ar, timabil, is_partial, tekjur, gjold, afkoma` (one row per year, values in ISK; `is_partial` marks a year-to-date row) |
 | `data/processed/rikisreikningur_tekjur_gjold.csv` | revenue/expense sub-totals (category × year × period) |
 | `data/processed/rikisreikningur_malefni.csv` | per-málefnasvið sub-totals |
 | `data/processed/rikisreikningur_files.csv` | file manifest |
@@ -193,7 +193,11 @@ cash-basis monthly series (THJ95200) is a third basis: 2008–2011 afkoma
    the raw per-institution ledger if you need line-item detail.
 3. **Mid-year totals are partial.** `timabil_ar=2025, timabil=06` is the
    first half of 2025 closed; do not compare it to full-year rows (`13`).
-   The `summary` command preserves both; you need to filter by `timabil`.
+   The afkoma endpoint itself carries **no period field** — the current
+   year's running balance (Q1 2026, tímabil `03`) comes back looking like any
+   other year. `summary` reads the period off the category rows and writes
+   `timabil` + `is_partial` on every summary row; filter `is_partial = false`
+   before charting a yearly series.
 4. **The 2016 surplus is an outlier.** The +ISK 455 B number comes from the
    one-off realisation of stability-contribution revenue from failed-bank
    estates (`stöðugleikaframlög`). Don't treat the surplus as run-rate.

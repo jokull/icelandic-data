@@ -102,3 +102,20 @@ def test_file_list_includes_main_rikisreikningur_reports():
     names = [f["nafn"] for f in files]
     # There must be at least one XLSX whose name contains "Rikisreikningur"
     assert any("Rikisreikningur" in n and n.endswith(".xlsx") for n in names), names[:5]
+
+
+def test_annotate_period_marks_year_to_date_rows():
+    from scripts.rikisreikningur import annotate_period, SUMMARY_SCHEMA
+    afkoma = [{"ar": 2026, "tekjur": 3, "gjold": 4, "afkoma": -1}, {"ar": 2025, "tekjur": 10, "gjold": 9, "afkoma": 1}]
+    tg = [{"timabil_ar": 2025, "timabil": "13"}, {"timabil_ar": 2026, "timabil": "03"}]
+    rows = annotate_period(afkoma, tg)
+    assert [r["ar"] for r in rows] == [2025, 2026]
+    assert rows[0]["is_partial"] is False and rows[0]["timabil"] == "13"
+    assert rows[1]["is_partial"] is True and rows[1]["timabil"] == "03"
+    assert list(rows[0]) == SUMMARY_SCHEMA
+
+
+def test_annotate_period_unknown_year_is_partial():
+    from scripts.rikisreikningur import annotate_period
+    rows = annotate_period([{"ar": 2014, "tekjur": 1, "gjold": 1, "afkoma": 0}], [])
+    assert rows[0]["is_partial"] is True and rows[0]["timabil"] is None

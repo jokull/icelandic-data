@@ -102,28 +102,47 @@ def cmd_timabil(args):
     print(f"tímabil: {t.get('timabil')}  (13 = full year, 06 = mid-year, …)")
 
 
+FULL_YEAR = "13"  # tímabil code: 13 = full year; 01–12 = year-to-date through that month
+SUMMARY_SCHEMA = ["ar", "timabil", "is_partial", "tekjur", "gjold", "afkoma"]
+
+
+def annotate_period(afkoma: list[dict], tekjur_gjold: list[dict]) -> list[dict]:
+    """Mark which afkoma years are full years and which are year-to-date.
+
+    The afkoma endpoint carries no period field, so the current year's
+    running balance (e.g. Q1 2026, tímabil 03) would sit beside eleven full
+    years unmarked. The tekjur_gjold rows do carry `timabil` per year, so
+    the period is read from there; a year with no category rows is unknown
+    and marked partial rather than assumed complete.
+    """
+    period: dict = {}
+    for r in tekjur_gjold:
+        period[r["timabil_ar"]] = max(period.get(r["timabil_ar"], ""), str(r["timabil"]))
+    out = []
+    for r in sorted(afkoma, key=lambda r: r["ar"]):
+        t = period.get(r["ar"])
+        out.append({"ar": r["ar"], "timabil": t, "is_partial": t != FULL_YEAR,
+                    "tekjur": r["tekjur"], "gjold": r["gjold"], "afkoma": r["afkoma"]})
+    return out
+
+
 def cmd_summary(args):
     with _client() as c:
         data = fetch_tekjur_og_gjold(c)
 
-    afkoma = sorted(data["afkoma"], key=lambda r: r["ar"])
+    afkoma = annotate_period(data["afkoma"], data["tekjur_gjold"])
     print("Afkoma (surplus/deficit) — ISK billion:")
     for r in afkoma:
         tekjur = r["tekjur"] / 1e9
         gjold = r["gjold"] / 1e9
         net = r["afkoma"] / 1e9
-        print(f"  {r['ar']}   rev={tekjur:>8.1f}   exp={gjold:>8.1f}   net={net:>+8.1f}")
+        flag = "" if r["timabil"] == FULL_YEAR else f"   ← partial year (tímabil {r['timabil']})"
+        print(f"  {r['ar']}   rev={tekjur:>8.1f}   exp={gjold:>8.1f}   net={net:>+8.1f}{flag}")
 
     # Persist full CSV
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     out = PROCESSED_DIR / "rikisreikningur_summary.csv"
-    pl.DataFrame(
-        [
-            {"ar": r["ar"], "tekjur": r["tekjur"], "gjold": r["gjold"], "afkoma": r["afkoma"]}
-            for r in afkoma
-        ],
-        schema=["ar", "tekjur", "gjold", "afkoma"],
-    ).write_csv(out)
+    pl.DataFrame(afkoma, schema=SUMMARY_SCHEMA).write_csv(out)
     print(f"\n→ {out}")
 
     # Category breakdown CSV
