@@ -86,9 +86,19 @@ Iceland-vs-euro-area real wage comparison chart.
    not just HTTP status.
 2. **`lc_lci_lev` is benchmark-year based** for EA20: 2008, 2012, 2016,
    2020-2025 only. Don't assume continuous annual series.
-3. **json-stat indexes are 0-based positions**, and `.category.label` is
-   keyed by position — the label for position 0 is a valid lookup; don't
-   index labels by code.
+3. **json-stat cell order.** `.value` keys are row-major composite indices
+   over `id` order with the **last** dimension (time) varying fastest;
+   `.category.index` maps code → position and `.category.label` is keyed by
+   **code**. `scripts/eurostat.py` got the fastest-varying end wrong until
+   2026-09 — any earlier multi-geo/multi-unit fetch had its cells scrambled
+   (single-geo fetches were unaffected). Output columns are codes.
+6. **Status flags are real and the script keeps them.** Eurostat marks cells
+   `p` provisional, `e` estimated, `b` break in series, etc. (`status` +
+   `status_label` columns; empty = final). German and French GDP 2024–2025
+   are all `p` today. Iceland's own rows carry no flags because Hagstofan
+   does not set them. `fetch` also writes `{dataset}.meta.json` with the
+   dataset-level `updated` stamp (real, unlike Hagstofan's), the flag
+   legend, and the ESMS methodology link.
 4. EA20 includes Croatia (from 2023) — negligible for aggregates.
 5. Seasonally adjusted (`SCA`) employment/compensation vs non-adjusted HICP
    is the standard real-wage mix; HICP has almost no seasonality.

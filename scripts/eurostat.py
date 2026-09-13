@@ -28,7 +28,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from datetime import datetime, timezone
 import time
 from pathlib import Path
 
@@ -85,36 +87,52 @@ def get_json(code: str, filters: dict[str, str], retries: int = 3) -> dict:
 def json_stat_to_long(js: dict) -> pl.DataFrame:
     """Flatten a json-stat2 response to long-format rows.
 
-    `.dimension.<d>.category.index` maps code -> position; `.label` maps
-    position -> human label. `.value` keys are row-major composite indices
-    over the dimensions in object order (first dimension varies fastest).
-    Absent keys are missing values.
+    `.value` keys are row-major composite indices over the dimensions in
+    `id` order, with the LAST dimension varying fastest (JSON-stat spec).
+    Absent keys are missing values. Cells carry their dimension codes (e.g.
+    `geo=DE`, `time=2025-Q1`), plus `status` — Eurostat's per-observation
+    flag (`p` provisional, `e` estimated, `b` break in series, …) — and its
+    `status_label` from `extension.status.label`. Both are empty for a
+    final, unflagged value.
     """
-    dims = list(js["dimension"].keys())
+    dims = list(js.get("id") or js["dimension"].keys())
     sizes = js.get("size") or [len(js["dimension"][d]["category"]["index"]) for d in dims]
-    cat = js["dimension"]
-    # position -> code, for reconstructing codes from the composite index
-    pos_to_code: dict[str, dict[int, str]] = {}
-    code_to_label: dict[str, dict[str, str]] = {}
-    for d in dims:
-        idx = cat[d]["category"]["index"]
-        pos_to_code[d] = {int(v): k for k, v in idx.items()}
-        code_to_label[d] = {k: cat[d]["category"]["label"].get(str(v), k)
-                            for k, v in idx.items()}
-    label = {d: cat[d]["category"]["label"] for d in dims}
+    pos_to_code = {d: {int(v): k for k, v in js["dimension"][d]["category"]["index"].items()} for d in dims}
+    status = js.get("status") or {}
+    status_labels = ((js.get("extension") or {}).get("status") or {}).get("label") or {}
 
     rows: list[dict] = []
     for key, val in js.get("value", {}).items():
         p = int(key)
         rec: dict = {}
-        for d in dims:
-            i = p % sizes[dims.index(d)] if sizes else 0
-            p //= sizes[dims.index(d)] if sizes else 1
-            lbl = label[d].get(str(i))
-            rec[d] = lbl if lbl is not None else pos_to_code[d].get(i, "")
+        for d, n in zip(reversed(dims), reversed(sizes)):
+            rec[d] = pos_to_code[d].get(p % n, "")
+            p //= n
+        rec = {d: rec[d] for d in dims}
         rec["value"] = val
+        flag = status.get(key, "")
+        rec["status"] = flag
+        rec["status_label"] = status_labels.get(flag, "") if flag else ""
         rows.append(rec)
     return pl.DataFrame(rows)
+
+
+def dataset_meta(js: dict, filters: dict) -> dict:
+    """Publisher metadata worth keeping next to the CSV: the real `updated`
+    stamp, the flag legend, and the ESMS methodology link."""
+    ann = {a["type"]: a for a in (js.get("extension") or {}).get("annotation", [])}
+    return {
+        "dataset": js.get("extension", {}).get("id"),
+        "label": js.get("label"),
+        "updated": js.get("updated"),
+        "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "filters": filters,
+        "status_legend": ((js.get("extension") or {}).get("status") or {}).get("label") or {},
+        "flagged_cells": len(js.get("status") or {}),
+        "cells": len(js.get("value") or {}),
+        "esms_html": ann.get("ESMS_HTML", {}).get("href"),
+        "footnote": ann.get("FOOTNOTE", {}).get("href"),
+    }
 
 
 def cmd_list(_args=None):
@@ -137,7 +155,10 @@ def cmd_fetch(args):
     df = json_stat_to_long(js)
     out = Path(args.out) if args.out else OUT_DIR / f"{args.dataset}.csv"
     df.write_csv(out)
-    print(f"→ {out} ({df.height} rows × {df.width} cols)", file=sys.stderr)
+    meta = dataset_meta(js, filters)
+    out.with_suffix(".meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    flagged = f", {meta['flagged_cells']} flagged {meta['status_legend']}" if meta["flagged_cells"] else ""
+    print(f"→ {out} ({df.height} rows × {df.width} cols; updated {meta['updated']}{flagged})", file=sys.stderr)
     print(df.head(3))
 
 
