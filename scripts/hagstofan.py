@@ -223,9 +223,13 @@ def cmd_fetch(args) -> int:
         else:
             failed_tables.append(source_name)
     
-    # Parse all raw files
+    # Parse this script's own raw files only. data/raw/hagstofan/ is shared
+    # with other scripts and still holds legacy bike_imports_*.csv copies of
+    # these same tables; a directory glob double-counted every year.
     print("\nParsing raw files...")
-    for raw_file in raw_dir.glob("*.csv"):
+    for raw_file in (raw_dir / f"{name}.csv" for _, name in TABLES):
+        if not raw_file.exists():
+            continue
         print(f"  Parsing {raw_file.name}...")
         df = parse_wide_csv(raw_file)
         if not df.is_empty():
