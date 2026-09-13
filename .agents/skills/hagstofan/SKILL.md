@@ -158,10 +158,52 @@ Classification changed in 2020:
    - Some tables use a "total" code: THJ95200 has month code `0` = annual
      total (months are `1`–`12`).
 
-## Generic labelled query CLI
+## Generic labelled query CLI — start here for any table
 
-`uv run python scripts/hagstofan_query.py fetch <relative-table-path> --filters '{"dimension-code":["value-code"]}' --since 2015 --out /path/result.json`
+```bash
+uv run python scripts/hagstofan_query.py list                      # root catalogue
+uv run python scripts/hagstofan_query.py list Ibuar/buferlaflutningar/buferlaflmillilanda
+uv run python scripts/hagstofan_query.py list  <path>/MAN01400.px  # variables + full notes + ready-to-run fetch
+uv run python scripts/hagstofan_query.py notes <path>/MAN01400.px  # the notes, readable
+uv run python scripts/hagstofan_query.py fetch <path>/MAN01400.px --filters '{"Kyn":["0"]}' --since 2015 --out out.json
+```
 
-`list <path>` returns metadata/catalogue. Fetch outputs long-form JSON records with original dimension codes and metadata labels; preserves nulls and archives raw JSON by SHA-256. Useful as a CLI dependency for external projects. Do not trust JSON-stat `updated` as publication time: hotel tables have returned 2015 or year 9999 with current observations.
+Browse it like hypermedia: every listing item carries `path` (pass it straight
+back) and `next` (the command to run). A category listing enriches each table
+with `last_updated`, `notes_count`, `value_notes_count`, a `note_preview` and
+methodology `links`, so caveats are in view **before** anything is fetched. A
+table listing returns the variables plus the full notes and an example `fetch`.
+
+`fetch` writes long-form records with original dimension codes and labels,
+preserves nulls, and puts the table's own documentation next to `rows`:
+
+| Field | Source | Meaning |
+|---|---|---|
+| `last_updated` | px `LAST-UPDATED` | **The real publication stamp.** json-stat2 `updated` is the table's creation date (VIN01002 says 2017, MAN01400 says 2018) — never use it. |
+| `notes` | px `NOTE`, `NOTE[en]` | Table caveats as paragraphs, keyed by language. Revision dates, definitional breaks, methodology. |
+| `value_notes` | px `VALUENOTE` | Per-value caveats, keyed by value **label** (not code). Only returned for values in the selection. |
+| `links` | hrefs in notes | Methodology PDFs (greinargerð) on hagstofas3bucket. |
+| `units`, `refperiod`, `creation_date` | px header | |
+| `fetched_at`, `raw_sha256` | this script | |
+
+Only the native `px` response format serialises those headers — json-stat2
+gives `note: null` — so `fetch` makes one json-stat2 request for the data and
+one `px` request for the header, with the same selection. The px body is UTF-8
+with a BOM even though the HTTP header says Windows-1252; the script decodes
+by the file's own `CODEPAGE`.
+
+**Vintage.** Every fetch appends a line to `data/raw/hagstofan/query/index.jsonl`
+(`fetched_at`, `path`, `filters`, `since`, `last_updated`, `raw_sha256`). The
+vintage of a dataset is `(path, last_updated)`; two fetches of the same table
+with different hashes are a revision, and both raw responses are still on disk:
+
+```bash
+uv run python scripts/sql.py "SELECT path, last_updated, count(DISTINCT raw_sha256) AS versions, min(fetched_at), max(fetched_at)
+  FROM read_json_auto('data/raw/hagstofan/query/index.jsonl') GROUP BY 1,2 ORDER BY 1,2"
+```
+
+Known note quirks: some English notes have an unterminated `<A HREF=... TARGET=_`
+anchor upstream, so the sentence after the link runs on; the script strips the
+tag and keeps the href in `links`.
 
 Current VIS01300 uses CP01–CP13. CP12 is insurance/financial services, CP13 personal care/social protection/other services. `hagstofan_cpi.py` keeps CP12/CP13 current-only because old IS12 is not comparable. It preserves previous output and exits nonzero if any fetch fails. Other historical category concordances still need care.

@@ -211,6 +211,11 @@ uv run python scripts/eea_sdi.py record   35a036bb-c027-401c-8625-2ecf722e8461
 uv run python scripts/eea_sdi.py links    35a036bb-c027-401c-8625-2ecf722e8461
 uv run python scripts/eea_sdi.py xml      35a036bb-c027-401c-8625-2ecf722e8461 -o data/raw/eea_sdi/grassland_2015.xml
 
+# Hagstofan: any PX table — browse with breadcrumbs (last_updated, note counts, next command), read notes, fetch
+uv run python scripts/hagstofan_query.py list Ibuar/buferlaflutningar/buferlaflmillilanda
+uv run python scripts/hagstofan_query.py notes Ibuar/buferlaflutningar/buferlaflmillilanda/MAN01400.px
+uv run python scripts/hagstofan_query.py fetch Ibuar/buferlaflutningar/buferlaflmillilanda/MAN01400.px --filters '{"Kyn":["0"]}' --since 2015 --out out.json
+
 # Hagstofan: CPI sub-components (headline + 12 COICOP groups + imported/domestic/services)
 # Chain-links VIS01304/01102 archive onto VIS01300/01101 current across the June 2024 break
 uv run python scripts/hagstofan_cpi.py
