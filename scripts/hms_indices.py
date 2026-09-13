@@ -8,7 +8,16 @@ Raw files:
 
 Output:
     data/processed/hms_rent_vs_price_index.csv
-        columns: date, region, price_index, rent_index, yoy_price_pct, yoy_rent_pct
+        columns: date, region, price_index, rent_index, yoy_price_pct, yoy_rent_pct,
+                 price_published, rent_published
+    data/raw/hms/indices/indices.meta.json   (HTTP Last-Modified / ETag per file, fetched_at)
+    data/raw/hms/indices/releases/{name}.{last-modified date}.csv  (one snapshot per release)
+
+Vintage matters here: HMS restamps and revises the ENTIRE leiguvísitala
+back-series on every release (every row carries the same UTGAFUDAGUR), so a
+rent-index value quoted last month can differ from the same month today.
+The per-row publication date is carried through as `rent_published` /
+`price_published`, and each release is snapshotted so revisions can be diffed.
 
 The kaupvisitala file has regional breakdowns (national, capital area, landsbyggð,
 and sérbýli/fjölbýli by region). The leiguvisitala CSV is NATIONAL ONLY — no
@@ -23,6 +32,9 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from tempfile import TemporaryDirectory
 import sys
 from pathlib import Path
@@ -45,6 +57,14 @@ LEIGUVISITALA_URL = f"{OCI}/leiguvisitala.csv"
 HEADERS = {"User-Agent": "icelandic-data/1.0 (data toolkit fetcher)"}
 
 
+def published_col() -> pl.Expr:
+    """UTGAFUDAGUR as a Date; blank on old kaupvísitala rows → null."""
+    return (
+        pl.col("UTGAFUDAGUR").cast(pl.Utf8).str.strip_chars()
+        .replace("", None).str.to_date("%Y-%m-%d", strict=False).alias("published")
+    )
+
+
 def load_kaup() -> pl.DataFrame:
     df = pl.read_csv(
         RAW / "kaupvisitala.csv",
@@ -56,8 +76,10 @@ def load_kaup() -> pl.DataFrame:
             pl.col("MANUDUR").str.strip_chars().cast(pl.Int32),
             1,
         ).alias("date"),
+        published_col(),
     ).select(
         "date",
+        "published",
         pl.col("VISITALA").alias("national"),
         pl.col("VISITALA_HOFUDBORGARSVAEDI").alias("capital_area"),
         pl.col("VISITALA_LANDSBYGGD").alias("rest_of_country"),
@@ -76,7 +98,8 @@ def load_leigu() -> pl.DataFrame:
             pl.col("MANUDUR").str.strip_chars().cast(pl.Int32),
             1,
         ).alias("date"),
-    ).select("date", pl.col("VISITALA").alias("rent_national"))
+        published_col(),
+    ).select("date", pl.col("published").alias("rent_published"), pl.col("VISITALA").alias("rent_national"))
     return df.sort("date")
 
 
@@ -96,6 +119,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     import httpx
 
     RAW.mkdir(parents=True, exist_ok=True)
+    meta = {"fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "files": {}}
     with TemporaryDirectory(dir=RAW, prefix="indices-") as staging:
         for url, name in ((KAUPVISITALA_URL, "kaupvisitala.csv"),
                           (LEIGUVISITALA_URL, "leiguvisitala.csv")):
@@ -108,10 +132,26 @@ def cmd_fetch(args: argparse.Namespace) -> None:
             if not required <= set(df.columns) or not df.height:
                 raise ValueError(f"Invalid index schema: {name}")
             (Path(staging) / name).write_bytes(r.content)
+            last_modified = r.headers.get("last-modified")
+            newest = df["UTGAFUDAGUR"].cast(pl.Utf8).str.strip_chars().max() if "UTGAFUDAGUR" in df.columns else None
+            meta["files"][name] = {"url": url, "last_modified": last_modified, "etag": r.headers.get("etag"),
+                                   "newest_utgafudagur": newest, "rows": df.height}
         # Both responses have been fetched and checked before replacing either.
         for name in ("kaupvisitala.csv", "leiguvisitala.csv"):
             (Path(staging) / name).replace(RAW / name)
             print(f"  saved: {RAW / name}")
+    # One snapshot per upstream release: the leiguvísitala back-series is
+    # revised wholesale each month, so the previous release must survive.
+    for name, info in meta["files"].items():
+        stamp = (parsedate_to_datetime(info["last_modified"]).strftime("%Y-%m-%d") if info["last_modified"]
+                 else meta["fetched_at"][:10])
+        snap = RAW / "releases" / f"{Path(name).stem}.{stamp}.csv"
+        if not snap.exists():
+            snap.parent.mkdir(parents=True, exist_ok=True)
+            snap.write_bytes((RAW / name).read_bytes())
+            print(f"  release snapshot: {snap}")
+        print(f"  {name}: last-modified {info['last_modified']}, newest UTGAFUDAGUR {info['newest_utgafudagur']}")
+    (RAW / "indices.meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
     print("\nNow run the processor (bare `python scripts/hms_indices.py`) to build the merged index.")
 
@@ -138,7 +178,7 @@ def cmd_process(args: argparse.Namespace) -> None:
 
     # Long format
     price_long = kaup_rebased.unpivot(
-        index=["date"],
+        index=["date", "published"],
         on=["national", "capital_area", "rest_of_country"],
         variable_name="region",
         value_name="price_index",
@@ -167,7 +207,8 @@ def cmd_process(args: argparse.Namespace) -> None:
     )
 
     merged = merged.select(
-        "date", "region", "price_index", "rent_index", "yoy_price_pct", "yoy_rent_pct"
+        "date", "region", "price_index", "rent_index", "yoy_price_pct", "yoy_rent_pct",
+        pl.col("published").alias("price_published"), "rent_published",
     )
     merged = merged.with_columns(
         pl.col("price_index").round(2),

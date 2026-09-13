@@ -183,6 +183,18 @@ regional breakdowns; the leiguvísitala CSV is **national only**. Note the
 monthly publication cadence: the newest `UTGAFUDAGUR` can lag a
 month or two.
 
+**Vintage caveat — the rent index is revised wholesale every release.** Every
+row of `leiguvisitala.csv` carries the same `UTGAFUDAGUR` (the latest release
+date), i.e. HMS republishes and restamps the entire back-series each month,
+and values for earlier months move. The kaupvísitala file, by contrast, keeps
+one `UTGAFUDAGUR` per month (blank before 2022). `hms_indices.py fetch`
+therefore writes `data/raw/hms/indices/indices.meta.json` (HTTP Last-Modified,
+ETag, newest `UTGAFUDAGUR`) and snapshots each release to
+`data/raw/hms/indices/releases/{name}.{date}.csv`; the processed CSV carries
+`price_published` / `rent_published` per row. Quote a rent-index value with
+its `rent_published` date, and diff two release snapshots before claiming a
+month-on-month change.
+
 ## Húsnæðisáætlanir (Housing Plans)
 
 Annual published workbook with the authoritative housing-policy numbers:

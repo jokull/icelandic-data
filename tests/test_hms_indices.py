@@ -13,3 +13,10 @@ def test_failed_second_index_download_preserves_both_previous_files(tmp_path,mon
     monkeypatch.setattr(httpx,'get',get)
     with pytest.raises(ValueError,match='schema'):m.cmd_fetch(argparse.Namespace())
     for name in ['kaupvisitala.csv','leiguvisitala.csv']:assert (tmp_path/name).read_text(encoding='utf-8')=='previous'
+
+
+def test_published_col_blank_is_null():
+    import polars as pl
+    from datetime import date
+    df = pl.DataFrame({"UTGAFUDAGUR": [" ", "2026-08-26"]}).with_columns(m.published_col())
+    assert df["published"].to_list() == [None, date(2026, 8, 26)]
