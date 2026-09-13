@@ -1,9 +1,10 @@
 """Fetch government invoice data from opnirreikningar.is (Open Accounts of the State)."""
 
 import argparse
+import json
 import sys
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -29,6 +30,25 @@ CSV_FIELDS = [
     "invoice_amount",
     "invoice_description",
 ]
+
+
+def loaded_through(client) -> date:
+    """Last day the API has invoices for (`/rest/max_time_period`, YYYY-MM-DD).
+
+    Data lands ~10th of the following month. A range that runs past this date
+    returns a smaller-than-true total with no error, so every fetch checks it.
+    """
+    r = client.get(f"{BASE_URL}/rest/max_time_period")
+    r.raise_for_status()
+    return date.fromisoformat(r.text.strip().strip('"'))
+
+
+def coverage_warning(date_to: date, loaded: date) -> str | None:
+    """Text to shout when the requested range is not fully loaded, else None."""
+    if date_to <= loaded:
+        return None
+    return (f"WARNING: requested through {date_to} but opnirreikningar.is has only loaded "
+            f"invoices through {loaded}; totals after that date are incomplete")
 
 
 def _to_dd_mm_yyyy(iso: str) -> str:
@@ -118,6 +138,10 @@ def fetch(args):
 
     rows = []
     with httpx.Client(headers=HEADERS, timeout=30) as client:
+        loaded = loaded_through(client)
+        warning = coverage_warning(date.fromisoformat(args.date_to), loaded)
+        if warning:
+            print(warning, file=sys.stderr)
         for row in _paginate(client, org_id=org_id, org_text=org_text, vendor_id=vendor_id, fra=fra, til=til):
             rows.append({
                 "org_name": row.get("org_name", ""),
@@ -134,14 +158,22 @@ def fetch(args):
         print("No invoices found.", file=sys.stderr)
         return
 
+    coverage = f"loaded through {loaded}" + (" — RANGE INCOMPLETE" if warning else "")
     if args.output:
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)
         pl.DataFrame(rows, schema=CSV_FIELDS).write_csv(output)
-        print(f"Wrote {len(rows)} invoices to {output}", file=sys.stderr)
+        meta = {"fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "date_from": args.date_from, "date_to": args.date_to, "loaded_through": loaded.isoformat(),
+                "range_complete": warning is None, "org": args.org, "org_text": org_text, "vendor": vendor_id,
+                "rows": len(rows)}
+        output.with_suffix(output.suffix + ".meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"Wrote {len(rows)} invoices to {output} ({coverage})", file=sys.stderr)
     else:
         sys.stdout.write(pl.DataFrame(rows, schema=CSV_FIELDS).write_csv())
-        print(f"\n{len(rows)} invoices total", file=sys.stderr)
+        print(f"\n{len(rows)} invoices total ({coverage})", file=sys.stderr)
+    if warning:
+        print(warning, file=sys.stderr)
 
 
 def top_vendors(args):
@@ -154,6 +186,10 @@ def top_vendors(args):
     vendor_counts: dict[str, int] = defaultdict(int)
 
     with httpx.Client(headers=HEADERS, timeout=30) as client:
+        loaded = loaded_through(client)
+        warning = coverage_warning(date(args.year, 12, 31), loaded)
+        if warning:
+            print(warning, file=sys.stderr)
         for row in _paginate(client, org_id=org_id, fra=fra, til=til):
             vendor = row.get("vendor_name", "Unknown")
             amount = row.get("invoice_amount", 0)
@@ -174,7 +210,9 @@ def top_vendors(args):
     for vendor, total in ranked[:limit]:
         count = vendor_counts[vendor]
         print(f"{vendor[:44]:<45} {total:>15,} {count:>10}")
-    print(f"\n{len(vendor_totals)} unique vendors", file=sys.stderr)
+    print(f"\n{len(vendor_totals)} unique vendors (loaded through {loaded})", file=sys.stderr)
+    if warning:
+        print(warning, file=sys.stderr)
 
 
 def main():

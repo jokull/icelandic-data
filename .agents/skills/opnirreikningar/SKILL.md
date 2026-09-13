@@ -141,7 +141,7 @@ uv run python scripts/opnirreikningar.py top-vendors --org 14412 --year 2024
 - **Full dump requires iterating all orgs** — without `org_id` or `vendor_id`, pagination may not work. Must enumerate orgs via autocomplete, then paginate each.
 - **Date params** — API accepts DD.MM.YYYY for `timabil_fra`/`timabil_til`, but returns ISO dates and integer amounts
 - **Vendor search is accent-sensitive** — use `Síminn` not `siminn`
-- **Monthly lag** — data appears ~10th of following month. Use `/rest/max_time_period` to check latest available date (returns `YYYY-MM-DD`). As of 2026-02-21, latest data is 2026-01-30.
+- **Monthly lag** — data appears ~10th of following month. `/rest/max_time_period` returns the last loaded day (`YYYY-MM-DD`; 2026-08-31 as of 2026-09-13). A range past that date returns a **smaller-than-true total with no error**. `fetch` and `top-vendors` now call it on every run, print a WARNING to stderr when the range is not fully loaded, state `loaded through` in the summary line, and `fetch -o` writes `{output}.meta.json` with `loaded_through` and `range_complete`.
 - **Central government only** — no municipalities, no SOEs
 - **Amounts** — integers in ISK (no decimals)
 
