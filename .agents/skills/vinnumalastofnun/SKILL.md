@@ -33,8 +33,16 @@ Scrape with the Playwright-intercept pattern (same as `landlaeknir`, `ferdamalas
 ### 2. Excel — "Helstu talnagögn um atvinnuleysi"
 
 ```
-https://assets.ctfassets.net/8k0h54kbe6bj/688FRtXuoA4qkPXerKcuMT/e6b9794d1bdfcf5cb5747a46b9b3d836/Talnagogn_atvinnuleysi.xlsm
+https://assets.ctfassets.net/8k0h54kbe6bj/7BrzfSxUGzwSYipW36rSwK/f52da59cd4da46e37008a705a386b7fc/Talnagogn_atvinnuleysi.xlsm
 ```
+
+Contentful serves each monthly upload at a fresh content-addressed URL and
+**old URLs keep resolving forever**, so a pinned URL silently serves a stale
+workbook instead of 404ing (the previous URL in this file was the April 2026
+upload; the one above is August 2026). The current URL is whatever the
+landing page links; `scripts/vinnumalastofnun.py` holds the constant and
+`tests/health/test_vinnumalastofnun.py` reports `degraded` when the two drift.
+The workbook's `Yfirlit!A3` cell ("Uppfært í ágúst 2026") is the vintage.
 
 Monthly unemployment time-series workbook. Updated when monthly reports are published (typically second week of the following month). Direct download via httpx — no auth, no scraping.
 

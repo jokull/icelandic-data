@@ -82,14 +82,18 @@ curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_search?fq=groups:ib
 ```
 
 ### Get dataset details
+Package ids are short slugs, not the title (`arsuppgjor` is "Ársuppgjör A-hluta
+Reykjavíkurborgar"; the long form 404s). `package_show` also returns
+`metadata_modified`, `notes` (incl. the vendor-redaction caveat), `license_title`
+and per-resource `last_modified` — read them before charting.
 ```bash
-curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_show?id=arsuppgjor-a-hluta-reykjavikurborgar" | jq
+curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_show?id=arsuppgjor" | jq
 ```
 
 ### Download CSV resource
 ```bash
 # Get resource URL from package_show, then download
-curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_show?id=arsuppgjor-a-hluta-reykjavikurborgar" | \
+curl -s "https://gagnagatt.reykjavik.is/api/3/action/package_show?id=arsuppgjor" | \
   jq -r '.result.resources[0].url' | \
   xargs curl -o data/raw/reykjavik/arsuppgjor.csv
 ```
