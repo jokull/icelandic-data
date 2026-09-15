@@ -138,10 +138,17 @@ class PowerBIPublicEmbed:
     @staticmethod
     def sections(payload: dict) -> dict[str, str]:
         """{sectionName: displayName} — the report's pages."""
-        return {
-            s["name"]: s.get("displayName", "")
-            for s in payload.get("exploration", {}).get("sections", [])
-        }
+        sections = {}
+        for section in payload.get("exploration", {}).get("sections", []):
+            # Power BI renamed this field in September 2026. Keep accepting
+            # the old schema because public embeds are not upgraded in sync.
+            name = section.get("name") or section.get("objectName")
+            assert name, (
+                "Power BI section has neither name nor objectName; got "
+                f"{sorted(section)}"
+            )
+            sections[name] = section.get("displayName", "")
+        return sections
 
     @staticmethod
     def last_refresh(payload: dict) -> datetime:
