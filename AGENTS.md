@@ -41,6 +41,12 @@ combined exceed 8,000 characters, and with 45 skills that budget is the binding 
 
 **When asked about a new data source:** follow the `new-data-source` skill.
 
+## Write-ups live elsewhere
+
+This repo fetches and queries. Memos, plans and kept reports for Sósíalistaflokkur Íslands
+go to `~/Code/xj-accounts/research/` (copy any `reports/*.html` worth keeping there with a
+date prefix — `reports/` here is git-ignored).
+
 ## HTML Reports
 
 When asked for a report, produce a **single self-contained `.html` file** in `/reports/`:

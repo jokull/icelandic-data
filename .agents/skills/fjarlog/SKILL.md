@@ -104,7 +104,7 @@ Use the budget CSV's `Gjöld` (6.55 bn for 2024) as the official figure.
 
 ```bash
 uv run python scripts/fjarlog.py fetch                 # download + tidy → data/processed/fjarlog.parquet
-uv run python scripts/fjarlog.py fetch --year 2026     # choose budget-year page
+uv run python scripts/fjarlog.py fetch --year 2027     # choose budget-year page (also writes fjarlog_2027.parquet)
 uv run python scripts/fjarlog.py products              # afurð × year coverage
 uv run python scripts/fjarlog.py mala 04.30            # one málaflokkur across years (Gjöld)
 uv run python scripts/fjarlog.py mala 04.30 --tegund Heildarútgjöld
@@ -162,9 +162,19 @@ services/VAT…), columns `alagt{n}`/`greidsla{n}` are assessed-vs-cash per year
 5. **Defense definition.** 04.30 = direct defense only. The 0.9 %-of-GDP
    "varnar- og öryggismál" aggregate is a separate ministry construct (see
    the worked example above).
-6. **Discovery fallback.** If the page layout changes and the CSV link can't
-   be found, the script falls back to a hard-coded 2026 URL and prints a
-   warning — re-point `_FALLBACK_CSV` if needed.
+6. **Discovery.** The link is matched by anchor text ("Talnagögn … CSV") or
+   filename. Only the 2026 edition falls back to a hard-coded URL; any other
+   year exits rather than write a mis-labelled file. The script also refuses
+   content that is not the Talnagögn table (checks the header / xlsx magic).
+7. **2027 edition is an .xlsx, not a CSV.** The "CSV-skrá" link
+   (`/library/?itemid=cfa1b9d9-…`) serves `Talnagogn_ur_fjarlagafrumvarpi_2027_-_csv_skra.xlsx`,
+   same 10 columns. `fetch` handles both; the raw file keeps its true extension.
+8. **Editions are kept side by side.** `fetch --year Y` writes
+   `data/processed/fjarlog_Y.parquet` (with an `edition` column) in addition to
+   overwriting `fjarlog.parquet`. Diff the Áætlun of edition Y−1 against the
+   Frumvarp of edition Y to see what a bill cut versus its own prior plan —
+   see `reports/fjarlog-2027-nidurskurdur.md` and
+   `data/processed/fjarlog_2027_vs_2026_malaflokkar.csv`.
 
 ## Related
 

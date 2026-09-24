@@ -62,16 +62,26 @@ if hasattr(sys.stderr, "reconfigure"):
 BASE = "https://www.stjornarradid.is"
 RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / "fjarlog"
 PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
-PROCESSED = PROCESSED_DIR / "fjarlog.parquet"
+PROCESSED = PROCESSED_DIR / "fjarlog.parquet"          # latest edition (whatever was fetched last)
+
+
+def _edition_parquet(year: int) -> Path:
+    """Per-edition copy, kept so two budget editions can be diffed (plan vs bill)."""
+    return PROCESSED_DIR / f"fjarlog_{year}.parquet"
 
 # The "skjöl og gögn" page for a budget year lists the numerical-data CSV.
 def _gogn_url(year: int) -> str:
     return f"{BASE}/verkefni/opinber-fjarmal/fjarlog/fjarlog-fyrir-arid-{year}/skjol-og-gogn/"
 
-# Link to the "Talnagögn úr fjárlagafrumvarpi … .csv" on that page. The filename
-# carries a version suffix ("- 003.csv") that changes between revisions, so we
-# discover it from the HTML rather than hard-coding.
+# Link to the "Talnagögn úr fjárlagafrumvarpi …" CSV on that page. Two link
+# shapes have been seen: a direct filename with a version suffix
+# ("…Talnagögn … - 003.csv", 2026 edition) and an opaque library id
+# ("/library/?itemid=…", 2027 edition) whose *anchor text* says Talnagögn +
+# CSV. Match on the anchor text first, filename second.
 _CSV_LINK_RE = re.compile(r'href="([^"]*[Tt]alnag[^"]*\.csv)"')
+_CSV_ANCHOR_RE = re.compile(
+    r'<a[^>]+href="([^"]+)"[^>]*>\s*(?:<[^>]+>\s*)*[^<]*[Tt]alnag[^<]*CSV[^<]*</a>', re.S
+)
 
 # Known-good fallback if the page layout changes (fjárlög 2026 bundle).
 _FALLBACK_CSV = (
@@ -105,12 +115,16 @@ def _discover_csv_url(client: httpx.Client, year: int) -> str:
     try:
         r = client.get(_gogn_url(year))
         r.raise_for_status()
-        m = _CSV_LINK_RE.search(r.text)
-        if m:
-            return urljoin(BASE, m.group(1))
+        for rx in (_CSV_ANCHOR_RE, _CSV_LINK_RE):
+            m = rx.search(r.text)
+            if m:
+                return urljoin(BASE, m.group(1).replace("&amp;", "&"))
     except httpx.HTTPError as e:
-        print(f"  (discovery failed: {e}; using fallback URL)", file=sys.stderr)
-    return _FALLBACK_CSV
+        print(f"  (discovery failed: {e})", file=sys.stderr)
+    if year == 2026:
+        print("  (no Talnagögn link found on page; using 2026 fallback URL)", file=sys.stderr)
+        return _FALLBACK_CSV
+    sys.exit(f"no Talnagögn CSV link found on {_gogn_url(year)} — refusing to write a {year}-named file with other data")
 
 
 def fetch(year: int) -> None:
@@ -121,15 +135,23 @@ def fetch(year: int) -> None:
         print(f"downloading {url}", file=sys.stderr)
         r = client.get(url)
         r.raise_for_status()
-    raw = RAW_DIR / f"talnagogn_fjarlog{year}.csv"
+    head = r.content[:64].lstrip(b"\xef\xbb\xbf")
+    is_xlsx = r.content[:2] == b"PK"  # 2027 edition: the "CSV-skrá" link serves an .xlsx
+    if not (is_xlsx or head.startswith(b"\xc3\x81r;Afur")):  # "Ár;Afurð"
+        sys.exit(f"downloaded content does not look like the Talnagögn CSV (starts {head[:40]!r})")
+    raw = RAW_DIR / f"talnagogn_fjarlog{year}.{'xlsx' if is_xlsx else 'csv'}"
     raw.write_bytes(r.content)
     print(f"wrote {len(r.content):,} bytes → {raw}", file=sys.stderr)
 
-    df = (
-        pl.read_csv(
+    if is_xlsx:
+        src = pl.read_excel(raw).with_columns(pl.col("Upphæð").cast(pl.String))
+    else:
+        src = pl.read_csv(
             raw, separator=";", encoding="utf8-lossy",
             schema_overrides={"Upphæð": pl.String},
         )
+    df = (
+        src
         .rename(_RENAME)
         # Amount column m.kr. Revisions of this file ship in two number formats:
         #   dot-decimal, no grouping ("6381.1")          ← current canonical file
@@ -151,9 +173,11 @@ def fetch(year: int) -> None:
             pl.col("malaflokkur").str.extract(r"^(\d+\.\d+)").alias("malaflokkur_nr"),
         )
     )
+    df = df.with_columns(pl.lit(year).alias("edition"))
     df.write_parquet(PROCESSED)
+    df.write_parquet(_edition_parquet(year))
     print(
-        f"wrote {df.height:,} rows → {PROCESSED}\n"
+        f"wrote {df.height:,} rows → {PROCESSED} (+ {_edition_parquet(year).name})\n"
         f"  years {df['ar'].min()}–{df['ar'].max()} · "
         f"{df['afurd'].n_unique()} products · "
         f"{df['malaflokkur'].n_unique()} málaflokkar",
