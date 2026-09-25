@@ -45,7 +45,10 @@ def _embed_url() -> str:
 
 
 def resolve_excel(html):
-    urls = set(re.findall(r'https://assets\.ctfassets\.net/[^\s"<>]+?Talnagogn_atvinnuleysi\.xlsm', html.replace('\\/', '/')))
+    # Contentful renamed the asset (Talnagogn_atvinnuleysi.xlsm ->
+    # Talnagogn_atvinnuleysi_.xlsm) while the old URL kept serving 200, so the
+    # exact-name pattern silently matched nothing. Anchor on the stem instead.
+    urls = set(re.findall(r'https://assets\.ctfassets\.net/[^\s"<>]+?/Talnagogn_atvinnuleysi[^\s"<>/]*?\.xlsm', html.replace('\\/', '/')))
     if len(urls) != 1:
         raise ValueError(f"Expected one current unemployment workbook, found {len(urls)}")
     return urls.pop()

@@ -24,6 +24,14 @@ def test_current_link_and_ambiguity():
     with pytest.raises(ValueError): resolve_excel(f'"{url}" "{url.replace("/c/", "/d/")}"')
 
 
+def test_renamed_asset_still_resolves():
+    # Contentful rotated the asset to "Talnagogn_atvinnuleysi_.xlsm"; the old URL
+    # keeps serving 200, so the resolver must match the stem, not the exact name.
+    url='https://assets.ctfassets.net/a/b/c/Talnagogn_atvinnuleysi_.xlsm'
+    assert resolve_excel(f'"{url}"') == url
+    with pytest.raises(ValueError): resolve_excel('https://assets.ctfassets.net/a/b/c/Annad_talnagagn.xlsm')
+
+
 def test_rate_scaling_missing_cells_and_month_end():
     rows=parse_records(workbook())
     rates=[r for r in rows if r['measure']=='rate']
