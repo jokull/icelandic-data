@@ -33,7 +33,7 @@ Scrape with the Playwright-intercept pattern (same as `landlaeknir`, `ferdamalas
 ### 2. Excel — "Helstu talnagögn um atvinnuleysi"
 
 ```
-https://assets.ctfassets.net/8k0h54kbe6bj/26z9ZjBJAKmHcfdovHQ44w/86ec4d861cbde2f764f1f7140cf03e00/Talnagogn_atvinnuleysi_.xlsm
+https://assets.ctfassets.net/8k0h54kbe6bj/6gixO2P4GNuFy7wwTY5ZkE/9abbb476210aab3ee0fadffcfda80566/Talnagogn_atvinnuleysi.xlsm
 ```
 
 Contentful serves each monthly upload at a fresh content-addressed URL and
