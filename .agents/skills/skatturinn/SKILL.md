@@ -1,6 +1,6 @@
 ---
 name: skatturinn
-description: Iceland Tax Authority — annual reports (ársreikningar), company registry, ownership chain mapping by kennitala.
+description: Iceland Tax Authority — annual reports (ársreikningar), company registry, ownership chains by kennitala. Flettu MCP for page-cited figures.
 ---
 
 # Skatturinn (Iceland Tax Authority)
@@ -14,6 +14,40 @@ Company registry and annual reports (ársreikningar) from the Icelandic tax auth
 Skatturinn operates the Company Registry (Fyrirtækjaskrá) and Annual Reports Registry (Ársreikningaskrá). Annual reports are free of charge since January 1, 2021. Downloading goes through a server-side shopping cart, but **no browser is required** — the cart is cookie/viewstate state that `httpx` handles directly. See "Access Method" below.
 
 **Use case:** Map company ownership chains by extracting beneficial owners from annual reports, then recursively looking up parent company reports.
+
+## Flettu MCP — cited figures without the PDF
+
+[Flettu](https://flettu.is) (independent, public beta) has already extracted
+annual-report figures — revenue, profit, assets, equity, dividends, headcount,
+year by year — with **the page of the ársreikningur each number came from**,
+plus the register side (board, managers, owners incl. pension funds, auditor),
+state payments to companies and company donations to political parties.
+
+It is wired into this repo as an MCP server named `flettu`
+(`https://flettu.is/api/mcp`, streamable HTTP): `.mcp.json` for Claude Code,
+`.codex/config.toml` for Codex. Auth is OAuth in the browser, never an API key:
+Claude Code `/mcp` → flettu → authenticate; Codex `codex mcp login flettu`. The
+human signs in (free trial account) and approves, choosing whether the client
+may spend credit. Claude Desktop / claude.ai: Settings → Connectors → add
+`https://flettu.is/api/mcp` (it's also in Claude's connector directory).
+
+**When the flettu tools are loaded, ask Flettu first** for headline figures,
+cross-company comparisons and who sits on a board — it is one call instead of
+download → pdfplumber → parse. Fall back to the download + `financials`
+pipeline below when Flettu has no figure for that company/year (coverage
+starts with the largest companies), when you need a line item it doesn't
+carry, or to verify a number that matters against the PDF page it cites.
+
+- **Missing is never zero** and unverified extracts are labelled — carry those
+  labels into anything you write; don't present them as confirmed.
+- **Parent (móðurfélag) and consolidated (samstæða) are different numbers** —
+  same trap as the two typeids below. Say which one you quote.
+- Cite the page and filing date Flettu returns with each figure.
+- Person pages group by recorded name only; same name ≠ same person.
+- REST alternative for scripts: `https://flettu.is/api/v1/companies/{kennitala}/financials`
+  etc. with `Authorization: Bearer $FLETTU_API_KEY` (key from
+  flettu.is/tengingar, 30-day expiry). Even `/v1/directory` search needs the
+  key. Docs: https://flettu.is/forritarar, agent guide: https://flettu.is/agents.md.
 
 ## URLs
 

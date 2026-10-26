@@ -9,6 +9,8 @@ description: Extract structured financials from Icelandic annual report PDFs wit
 
 Extract structured financial data from Icelandic annual reports (ársreikningar) using AI-powered PDF parsing.
 
+**Check Flettu first.** If the `flettu` MCP tools are loaded, headline figures (revenue, profit, equity, dividends) may already be extracted with page citations — see the skatturinn skill's "Flettu MCP" section. Extract from the PDF when Flettu lacks the company/year or line item, or to verify a figure.
+
 ## Overview
 
 This skill combines:
