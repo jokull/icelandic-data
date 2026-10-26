@@ -4,7 +4,7 @@ Every embedded public report (`https://app.powerbi.com/view?r=<token>`, whether
 standalone or inside an `<iframe>` on some ministry's SPA) speaks the same
 protocol. This module factors out the parts that are identical across every
 such dashboard in this repo (samgongustofa, landlaeknir, vernd, farsaeld_barna,
-ferdamalastofa, tekjusagan, vinnumalastofnun, maelabord_nautgripa, …). A
+ferdamalastofa, vinnumalastofnun, maelabord_nautgripa, …). A
 per-source script then supplies only what is genuinely source-specific: the SPA
 URL, which section to open, and the slicer/column names.
 

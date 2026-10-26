@@ -1,65 +1,49 @@
 """Health probe — Tekjusagan (Forsætisráðuneytið).
 
-Unlike the publish-to-web dashboards, Tekjusagan's Power BI report is *private*
-and token-gated: the SPA asks its own backend for a short-lived embed token
-before it can render anything. No credentials are involved — the token endpoint
-is open to the public internet — so the gate itself is probeable, and it is the
-single point where this source breaks:
+Since an October 2026 redeploy the SPA charts JSON from its own backend,
+`POST /api/sqlseries/<queryId>` with the group filters as the body — the
+Power BI embed and its `/api/report/<id>` token endpoint are gone (that path
+now falls through to the SPA's index.html with a 200).
 
-    GET https://tekjusagan.is/api/report/<REPORT_ID>  ->  {id, embedToken}
+The contract is the stored-procedure call itself: a queryId, its exact
+parameter set, and the `items` row shape. Each failure mode answers
+distinctly — a dropped/renamed procedure gives 400 "not available as a
+series", a changed parameter list gives 400 "expects parameter '@X'" / "too
+many arguments", and a dead backend falls back to text/html.
 
-If REPORT_ID is ever re-published (new workspace, new report), the SPA gets a
-new one and our hardcoded constant starts returning 400 while tekjusagan.is
-itself stays perfectly up. That is what this asserts.
-
-The SPA routes in REPORTS are deliberately *not* probed: it is an Angular app,
-so every route — including ones that no longer exist — returns the same 200
-index.html. A probe over them would be green by construction. Verifying them
-needs a browser, and browser probes are manual-only here.
+The SPA routes are deliberately *not* probed: every route of the Angular app,
+including ones that no longer exist, returns the same 200 index.html.
 """
 from __future__ import annotations
 
 import pytest
 
-from scripts.tekjusagan import REPORT_ID, SPA_URL, TOKEN_URL
+from scripts.tekjusagan import LAST_TAX_YEAR, SERIES, SERIES_URL
+
+ROW_KEYS = {"Skattár", "Breyta Heiti", "Breyta Lýsing", "Breyta Röðun", "Breytugildi ISK", "Breytugildi Prósenta"}
 
 
-@pytest.fixture(scope="module")
-def token(http):
-    r = http.get(TOKEN_URL)
-    assert r.status_code == 200, (
-        f"{r.request.url} -> {r.status_code}: {r.text[:200]} "
-        f"(400 = report {REPORT_ID} is unknown to the backend — re-published?)"
+@pytest.mark.parametrize("slug", list(SERIES))
+def test_series_returns_rows_for_the_spa_defaults(http, slug):
+    s = SERIES[slug]
+    r = http.post(
+        SERIES_URL.format(query_id=s["query_id"]),
+        params={"from": LAST_TAX_YEAR - 1, "to": LAST_TAX_YEAR},
+        json=s["body"],
     )
-    assert r.headers["content-type"].startswith("application/json")
-    return r.json()
-
-
-def test_embed_token_is_issued(token):
-    """A token, not just a 200 — the backend brokers Power BI auth for us, and
-    an empty/absent token means the SPA cannot render the report either."""
-    assert token.get("embedToken"), f"no embedToken in response; got {sorted(token)}"
-    assert len(token["embedToken"]) > 100, (
-        f"embedToken is implausibly short ({len(token['embedToken'])} chars)"
+    assert r.status_code == 200, f"{r.request.url} -> {r.status_code}: {r.text[:200]}"
+    assert r.headers["content-type"].startswith("application/json"), (
+        f"{r.request.url} -> {r.headers['content-type']} (SPA fallback — API route moved?)"
     )
-
-
-def test_token_is_bound_to_the_report_we_pin(token):
-    assert token.get("id") == REPORT_ID, (
-        f"{TOKEN_URL} issued a token for report {token.get('id')}, not {REPORT_ID}"
-    )
+    items = r.json()["items"]
+    assert items, f"{r.request.url} -> 0 rows for the SPA's own default filters"
+    assert ROW_KEYS <= set(items[0]), f"row keys changed: {sorted(items[0])}"
+    assert {i["Skattár"] for i in items} == {LAST_TAX_YEAR - 1, LAST_TAX_YEAR}
 
 
 @pytest.mark.degraded_ok
-def test_backend_rejects_an_unknown_report(http):
-    """Guards the failure mode that would make the probe above meaningless: if
-    the endpoint ever starts minting tokens for any id, a rotated REPORT_ID
-    would go undetected. degraded_ok — this tests the API's manners, not
-    whether our data is reachable."""
-    url = f"{SPA_URL}api/report/00000000-0000-0000-0000-000000000000"
-    r = http.get(url)
-    assert r.status_code != 200, (
-        f"{url} -> 200 for a nonexistent report — the token endpoint no longer "
-        f"validates the report id, so test_token_is_bound_to_the_report_we_pin "
-        f"proves nothing"
-    )
+def test_backend_rejects_an_unknown_series(http):
+    """Guards the probe above: if any queryId got 200, a renamed procedure
+    would go unnoticed. degraded_ok — this tests the API's manners."""
+    r = http.post(SERIES_URL.format(query_id="NoSuchSeries"), params={"from": 2024, "to": 2024}, json={})
+    assert r.status_code == 400, f"{r.request.url} -> {r.status_code} for a nonexistent series"

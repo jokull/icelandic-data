@@ -305,9 +305,10 @@ uv run python scripts/vernd.py fetch
 uv run python scripts/byggdastofnun.py list
 uv run python scripts/byggdastofnun.py url tekjur
 
-# Tekjusagan — income history (token + Playwright drive)
-uv run python scripts/tekjusagan.py token
-uv run python scripts/tekjusagan.py fetch
+# Tekjusagan — income history 1991–2024 (open JSON API; disposable income, assets/debt, gender×education)
+uv run python scripts/tekjusagan.py list
+uv run python scripts/tekjusagan.py fetch                       # -> data/processed/tekjusagan_{series}.csv
+uv run python scripts/tekjusagan.py fetch --series radstofun --set "Tekjubil=Tekjubil 1"
 
 # Skoðanakannanir — RÚV + Vísir + Heimildin opinion-poll aggregators (national + Reykjavík, all pollsters)
 uv run python scripts/skodanakannanir.py list

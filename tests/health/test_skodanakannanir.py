@@ -12,8 +12,8 @@ and a `/g/<id>/<slug>` link — regex-parsed, not JSON, so the probe checks
 those markers directly rather than a schema.
 
 Contract, Heimildin: `leit/?q=...` (search) depends on being server-rendered
-HTML with `<article class="article-item">` cards carrying an `<h1
-class="article-item__headline">`, a `<time class="article-item__pubdate"
+HTML with `<article class="article-item">` cards carrying an `<h1>`/`<h2>
+class="article-item__headline">` (h2 since an October 2026 redesign), a `<time class="article-item__pubdate"
 datetime="...">`, and a `/grein/<id>/<slug>/` link. Same regex-over-markup
 contract as Vísir, different class names.
 

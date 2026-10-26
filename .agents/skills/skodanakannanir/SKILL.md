@@ -29,7 +29,7 @@ appeared as one-off news stories.
 **Use Vísir/Heimildin for discovery, RÚV for numbers.** Verified: RÚV's tag
 page holds only ~51 recent items with no working pagination (see Caveat 7),
 while Vísir's is genuinely paginated back to at least September 2021 and
-Heimildin's search goes back to 2019+ for this query. `list --source visir
+Heimildin's search goes back to 2015 for this query. `list --source visir
 --since 2025 --scope reykjavik` alone found 40 Reykjavík polls against RÚV's
 4 — including the entire Feb–May 2026 city-election polling season RÚV's own
 tag had already dropped. RÚV and Vísir are both wired into `fetch`'s
@@ -552,18 +552,22 @@ RÚV/Vísir's. The trailing slash on `/leit/` matters: `heimildin.is/leit`
 (no slash) 301-redirects to `/leit/`, and query params on the *original*
 URL are preserved through that redirect, so either form works via `httpx`
 (which follows redirects) — but hitting `/leit/` directly skips a hop.
-Server-rendered HTML, genuinely paginated via `&page=N`: verified fetching
-pages 1 and 2 of the default query and finding zero overlapping article
-IDs, with page 1 spanning Nov 2024 and page 2 jumping to 2019 — a real
-content gap for this specific query on this outlet, not a pagination bug
-(the "Niðurstöður eru í tímaröð" / "results are in chronological order"
-label on the search page is accurate).
+Server-rendered HTML, paginated via `&page=N`, 16 results a page. **Results
+are not one date-ordered list** (verified 2026-10-26): the first ~31 hits are
+a relevance tier in no date order (2015–2024 for the default query), then
+every other match follows newest-first (2026-10 on page 2's last row, back to
+2025-11 by page 5). An earlier reading of pages 1–2 took this for "page 1 ends
+Nov 2024, page 2 jumps to 2019, a real content gap" — it was the relevance
+tier, and the 2025–26 polls sat on pages 2–5 the whole time. So `--since`
+paging only stops at a stale page that is itself date-descending (i.e. inside
+the second tier) and comes after at least one kept article; a stale
+relevance-tier page never ends the scan.
 
 ```html
 <article class="article-item ...">
   <a href="/grein/23196/sjalfstaedisflokkurinn-sigur-sosialistaflokkurinn-saekir-a/">
     <div class="article-item__headlines">
-      <h1 class="article-item__headline">Sjálf&shy;stæð&shy;is&shy;flokk&shy;ur&shy;inn síg&shy;ur, ...</h1>
+      <h2 class="article-item__headline">Sjálf&shy;stæð&shy;is&shy;flokk&shy;ur&shy;inn síg&shy;ur, ...</h2>
     </div>
     <div class="article-item__subhead">
       <time class="article-item__pubdate" datetime="2024-11-08 15:06">8. nóvember 2024</time>
@@ -573,6 +577,9 @@ label on the search page is accurate).
 </article>
 ```
 
+- The headline was `<h1>` until a mid-October 2026 redesign and `<h2>`
+  since; the regex accepts either. The "most read" sidebar also renders
+  `article-item` cards, but without a `<time>`, so they are skipped.
 - `datetime="2024-11-08 15:06"` is already ISO-shaped (space instead of
   `T`) — `fetch_heimildin_article_list()` just replaces the space and
   appends `:00`, no Icelandic-date parsing needed (unlike Vísir).

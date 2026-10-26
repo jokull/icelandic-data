@@ -1,101 +1,115 @@
 ---
 name: tekjusagan
-description: Icelandic income history (tekjusagan.is) — token-gated Power BI, 5 report routes, driven via Playwright.
+description: Icelandic income history (tekjusagan.is) — disposable income, assets/debt, gender×education by decile 1991–2024, via the site's JSON API.
 ---
 
 # Tekjusagan — "The Income Story" (Prime Minister's Office)
 
-**Requires:** Tier 2 (browser) — token-gated Power BI driven via Playwright; `uv run playwright install chromium`.
+**Requires:** Tier 0 (core).
 
-Iceland's most widely-cited public income/inequality tool. Interactive dashboard showing changes in living standards for demographic groups over ~25 years (income, assets, gender, education). Owned by **Forsætisráðuneytið**; data source Hagstofa Íslands.
+Iceland's most widely cited public income/inequality tool: how living standards
+moved for demographic groups since 1991 (income, assets, gender, education).
+Owned by **Forsætisráðuneytið**; data from Hagstofa Íslands. Credit both.
 
-## Architecture
+**All amounts are monthly ISK at constant 2024 prices** ("Allar fjárhæðir eru í
+íslenskum krónum á föstu verðlagi ársins 2024" — the site's disclaimer; monthly
+is inferred from magnitude: a couple's employment income is ~1.7M in 2024).
+`growth_rate` is a fraction per year (0.0621 = 6.21%).
 
-A thin Angular SPA (`tekjusagan.is`) that embeds a **token-authenticated** Power BI report. Unlike public `/view?r=...` embeds (e.g. `landlaeknir`), Tekjusagan's Power BI is private — clients fetch a short-lived embed token from Tekjusagan's own backend, then initialize the Power BI JS SDK with that token.
+## API
 
-### API
+The Angular SPA was redeployed on 2026-10-15 and **no longer uses Power BI**.
+It charts JSON from its own backend — open, no token, no browser:
 
-| Endpoint | Purpose | Returns |
-|----------|---------|---------|
-| `GET https://tekjusagan.is/api/report/04ba62a1-8e38-44bd-a6b0-cb63d1fec3d8` | Issue a Power BI embed token for the report | `{"embedToken": "<1773-char JWT>", "id": "04ba62a1-..."}` |
-
-| Field | Value |
-|-------|-------|
-| Power BI report ID | `04ba62a1-8e38-44bd-a6b0-cb63d1fec3d8` |
-| Power BI group ID | `a08a802a-ca7b-4103-9052-18a85d009ec4` |
-| Embed container | `https://app.powerbi.com/reportEmbed?reportId={id}&groupId={group}` |
-| DAX endpoint (authenticated) | `https://wabi-europe-north-b-redirect.analysis.windows.net/explore/...` |
-
-**Auth flow:** The token is issued without any input credentials (public anonymous endpoint). It scopes access to *this one report* for the current session. Tokens expire after ~1 hour — re-fetch if a long scrape session is needed.
-
-## Dashboard routes (5)
-
-The SPA exposes five Power BI report routes. Each triggers its own DAX queries — drive them via `page.goto()` rather than clicking menu items (menus only expand the nav tree).
-
-| Slug | Route | Content |
-|------|-------|---------|
-| `radstofun` | `/skyrslur/radstofun` | Þróun ráðstöfunartekna — disposable income over time |
-| `eignirskuldir` | `/skyrslur/eignirskuldir` | Eignir og skuldir — assets and debt |
-| `kynmenntun` | `/skyrslur/kynmenntun` | Kyn og menntun — gender × education |
-| `kynmenntun_details` | `/kynmenntun/details` | Kyn og menntun — detailed breakdown |
-| `lifshlaupid` | `/lifshlaupid` | Lífshlaupið — life-course income trajectories |
-
-## Extraction strategy
-
-Because the Power BI is token-embedded, the simplest extraction is:
-
-1. Drive the Angular SPA with Playwright (headless Chromium).
-2. Let the SPA fetch its own token and initialize the Power BI embed.
-3. Intercept `executeQueries`, `querydata`, and `modelsAndExploration` responses from the `wabi-europe-north-b-redirect.analysis.windows.net` host.
-4. Navigate between sections (click nav buttons) to trigger section-specific queries.
-
-Direct backend-only extraction (token + raw DAX) is possible but requires reverse-engineering Power BI's query protocol — **not worth it**; the Playwright path is reliable and matches the pattern already used in `landlaeknir`, `farsaeld_barna`, `maelabord_landbunadarins`.
-
-## Script usage
-
-```bash
-# Fetch a fresh token and inspect its shape
-uv run python scripts/tekjusagan.py token
-
-# Scrape the dashboard (Playwright drive, saves raw responses)
-uv run python scripts/tekjusagan.py fetch
-
-# Run tests
-uv run pytest tests/test_tekjusagan.py -v
+```
+POST https://tekjusagan.is/api/sqlseries/<queryId>?from=1991&to=2024
+Content-Type: application/json
+{ "<filter>": "<value>" | ["<value>", ...], ... }
+-> {"items": [{"Skattár", "Breyta Heiti", "Breyta Lýsing", "Breyta Röðun",
+               "Breytugildi ISK", "Breytugildi Prósenta"}, ...]}
 ```
 
-## Data files
+Each queryId is a SQL Server stored procedure (`<queryId>Series`), and the body
+keys are its parameters — **exactly** its parameters. The backend relays the SQL
+error, which is the fastest way to discover a body:
 
-| Path | Format | Description |
-|------|--------|-------------|
-| `data/raw/tekjusagan/token.json` | JSON | Last embed-token response (for debugging) |
-| `data/raw/tekjusagan/responses.json` | JSON | Captured Power BI responses (modelsAndExploration, executeQueries, etc.) |
+| Response | Meaning |
+|---|---|
+| 400 `expects parameter '@Búseta'` | add that key |
+| 400 `too many arguments specified` | drop a key (usually `Breyta`) |
+| 400 `Stored procedure is not available as a series.` | unknown queryId |
+| 200 `{"items": []}` | parameters fine, a **value** matches nothing (typo) |
 
-## Alternative: go straight to Hagstofa
+| Slug | Route | queryId | Body keys |
+|---|---|---|---|
+| `radstofun` | `/skyrslur/radstofun` | `IncomeVariables` | Aldurshópur, Tekjubil, Börn, Búseta, Hjúskaparstaða, Líkan, **Breyta**, Hópur |
+| `eignirskuldir` | `/skyrslur/eignirskuldir` | `AssetVariables` | Aldurshópur, Tekjubil, Börn, Búseta, Hjúskaparstaða, Líkan, Hópur |
+| `kynmenntun` | `/skyrslur/kynmenntun` | `GenderEducationVariables` | Aldurshópur, Tekjubil, Búseta, Hjúskaparstaða, Líkan, Menntunarstig |
 
-The underlying data comes from Hagstofa's TEK (tekjur) series — primarily:
+Other endpoints the SPA calls (not wrapped by the script):
+`POST /api/sqldata/GenderEducationGroups`, `GenderEducationGroupDistribution`
+(kynmenntun detail), `incomemobilitydeciledistribution`,
+`incomemobilitynumberpeople` (Lífshlaupið), `myincomedecile`
+(`{Year, AgeGroup, MonthlySalary}`).
 
-| PX-Web table | Content |
-|--------------|---------|
-| TEK01001 | Medaltekjur einstaklinga eftir tekjuhóp |
-| TEK01101 | Ráðstöfunartekjur (disposable income) |
-| TEK01106 | Tekjur eftir kyni og aldri |
-| TEK01401 | Eignastaða heimila |
+## Filter values
 
-If the goal is analysis (not replicating the dashboard UX), **prefer the Hagstofa route** — it's a clean JSON API via the existing `hagstofan` skill, and the raw data goes further back and is more granular than what Tekjusagan exposes.
+The values are labels, not codes; a near-miss returns zero rows, not an error.
+
+- **Tekjubil**: `Tekjubil 1` … `Tekjubil 10`, `Tekjubil 1-10` (all deciles)
+- **Aldurshópur**: `25 - 34 ára`, `35 - 49 ára`, `50 - 65 ára`, `66+ ára`, `25 - 64 ára`; seniors (not kynmenntun): `68+ ára`, `71+ ára`, `75+ ára`, `68-75 ára` (no spaces around the dash in that last one)
+- **Hópur**: `Allir í aldursbili`, `Fá greitt frá TR` (receives social-insurance pension)
+- **Búseta**: `Höfuðborg`, `Landsbyggð`, `Landið allt`
+- **Börn**: `Engin börn`, `1 - 2 börn`, `3 eða fleiri börn`
+- **Hjúskaparstaða** (radstofun/eignirskuldir): `Hjón`, or for singles the value depends on Börn — `Einstæðingur karl`/`Einstæðingur kona` with `Engin börn`, else `Einstætt foreldri karl`/`Einstætt foreldri kona`
+- **Hjúskaparstaða** (kynmenntun): `Einhleypur karl`, `Einhleyp kona`, `Karl í sambúð`, `Kona í sambúð`, `Öll kyn óháð hjúskap`
+- **Líkan**: `T3 - Tíundir eftir atvinnutekjum og bótum` (without capital income) or `T2 - Tíundir eftir atvinnutekjum, bótum og fjármagnstekjum` (with); kynmenntun uses `Raðað í tekjutíundir eftir heildartekjum með fjármagnstekjum`
+- **Menntunarstig**: `Óháð menntun`, `Grunnmenntun`, `Framhaldsskóli`, `Viðbótarstig`, `Háskóli - Diploma`, `Háskóli (BSc)`, `Háskóli (MSc)`, `Háskóli (PhD)`
+
+**Breyta (radstofun only) selects homeowner vs renter rows**, and it is the
+only thing that does — "Fasteign" is not a parameter. The script defaults to the
+homeowner, no-capital-income list. Renter (T3) list:
+`Atvinnutekjur|Lífeyrissjóðstekjur|Bætur frá ríki og sveitarfélögum|Barnabætur|Húsnæðisbætur|Tekjuskattur|Ráðstöfunartekjur leigjendur|Tímabil 1991 - 2007 leigjendur|Tímabil 2007 - 2012 leigjendur|Ráðstöfunartekjur leigutaka án fjármagnstekna vöxtur frá 2012`.
+The with-capital-income (T2) variants are in the SPA bundle's page config
+(`setQueryFilters` under the Fjármagnstekjur/Fasteign filters).
+
+Disposable income is **not** a row: the `Ráðstöfunartekjur…` row comes back
+with both values null, and the SPA sums the ISK component rows (taxes are
+negative). `tidy()` drops those header rows.
+
+## Script
+
+```bash
+uv run python scripts/tekjusagan.py list                       # series + default bodies
+uv run python scripts/tekjusagan.py fetch                      # all three, SPA defaults
+uv run python scripts/tekjusagan.py fetch --series radstofun --set "Tekjubil=Tekjubil 1"
+uv run python scripts/tekjusagan.py fetch --series radstofun --set "Breyta=Atvinnutekjur|Tekjuskattur"
+```
+
+Writes `data/raw/tekjusagan/{slug}.json` (request body + items) and
+`data/processed/tekjusagan_{slug}.csv`: `series, tax_year, variable, label,
+sort_order, value_isk, growth_rate` plus one column per filter, so each CSV says
+which group it describes. One fetch = one group; loop `--set` for comparisons.
 
 ## Caveats
 
-1. **Token expiry (~1 hour)** — don't cache tokens in source control or long-running scripts. Always re-fetch.
-2. **No public anonymous DAX query endpoint** — cannot bypass Power BI JS SDK cleanly.
-3. **Attribution.** The tool credits Hagstofa as data source and Forsætisráðuneytið as publisher. Do the same.
-4. **Icelandic characters in responses** — verified UTF-8 throughout the Power BI `modelsAndExploration` payload.
-5. **SPA is Angular 19+ standalone build** — chunks and main.js hashes change on redeploy. Don't hard-code script names.
-6. **Analytics tracking** — the site reports to Matomo and Google Analytics. If you care about that, add a block list in Playwright.
+1. **The SPA hardcodes the year range** (`firstTaxYear = 1991`,
+   `selectedTaxYear = 2024`). When 2025 data lands, `LAST_TAX_YEAR` in the
+   script needs bumping; `to=2026` today simply returns through 2024.
+2. **Bundle hashes change on every deploy** — find config by searching the
+   chunks for `queryId:` / `/api/sql`, never by filename. The page config
+   (`var ku=[{page:"radstofun",...}]`) evaluates as a plain JS literal.
+3. **Every SPA route returns 200 index.html**, including dead ones and dead
+   `/api/...` paths — check `content-type` before trusting a 200.
+4. **Prefer Hagstofa for analysis.** Tekjusagan is a curated view of TEK
+   series (TEK01001, TEK01101, TEK01106, TEK01401 via the `hagstofan` skill);
+   use it when you want *its* group definitions (decile × household type ×
+   tenure), not as a substitute for the raw tables.
 
 ## Complementary sources
 
 | Source | Overlap |
 |--------|---------|
-| [hagstofan](../hagstofan/SKILL.md) | TEK01xxx — canonical tidy data, use when possible |
+| [hagstofan](../hagstofan/SKILL.md) | TEK01xxx — canonical tidy data |
+| [income-distribution](../income-distribution/SKILL.md) | TEK01001 by source/age/gender |
 | [laun](../laun/SKILL.md) | Take-home-salary calculator (prospective, not historical) |

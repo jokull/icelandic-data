@@ -1,140 +1,221 @@
 """Tekjusagan — income history dashboard (Forsætisráðuneytið).
 
-Token-authenticated Power BI embed wrapped in an Angular SPA. Scraping is done
-by driving the SPA with Playwright and intercepting Power BI data responses.
+Since an October 2026 redeploy the Angular SPA no longer embeds Power BI: it
+charts JSON from its own backend, `POST /api/sqlseries/<queryId>`, with the
+group filters as the request body. No token, no browser.
 
 Usage:
-    uv run python scripts/tekjusagan.py token      # Fetch embed token (for debugging)
-    uv run python scripts/tekjusagan.py fetch      # Drive SPA + capture responses
+    uv run python scripts/tekjusagan.py                 # same as fetch
+    uv run python scripts/tekjusagan.py list            # series + default filters
+    uv run python scripts/tekjusagan.py fetch           # all series, SPA defaults
+    uv run python scripts/tekjusagan.py fetch --series radstofun --set "Tekjubil=Tekjubil 10"
+    uv run python scripts/tekjusagan.py fetch --series radstofun --set "Breyta=Atvinnutekjur|Tekjuskattur"
 """
 import argparse
-import asyncio
 import json
 import sys
 from pathlib import Path
 
 import httpx
+import polars as pl
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-REPORT_ID = "04ba62a1-8e38-44bd-a6b0-cb63d1fec3d8"
-GROUP_ID = "a08a802a-ca7b-4103-9052-18a85d009ec4"
-TOKEN_URL = f"https://tekjusagan.is/api/report/{REPORT_ID}"
+ROOT = Path(__file__).resolve().parent.parent
+RAW_DIR = ROOT / "data" / "raw" / "tekjusagan"
+PROCESSED_DIR = ROOT / "data" / "processed"
+
 SPA_URL = "https://tekjusagan.is/"
+SERIES_URL = SPA_URL + "api/sqlseries/{query_id}"
+USER_AGENT = "icelandic-data (+https://github.com/jokull/icelandic-data)"
 
-RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / "tekjusagan"
+# The SPA hardcodes both ends (firstTaxYear, page.selectedTaxYear); asking for a
+# later `to` just returns through the last loaded year.
+FIRST_TAX_YEAR = 1991
+LAST_TAX_YEAR = 2024
 
-# Direct SPA routes that render Power BI report pages. Each triggers its own
-# set of DAX queries. Hitting these with page.goto() is more reliable than
-# clicking menu items.
-REPORTS = [
-    ("radstofun", "https://tekjusagan.is/skyrslur/radstofun"),
-    ("eignirskuldir", "https://tekjusagan.is/skyrslur/eignirskuldir"),
-    ("kynmenntun", "https://tekjusagan.is/skyrslur/kynmenntun"),
-    ("kynmenntun_details", "https://tekjusagan.is/kynmenntun/details"),
-    ("lifshlaupid", "https://tekjusagan.is/lifshlaupid"),
+# Breyta (which variables to return) for homeowners without capital income —
+# the SPA's default Fasteign/Fjármagnstekjur selection on /skyrslur/radstofun.
+# Renters and capital-income variants swap this list; see the skill.
+_RADSTOFUN_BREYTA = [
+    "Atvinnutekjur",
+    "Lífeyrissjóðstekjur",
+    "Bætur frá ríki og sveitarfélögum",
+    "Barnabætur",
+    "Vaxtabætur",
+    "Tekjuskattur",
+    "Fasteignaskattur",
+    "Ráðstöfunartekjur fasteignaeigenda",
+    "Tímabil 1991 - 2007",
+    "Tímabil 2007 - 2012",
+    "Ráðstöfunartekjur fasteignaeiganda án fjármagnstekna vöxtur frá 2012",
 ]
 
+# slug -> SPA route, stored-procedure queryId, and the exact body the SPA sends
+# with its default filter selection. Every key is a required procedure
+# parameter: omit one and the backend answers 400 "expects parameter '@X'";
+# add one it doesn't take (Breyta outside radstofun) and it answers 400 "too
+# many arguments".
+SERIES = {
+    "radstofun": {
+        "route": "/skyrslur/radstofun",
+        "query_id": "IncomeVariables",
+        "title": "Þróun ráðstöfunartekna — disposable income by component",
+        "body": {
+            "Aldurshópur": "25 - 64 ára",
+            "Tekjubil": "Tekjubil 1-10",
+            "Börn": "1 - 2 börn",
+            "Búseta": "Landið allt",
+            "Hjúskaparstaða": "Hjón",
+            "Líkan": "T3 - Tíundir eftir atvinnutekjum og bótum",
+            "Breyta": _RADSTOFUN_BREYTA,
+            "Hópur": "Allir í aldursbili",
+        },
+    },
+    "eignirskuldir": {
+        "route": "/skyrslur/eignirskuldir",
+        "query_id": "AssetVariables",
+        "title": "Eignir og skuldir — assets and debt",
+        "body": {
+            "Aldurshópur": "25 - 64 ára",
+            "Börn": "1 - 2 börn",
+            "Búseta": "Landið allt",
+            "Hjúskaparstaða": "Hjón",
+            "Líkan": "T3 - Tíundir eftir atvinnutekjum og bótum",
+            "Tekjubil": "Tekjubil 1-10",
+            "Hópur": "Allir í aldursbili",
+        },
+    },
+    "kynmenntun": {
+        "route": "/skyrslur/kynmenntun",
+        "query_id": "GenderEducationVariables",
+        "title": "Kyn og menntun — pre-tax income by gender × education",
+        "body": {
+            "Aldurshópur": "25 - 64 ára",
+            "Hjúskaparstaða": "Öll kyn óháð hjúskap",
+            "Líkan": "Raðað í tekjutíundir eftir heildartekjum með fjármagnstekjum",
+            "Búseta": "Landið allt",
+            "Tekjubil": "Tekjubil 1-10",
+            "Menntunarstig": "Óháð menntun",
+        },
+    },
+}
 
-def fetch_token() -> dict:
-    """Fetch a fresh Power BI embed token from Tekjusagan's backend."""
-    with httpx.Client(timeout=30, follow_redirects=True) as c:
-        r = c.get(TOKEN_URL)
-        r.raise_for_status()
-        return r.json()
+
+def parse_overrides(pairs: list[str]) -> dict:
+    """`KEY=VALUE` pairs -> body overrides; `|` in VALUE makes a list."""
+    out = {}
+    for pair in pairs:
+        key, sep, value = pair.partition("=")
+        if not sep or not key:
+            raise SystemExit(f"--set expects KEY=VALUE, got {pair!r}")
+        out[key] = value.split("|") if "|" in value else value
+    return out
 
 
-def cmd_token(args=None):
+def fetch_series(
+    query_id: str, body: dict, year_from: int = FIRST_TAX_YEAR, year_to: int = LAST_TAX_YEAR
+) -> list[dict]:
+    r = httpx.post(
+        SERIES_URL.format(query_id=query_id),
+        params={"from": year_from, "to": year_to},
+        json=body,
+        headers={"User-Agent": USER_AGENT},
+        timeout=60,
+    )
+    if r.status_code == 400:
+        # The backend relays the SQL Server error, which names the bad parameter.
+        raise SystemExit(f"{r.request.url} -> 400: {r.json().get('message', r.text)}")
+    r.raise_for_status()
+    return r.json()["items"]
+
+
+def tidy(items: list[dict], series: str, body: dict) -> pl.DataFrame:
+    """One row per (tax year, variable). Section-header rows (both values
+    null — e.g. the Ráðstöfunartekjur row the SPA sums itself) are dropped."""
+    rows = [
+        {
+            "series": series,
+            "tax_year": i["Skattár"],
+            "variable": i["Breyta Heiti"],
+            "label": i["Breyta Lýsing"],
+            "sort_order": i["Breyta Röðun"],
+            "value_isk": i["Breytugildi ISK"],
+            "growth_rate": i["Breytugildi Prósenta"],
+        }
+        for i in items
+        if i["Breytugildi ISK"] is not None or i["Breytugildi Prósenta"] is not None
+    ]
+    df = pl.DataFrame(
+        rows,
+        schema={
+            "series": pl.Utf8,
+            "tax_year": pl.Int32,
+            "variable": pl.Utf8,
+            "label": pl.Utf8,
+            "sort_order": pl.Int32,
+            "value_isk": pl.Float64,
+            "growth_rate": pl.Float64,
+        },
+    )
+    # Carry the group definition on every row so a CSV is self-describing.
+    filters = {k: v for k, v in body.items() if k != "Breyta"}
+    df = df.with_columns(pl.lit(v).alias(k) for k, v in filters.items())
+    return df.unique(subset=["tax_year", "variable", "label"], keep="last").sort(
+        "tax_year", "sort_order", "label"
+    )
+
+
+def cmd_list(args):
+    for slug, s in SERIES.items():
+        print(f"{slug:<14} {s['query_id']:<26} {SPA_URL.rstrip('/')}{s['route']}")
+        print(f"  {s['title']}")
+        for k, v in s["body"].items():
+            shown = f"[{len(v)} variables]" if isinstance(v, list) else repr(v)
+            print(f"    {k} = {shown}")
+
+
+def cmd_fetch(args):
+    overrides = parse_overrides(args.set or [])
+    slugs = [args.series] if args.series else list(SERIES)
     RAW_DIR.mkdir(parents=True, exist_ok=True)
-    tok = fetch_token()
-    out = RAW_DIR / "token.json"
-    # Preserve for debugging but warn: tokens are short-lived.
-    out.write_text(json.dumps(tok, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"token saved to {out}", file=sys.stderr)
-    print(f"  id         : {tok.get('id')}")
-    print(f"  embedToken : [{len(tok.get('embedToken', ''))} chars]")
-
-
-async def _scrape() -> list[dict]:
-    """Drive the Angular SPA and capture Power BI responses.
-
-    Returns a list of {section, url, body | text} dicts.
-    """
-    from playwright.async_api import async_playwright
-
-    captured: list[dict] = []
-    current_section = {"name": "initial"}
-
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        try:
-            page = await browser.new_page()
-
-            async def on_response(r):
-                u = r.url.lower()
-                is_pbi_data = (
-                    u.startswith("blob:")
-                    or "querydata" in u
-                    or "executequeries" in u
-                    or "modelsandexploration" in u
-                    or "conceptualschema" in u
-                )
-                if is_pbi_data and r.status == 200:
-                    entry = {"section": current_section["name"], "url": r.url}
-                    try:
-                        entry["body"] = await r.json()
-                    except Exception:
-                        try:
-                            entry["text"] = (await r.text())[:200000]
-                        except Exception:
-                            return
-                    captured.append(entry)
-
-            page.on("response", on_response)
-
-            # Visit each report route directly. The SPA fetches a token and
-            # initializes the Power BI embed on each route.
-            for slug, url in REPORTS:
-                current_section["name"] = slug
-                print(f"  section: {slug} → {url}", file=sys.stderr)
-                try:
-                    await page.goto(url, wait_until="networkidle", timeout=60000)
-                except Exception as e:
-                    print(f"    [warn] goto failed: {e}", file=sys.stderr)
-                    continue
-                # Power BI does not reliably fire networkidle; wait for the
-                # DAX calls to flow. 20s is enough for modelsAndExploration
-                # + a couple of executeQueries.
-                await asyncio.sleep(20)
-        finally:
-            await browser.close()
-    return captured
-
-
-def cmd_fetch(args=None):
-    results = asyncio.run(_scrape())
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
-    out = RAW_DIR / "responses.json"
-    out.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
-    # Small summary
-    by_section: dict[str, int] = {}
-    for r in results:
-        by_section[r["section"]] = by_section.get(r["section"], 0) + 1
-    print(f"\ncaptured {len(results)} responses → {out}", file=sys.stderr)
-    for s, n in by_section.items():
-        print(f"  {s}: {n}", file=sys.stderr)
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    for slug in slugs:
+        s = SERIES[slug]
+        body = {**s["body"], **overrides}
+        items = fetch_series(s["query_id"], body, args.year_from, args.year_to)
+        raw = RAW_DIR / f"{slug}.json"
+        raw.write_text(
+            json.dumps({"query_id": s["query_id"], "body": body, "items": items}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        df = tidy(items, slug, body)
+        if df.is_empty():
+            # An unknown filter value is not an error to the backend — it just
+            # matches nothing. Say so instead of writing an empty file silently.
+            print(f"  {slug}: 0 rows — check the --set values against `list`/the skill", file=sys.stderr)
+        out = PROCESSED_DIR / f"tekjusagan_{slug}.csv"
+        df.write_csv(out)
+        years = f"{df['tax_year'].min()}–{df['tax_year'].max()}" if len(df) else "-"
+        print(f"  {slug}: {len(df)} rows, {df['label'].n_unique()} variables, {years} -> {out}")
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__)
-    sub = ap.add_subparsers(dest="cmd", required=True)
-    for name, fn in [("token", cmd_token), ("fetch", cmd_fetch)]:
-        p = sub.add_parser(name)
-        p.set_defaults(func=fn)
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd")
+    sub.add_parser("list", help="series and their default filters").set_defaults(func=cmd_list)
+    p = sub.add_parser("fetch", help="fetch series -> data/processed/tekjusagan_{series}.csv")
+    p.add_argument("--series", choices=list(SERIES))
+    p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a filter; '|' separates list values")
+    p.add_argument("--from", dest="year_from", type=int, default=FIRST_TAX_YEAR)
+    p.add_argument("--to", dest="year_to", type=int, default=LAST_TAX_YEAR)
+    p.set_defaults(func=cmd_fetch)
     args = ap.parse_args()
+    if args.cmd is None:
+        args = ap.parse_args(["fetch"])
     args.func(args)
 
 

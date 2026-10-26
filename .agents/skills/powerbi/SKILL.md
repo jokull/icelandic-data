@@ -15,7 +15,7 @@ supplies only the SPA URL, which section to open, and the slicer/column names.
 
 Sources in this repo that are Power BI underneath: **samgongustofa**
 (fully migrated — the reference implementation), plus landlaeknir, vernd,
-farsaeld_barna, ferdamalastofa, tekjusagan, vinnumalastofnun,
+farsaeld_barna, ferdamalastofa, vinnumalastofnun,
 maelabord_nautgripa, sedlabanki_rates. The last group still only *captures
 whatever fires on page load*; migrate them to `powerbi.py` when they need
 parameterized queries (change a slicer, pull another year).

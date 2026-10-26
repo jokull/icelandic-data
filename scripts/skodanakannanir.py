@@ -1226,7 +1226,8 @@ HEIMILDIN_SEARCH_URL = "https://heimildin.is/leit/"
 
 _HEIMILDIN_ARTICLE_RE = re.compile(r'<article class="article-item[^"]*">(.*?)</article>', re.S)
 _HEIMILDIN_LINK_RE = re.compile(r'href="(/grein/\d+/[^"]+)"')
-_HEIMILDIN_TITLE_RE = re.compile(r'<h1 class="article-item__headline">([^<]+)</h1>')
+# h1 until mid-October 2026, h2 since — accept either rather than chase it again.
+_HEIMILDIN_TITLE_RE = re.compile(r'<h[12] class="article-item__headline">([^<]+)</h[12]>')
 _HEIMILDIN_TIME_RE = re.compile(r'<time class="article-item__pubdate" datetime="([^"]+)"')
 _HEIMILDIN_SUBHEAD_RE = re.compile(
     r'<div class="article-item__subhead">.*?</time>\s*(.+?)\s*</div>', re.S
@@ -1254,6 +1255,7 @@ def fetch_heimildin_article_list(
             break  # end of results
 
         page_had_recent_enough = False
+        page_dates = []
         for block in blocks:
             link_m = _HEIMILDIN_LINK_RE.search(block)
             title_m = _HEIMILDIN_TITLE_RE.search(block)
@@ -1262,10 +1264,10 @@ def fetch_heimildin_article_list(
                 continue  # non-article card (ad slot, etc.) — skip, don't guess
 
             published_at = time_m.group(1).strip().replace(" ", "T") + ":00"
+            page_dates.append(published_at)
             if stop_before_year and int(published_at[:4]) < stop_before_year:
                 continue
-            if not stop_before_year or int(published_at[:4]) >= stop_before_year:
-                page_had_recent_enough = True
+            page_had_recent_enough = True
 
             subhead_m = _HEIMILDIN_SUBHEAD_RE.search(block)
             title = unescape(title_m.group(1)).replace("\xad", "").strip()
@@ -1284,8 +1286,13 @@ def fetch_heimildin_article_list(
                 "topic": _guess_topic(title, subtitle),
             }
 
-        if stop_before_year and not page_had_recent_enough:
-            break  # pages are date-descending, so a whole stale page means we're done
+        # Results come in two tiers: ~30 relevance hits in no date order (2015-2024
+        # for the default query), then every other match newest-first. Only a stale
+        # page that is itself date-descending is inside the second tier, where
+        # stale means everything after it is older still.
+        date_descending = page_dates == sorted(page_dates, reverse=True)
+        if stop_before_year and not page_had_recent_enough and date_descending and seen:
+            break
 
     return sorted(seen.values(), key=lambda r: r["published_at"] or "", reverse=True)
 
@@ -1655,7 +1662,7 @@ def main():
     )
     p_list.add_argument(
         "--since", type=int, default=None,
-        help="Earliest year to keep (Vísir only — paginates back through 2021; RÚV's tag window is already short)",
+        help="Earliest year to keep (Vísir and Heimildin — Vísir paginates back through 2021; RÚV's tag window is already short)",
     )
     p_list.add_argument("--limit", type=int, default=20)
     p_list.set_defaults(func=cmd_list)
