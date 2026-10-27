@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "flettu": {
-      "type": "http",
-      "url": "https://flettu.is/api/mcp"
-    }
-  }
-}

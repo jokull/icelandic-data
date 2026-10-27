@@ -8,9 +8,3 @@ network_access = true
 
 [shell_environment_policy.set]
 UV_CACHE_DIR = ".uv/cache"
-
-# Flettu (flettu.is) — cited annual-report figures, boards and owners for
-# Icelandic companies. OAuth in the browser, no key: `codex mcp login flettu`.
-# See the skatturinn skill.
-[mcp_servers.flettu]
-url = "https://flettu.is/api/mcp"
