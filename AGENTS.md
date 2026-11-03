@@ -350,6 +350,11 @@ uv run python scripts/tenders.py download-ocds
 uv run python scripts/tenders.py search --cpv 90600000 --date-from 20240101
 uv run python scripts/tenders.py awards --buyer "Reykjavíkurborg"
 
+# Reykjavík útboðsvefur (In-Tend) — all tender notices since 2017 -> data/processed/utbod_reykjavik_projects.csv
+uv run python scripts/utbod_reykjavik.py fetch
+uv run python scripts/utbod_reykjavik.py list
+uv run python scripts/utbod_reykjavik.py search 'ræsting'
+
 # Reykjavík winter/street tender results 2018–2024 (reykjavik.is scrape) -> data/processed/reykjavik_winter_tenders.csv
 uv run python scripts/reykjavik_tenders.py
 

@@ -103,6 +103,7 @@ Systematic coverage of public dashboards published under Iceland's data-access l
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/skodanakannanir.svg" width="12"> | Skoðanakannanir | RÚV opinion-poll aggregator — national + Reykjavík party support across pollsters |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/opnirreikningar.svg" width="12"> | Opnir reikningar | Government invoices by org/vendor/type, 2017–present |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/tenders.svg" width="12"> | Tenders | 3,494+ public tenders via TED API + OCDS bulk data |
+| <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/utbod_reykjavik.svg" width="12"> | Útboð Reykjavíkur | Every Reykjavík tender notice since 2017 via the In-Tend portal (utbod.reykjavik.is) |
 
 ### Property, planning, addresses
 
