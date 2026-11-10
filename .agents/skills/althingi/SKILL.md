@@ -15,14 +15,63 @@ appointments and consultation submissions.
 
 **Base URL:** `https://www.althingi.is/altext/xml/`
 
-No authentication, no rate limit published. Plain `GET`, no query language —
-each endpoint is a fixed path with query-string filters. Responses are
-`text/xml; charset=utf-8`.
+No authentication. Plain `GET`, no query language — each endpoint is a fixed
+path with query-string filters. Responses are `text/xml; charset=utf-8`.
+
+## Access rules (read first)
+
+Alþingi is explicit about how robots should behave, in three places that agree
+(`/robots.txt`, `/llms.txt`, and the body of a 429). Verified 2026-11-10.
+
+| Rule | Source | What it means for us |
+|------|--------|----------------------|
+| `Crawl-delay: 5` | `robots.txt` | **5 s between requests.** Our script uses 0.25 s — fine for ~300 requests, not for a bulk crawl |
+| "Use the XML service and the law-collection zip" | `llms.txt` | Sanctioned routes only: `/altext/xml/…` and `/lagasafn/zip/…` |
+| "Use a descriptive User-Agent that includes contact information" | `llms.txt` | `name/version (purpose; contact-email)`, not a bare library UA |
+| "Do not fetch the same document repeatedly"; closed sessions rarely change | `llms.txt` | Cache raw XML forever for closed þing (the script does) |
+| "Do not crawl `/lagas/` one by one" | `llms.txt` | One zip holds all laws — see below |
+
+**HTML pages are behind a Cloudflare managed challenge.** `curl https://www.althingi.is/`
+returns `403` with `cf-mitigated: challenge` — a JS/Turnstile challenge, not a
+UA filter. `robots.txt` also says `Disallow: /*.jsp`, `/view/`, `/leit/?q`.
+`curl`, httpx and plain Playwright requests all hit the challenge.
+
+**Default: don't go through the HTML at all.** Everything the pages show
+(speeches, matters, votes, laws) is available from the XML service or the zip,
+which are not challenged. Reach for XML first.
+
+**When you do need the rendered page** (checking what the site shows a human,
+a one-off page with no XML equivalent, comparing XML to the UI), use a real
+browser, not a scraper:
+
+- `agent-browser` (first choice): `agent-browser open https://www.althingi.is/…`
+  — a real Chrome session usually passes the managed challenge; if it shows a
+  Turnstile checkbox, use headed mode and let the human click it once.
+- Playwright via `uv run playwright install chromium` (Tier 2, browser) — works
+  the same way, but a fresh headless profile is the most likely to be challenged.
+- `claude-in-chrome` against the user's own logged-in Chrome as a last resort.
+
+Keep this to **single pages by hand**. The site asks bots not to scrape HTML,
+so a browser does not make a bulk HTML crawl acceptable: no loops over
+`/altext/…html` pages, same 5 s spacing, and never use a browser to get at
+something the XML already serves.
+
+**The XML service is not challenged but is rate-policed.** Aggressive
+bulk lists are *disabled on purpose* and answer **429 Too Many Requests** with a
+plain-text body (ASCII-only Icelandic) pointing at the filtered alternatives:
+
+- `raedulisti/?lthing=N` for a **closed** þing → **429**. Same URL for the
+  sitting þing works (158: 2.8 MB). Use a filter instead — see
+  [Speech text](#speech-text-and-volume).
+- The other per-þing lists the script uses (`thingmalalisti/`, `atkvaedagreidslur/`,
+  `thingmenn/`, `thingfundir/`, `nefndir/nefndarmenn/`) were not probed on
+  2026-11-10; the health probe covers them. Treat any 429 as an instruction:
+  **read the body**, and switch to the filtered endpoint rather than retrying.
 
 **Send a User-Agent.** The site returns **403 Forbidden** to httpx's default
 UA. Any identifying string is accepted — sending none, or a default library
 UA, is the failure mode. `curl` works out of the box, so this bites only when
-moving from a shell probe to code.
+moving from a shell probe to code. Prefer one with contact info per `llms.txt`.
 
 Responses are served through Cloudflare and come back `cf-cache-status: HIT`
 with an `age` of up to ~10 minutes. Combined with the daily refresh, treat
@@ -114,6 +163,56 @@ documents carry their own encoding declaration and a `str` input trips
 | `radherrar/radherraseta/?nr=N` | `einstaklingur` | One person's ministerial terms |
 | `radherraembaetti/` | `ráðherrar` | Ministerial offices over time |
 | `saetaskipan/?timi=ISO` | `sætaskipun` | Chamber seating. Seat numbers only — **no party** |
+
+## Speech text and volume
+
+`raedulisti` gives **metadata plus links**; the text is one more request per
+speech. Each `<ræða>` carries `<slóðir>` with `<xml>`, `<html>`, `<hljóð>`
+(mp3) and `<vod>` (video) — ignore the last three for text work.
+
+**Three working ways to list speeches** (the unfiltered per-þing list for closed
+sessions is the one that 429s):
+
+| Filter | URL | Use for |
+|--------|-----|---------|
+| By matter | `raedulisti/?lthing=N&malnr=M` | One bill's debate (matter 1, the budget, has 818 speeches) |
+| By day | `raedulisti/?dagur=YYYYMMDD` | Back-filling a closed þing day by day (~68 KB for one sitting day) |
+| By member | `thingmenn/thingmadur/raedur/?nr=N` | One MP's speeches across all þing |
+
+To enumerate a closed þing without the blocked list: take sitting dates from
+`thingfundir/?lthing=N`, then call the by-day filter for each.
+
+**Speech text URL.** The `<xml>` link in the listing is `http://www.althingi.is/xml/154/raedur/rad20240305T133148.xml`.
+Follow redirects (`http` → `https` 301s) or rewrite to `https://` — the host
+must stay `www.`. The document is a different dialect from the rest of the
+service: it **does** have a (dead-hosted) XSD and a default namespace
+`http://skema.althingi.is/skema`, so element lookups need the namespace:
+
+```xml
+<ræða id="r2024-03-05T13:31:48" skst="BÁ" tegr="R" tegflm="F" xmlns="http://skema.althingi.is/skema">
+  <umsýsla fundur="80" tími="2024-03-05T13:31:48" lgþ="154">
+    <mál nr="735" málstegund="tk" málsflokkur="B"><málsheiti>tilkynning forseta</málsheiti></mál>
+  </umsýsla>
+  <ræðutexti><mgr>…paragraph…</mgr><mgr>…</mgr></ræðutexti>
+</ræða>
+```
+
+Text = `ræðutexti/mgr` paragraphs. `id` is the speech's primary key
+(`r` + start timestamp); `skst` is the speaker's abbreviation.
+
+**Sizing a full speech corpus** (from the 5 s crawl-delay): one request per
+speech means requests, not bytes, are the limit. Þing 156 alone has 13,623
+speeches ≈ 19 h of wall-clock at 5 s; a few decades of data is millions of
+requests. Plan for a resumable, cache-first crawler, per-day batches, and a
+**single-parliament or single-topic scope first**. Total text is modest (a
+speech is ~1–10 KB); the cost is the request count, not storage.
+
+## Laws (lagasafn) — one zip, not 5,000 pages
+
+`https://www.althingi.is/lagasafn/zip/nuna/allt.zip` is every law in force in
+one file; earlier editions since 1995 are at `/lagasafn/zip/<edition>/allt.zip`
+(e.g. `158a`, `157b`; edition list at `/lagasafn/zip-skra-af-lagasafni/`).
+Never crawl `/lagas/` page by page.
 
 ## Historical depth
 
@@ -422,9 +521,14 @@ mapping is in the schema tables above. Values keep their Icelandic characters.
     2025-02-04, but spells run from 2024-11-30, the day after the election that
     produced it.
 
-11. **Speeches are metadata only.** `raedulisti` gives speaker, sitting, times
-    and links to the text and audio — not the text itself. It is also large:
-    12.4 MB and 13,623 speeches for þing 156 alone.
+11. **Speeches are metadata only — and the per-þing list is now blocked.**
+    `raedulisti` gives speaker, sitting, times and links to the text and audio —
+    not the text itself (see [Speech text](#speech-text-and-volume)). It was
+    12.4 MB and 13,623 speeches for þing 156, but as of 2026-11-10
+    `raedulisti/?lthing=156` **returns 429** for closed þing, so
+    `althingi.py fetch --dataset speeches --thing 156` fails with an HTTP error;
+    only the sitting þing still works. The script has not yet been moved to the
+    by-day filter.
 
     Speakers are not all MPs. `<ræðumaður>` carries role elements such as
     `<forsetiÍslands>`; the first speech of þing 156 is by Halla Tómasdóttir,
@@ -459,6 +563,8 @@ mapping is in the schema tables above. Values keep their Icelandic characters.
 
 ## Sources
 
+- Bot policy: <https://www.althingi.is/robots.txt> (`Crawl-delay: 5`) and
+  <https://www.althingi.is/llms.txt> (sanctioned routes, UA-with-contact rule)
 - Endpoint index: <https://www.althingi.is/altext/xml/>
 - Alþingistíðindi XSDs: <http://skema.althingi.is/skema/> — **linked from the
   index but dead**; the host does not resolve
