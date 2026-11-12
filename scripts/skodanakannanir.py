@@ -1213,90 +1213,6 @@ def fetch_visir_article(url: str, topic: str = "parties") -> dict:
     }
 
 
-# --- Heimildin --------------------------------------------------------------
-# No tag page — verified no discovery mechanism exists (no equivalent to
-# RÚV/Vísir's tag pages). But heimildin.is/leit/ (search) works well as one:
-# server-rendered HTML, real <article class="article-item"> cards, genuinely
-# paginated via ?page=N. Regular articles need no auth at all — verified on 3
-# full articles (2 poll stories + the Samherji investigation) rendering
-# complete, comments and all, to a logged-out request. The trailing slash on
-# /leit/ matters: the no-slash form 301-redirects there, and query params on
-# the redirect target still work.
-HEIMILDIN_SEARCH_URL = "https://heimildin.is/leit/"
-
-_HEIMILDIN_ARTICLE_RE = re.compile(r'<article class="article-item[^"]*">(.*?)</article>', re.S)
-_HEIMILDIN_LINK_RE = re.compile(r'href="(/grein/\d+/[^"]+)"')
-# h1 until mid-October 2026, h2 since — accept either rather than chase it again.
-_HEIMILDIN_TITLE_RE = re.compile(r'<h[12] class="article-item__headline">([^<]+)</h[12]>')
-_HEIMILDIN_TIME_RE = re.compile(r'<time class="article-item__pubdate" datetime="([^"]+)"')
-_HEIMILDIN_SUBHEAD_RE = re.compile(
-    r'<div class="article-item__subhead">.*?</time>\s*(.+?)\s*</div>', re.S
-)
-
-
-def _heimildin_id(url_path: str) -> str:
-    # /grein/23196/sjalfstaedisflokkurinn-.../ -> heimildin-23196
-    m = re.search(r"/grein/(\d+)/", url_path)
-    return f"heimildin-{m.group(1)}" if m else f"heimildin-{url_path}"
-
-
-def fetch_heimildin_article_list(
-    query: str = "skoðanakönnun", max_pages: int = 20, stop_before_year: int | None = None
-) -> list[dict]:
-    from html import unescape
-
-    seen = {}
-    for page in range(1, max_pages + 1):
-        params = {"q": query, "page": page} if page > 1 else {"q": query}
-        resp = httpx.get(HEIMILDIN_SEARCH_URL, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
-        resp.raise_for_status()
-        blocks = _HEIMILDIN_ARTICLE_RE.findall(resp.text)
-        if not blocks:
-            break  # end of results
-
-        page_had_recent_enough = False
-        page_dates = []
-        for block in blocks:
-            link_m = _HEIMILDIN_LINK_RE.search(block)
-            title_m = _HEIMILDIN_TITLE_RE.search(block)
-            time_m = _HEIMILDIN_TIME_RE.search(block)
-            if not (link_m and title_m and time_m):
-                continue  # non-article card (ad slot, etc.) — skip, don't guess
-
-            published_at = time_m.group(1).strip().replace(" ", "T") + ":00"
-            page_dates.append(published_at)
-            if stop_before_year and int(published_at[:4]) < stop_before_year:
-                continue
-            page_had_recent_enough = True
-
-            subhead_m = _HEIMILDIN_SUBHEAD_RE.search(block)
-            title = unescape(title_m.group(1)).replace("\xad", "").strip()
-            subtitle = unescape(subhead_m.group(1)).replace("\xad", "").strip() if subhead_m else None
-            url = "https://heimildin.is" + link_m.group(1)
-            article_id = _heimildin_id(link_m.group(1))
-            seen[article_id] = {
-                "id": article_id,
-                "source": "heimildin",
-                "title": title,
-                "subtitle": subtitle,
-                "url": url,
-                "published_at": published_at,
-                "scope": _guess_scope(title, subtitle),
-                "pollster": _guess_pollster(title, subtitle),
-                "topic": _guess_topic(title, subtitle),
-            }
-
-        # Results come in two tiers: ~30 relevance hits in no date order (2015-2024
-        # for the default query), then every other match newest-first. Only a stale
-        # page that is itself date-descending is inside the second tier, where
-        # stale means everything after it is older still.
-        date_descending = page_dates == sorted(page_dates, reverse=True)
-        if stop_before_year and not page_had_recent_enough and date_descending and seen:
-            break
-
-    return sorted(seen.values(), key=lambda r: r["published_at"] or "", reverse=True)
-
-
 def _hours_apart(a: str | None, b: str | None) -> float:
     from datetime import datetime
 
@@ -1311,7 +1227,7 @@ def _hours_apart(a: str | None, b: str | None) -> float:
 
 
 def cross_reference_duplicates(articles: list[dict], window_hours: float = 48) -> list[str]:
-    """Flag Vísir/Heimildin articles that almost certainly cover the same poll as a RÚV one.
+    """Flag Vísir articles that almost certainly cover the same poll as a RÚV one.
 
     Deliberately conservative — the same discipline as the prose parser:
     when a match is ambiguous, leave both records alone rather than guess.
@@ -1325,7 +1241,7 @@ def cross_reference_duplicates(articles: list[dict], window_hours: float = 48) -
     twin?), not a `min()` away.
 
     RÚV is the anchor because it's the only source with actual number
-    extraction wired up (see `fetch`) — Vísir and Heimildin are
+    extraction wired up (see `fetch`) — Vísir is
     discovery-only, so "which article to treat as canonical" isn't a choice
     yet, it's just "the one we can extract from."
 
@@ -1369,8 +1285,6 @@ def cmd_list(args):
         articles += fetch_article_list()
     if args.source in ("visir", "all"):
         articles += fetch_visir_article_list(stop_before_year=args.since)
-    if args.source in ("heimildin", "all"):
-        articles += fetch_heimildin_article_list(stop_before_year=args.since)
 
     dedupe_skipped = []
     if args.source == "all":
@@ -1651,9 +1565,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_list = sub.add_parser("list", help="List poll articles from RÚV, Vísir and/or Heimildin")
+    p_list = sub.add_parser("list", help="List poll articles from RÚV and/or Vísir")
     p_list.add_argument("--scope", choices=["national", "reykjavik"], default=None)
-    p_list.add_argument("--source", choices=["ruv", "visir", "heimildin", "all"], default="ruv")
+    p_list.add_argument("--source", choices=["ruv", "visir", "all"], default="ruv")
     p_list.add_argument(
         "--topic", choices=["parties", "esb"], default=None,
         help="Filter the printed listing to one topic (party support vs. EU-membership polls); "
@@ -1662,7 +1576,7 @@ def main():
     )
     p_list.add_argument(
         "--since", type=int, default=None,
-        help="Earliest year to keep (Vísir and Heimildin — Vísir paginates back through 2021; RÚV's tag window is already short)",
+        help="Earliest year to keep (Vísir — paginates back through 2021; RÚV's tag window is already short)",
     )
     p_list.add_argument("--limit", type=int, default=20)
     p_list.set_defaults(func=cmd_list)
