@@ -100,13 +100,22 @@ def test_sitting_and_speech_timestamps_are_typed(monkeypatch):
         """,
     }
 
+    calls = []
+
     def fake_get_xml(client, path, params=None, force=False, max_age=None):
+        calls.append((path, params))
         return ET.fromstring(documents[path])
 
     monkeypatch.setattr(althingi, "get_xml", fake_get_xml)
 
     sitting = althingi.fetch_sittings(None, [156], False)["sittings"].row(0, named=True)
     speech = althingi.fetch_speeches(None, [156], False)["speeches"].row(0, named=True)
+    # Closed þing: the per-þing list 429s, so speeches are listed per sitting day.
+    assert ("raedulisti/", {"dagur": "20250204"}) in calls
+    assert ("raedulisti/", {"lthing": 156}) not in calls
+    calls.clear()
+    althingi.fetch_speeches(None, [156], False, live_thing=156)
+    assert calls == [("raedulisti/", {"lthing": 156})]
 
     assert isinstance(sitting["dagur"], date)
     assert isinstance(sitting["hefst"], datetime)

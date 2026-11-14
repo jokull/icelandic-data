@@ -28,9 +28,10 @@ ROOT = Path(__file__).parent.parent
 RAW_DIR = ROOT / "data" / "raw" / "althingi"
 PROCESSED_DIR = ROOT / "data" / "processed"
 
-# Alþingi refreshes once per 24h, so politeness costs us nothing. The votes
-# dataset issues ~300 requests for a single parliament.
-REQUEST_DELAY = 0.25
+# robots.txt asks for `Crawl-delay: 5`. Only uncached requests sleep, and closed
+# parliaments are cached forever, so the cost is paid once: the votes dataset
+# issues ~300 requests (~25 min) the first time it fetches a parliament.
+REQUEST_DELAY = 5
 TIMEOUT = 60
 LIVE_CACHE_SECONDS = 24 * 60 * 60
 
@@ -504,14 +505,32 @@ def fetch_sittings(
 def fetch_speeches(
     client: httpx.Client, things: list[int], force: bool, live_thing: int | None = None
 ) -> dict[str, pl.DataFrame]:
-    """Speech metadata. The text is not in this feed — only links to it."""
+    """Speech metadata. The text is not in this feed — only links to it.
+
+    `raedulisti/?lthing=N` answers 429 for a closed parliament (deliberately
+    disabled, since Nov 2026), so closed ones are listed one sitting day at a
+    time via `?dagur=YYYYMMDD`, with the days taken from `thingfundir/`.
+    """
     rows = []
     for thing in things:
-        max_age = LIVE_CACHE_SECONDS if thing == live_thing else None
-        root = get_xml(
-            client, "raedulisti/", {"lthing": thing}, force=force, max_age=max_age
-        )
-        nodes = root.findall("ræða")
+        if thing == live_thing:
+            root = get_xml(
+                client, "raedulisti/", {"lthing": thing}, force=force,
+                max_age=LIVE_CACHE_SECONDS,
+            )
+            nodes = root.findall("ræða")
+        else:
+            days = fetch_sittings(client, [thing], force)["sittings"]["dagur"]
+            nodes = []
+            for day in sorted(set(days.drop_nulls())):
+                root = get_xml(
+                    client, "raedulisti/", {"dagur": day.strftime("%Y%m%d")}, force=force
+                )
+                # A day can straddle two parliaments (late September).
+                nodes += [
+                    n for n in root.findall("ræða")
+                    if text(n, "löggjafarþing") in (None, str(thing))
+                ]
         print(f"  þing {thing}: {len(nodes)} speeches")
         for node in nodes:
             speaker = node.find("ræðumaður")
