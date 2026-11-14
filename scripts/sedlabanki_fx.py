@@ -274,7 +274,31 @@ def build_monthly(fx_path: Path, eur_path: Path, cb_path: Path) -> pl.DataFrame:
     return out
 
 
-LIQUIDITY_URL = "https://cb.is/library/?itemid=6be01de6-0741-4ef9-9b56-9986e5b46ae7"
+# CBI publishes each month's reserves workbook as a new library item, so the
+# link is read off the page at run time. The page is Blazor Server (content
+# arrives over a websocket), so that lookup needs headless Chromium (Tier 2).
+LIQUIDITY_PAGE = "https://cb.is/statistics/international-reserves/"
+
+
+def resolve_liquidity_url() -> str:
+    """Current 'International Reserves <Month YYYY>' library link on LIQUIDITY_PAGE."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as e:  # pragma: no cover
+        raise SystemExit("liquidity needs Playwright + Chromium: uv run playwright install chromium") from e
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(LIQUIDITY_PAGE, wait_until="networkidle", timeout=90_000)
+        links = page.eval_on_selector_all(
+            "a[href*='library/?itemid=']", "els => els.map(a => [a.innerText, a.href])"
+        )
+        browser.close()
+    hits = sorted({href for text, href in links if "reserves" in text.lower()})
+    if len(hits) != 1:
+        raise ValueError(f"Expected one reserves workbook link on {LIQUIDITY_PAGE}, found {links}")
+    return hits[0]
+
 
 def read_liquidity(path: Path) -> pl.DataFrame:
     """SDDS reserve assets and predetermined net drains; preserve source signs."""
@@ -302,13 +326,14 @@ def read_liquidity(path: Path) -> pl.DataFrame:
 def cmd_liquidity():
     RAW_DIR.mkdir(parents=True,exist_ok=True);PROCESSED_DIR.mkdir(parents=True,exist_ok=True)
     with _client() as client:
-        r=client.get(LIQUIDITY_URL);r.raise_for_status()
+        url=resolve_liquidity_url();print(f'Reserve liquidity workbook: {url}')
+        r=client.get(url);r.raise_for_status()
     path=RAW_DIR/'reserve_liquidity.xlsx';path.write_bytes(r.content)
     archive=RAW_DIR/'archive'/(hashlib.sha256(r.content).hexdigest()+'.xlsx')
     archive.parent.mkdir(parents=True,exist_ok=True);archive.write_bytes(r.content)
     df=read_liquidity(path)
     if (date.today()-df['date'].max()).days>75:
-        raise ValueError('Reserve liquidity workbook stale; rediscover link from cb.is/statistics/international-reserves/')
+        raise ValueError(f'Reserve liquidity workbook stale: newest observation {df["date"].max()} from {url}')
     out=PROCESSED_DIR/'sedlabanki_reserve_liquidity.csv';df.write_csv(out)
     print(f'Wrote {len(df)} reserve liquidity rows to {out}')
 
