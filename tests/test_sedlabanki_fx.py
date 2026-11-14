@@ -7,14 +7,18 @@ from scripts.sedlabanki_fx import read_reserves
 def test_reserves_keep_values_in_their_date_columns(tmp_path):
     p = tmp_path / 'reserves.xlsx'
     w = Workbook(); s = w.active; s.title = 'Sedlabanki'
-    s.cell(9,1,'M.kr.');s.cell(60,1,'Gjaldeyrisforði')
+    s.cell(9,1,'M.kr.')
+    # Decoy asset line that also says "gjaldeyrisforða" must not be picked up,
+    # and the row number is deliberately not 60: CBI inserts rows above it.
+    s.cell(31,1,'Aðrar eignir í gjaldeyrisforða / Other reserve assets');s.cell(31,2,999)
+    s.cell(61,1,'Gjaldeyrisforði/ Foreign exchange reserves')
     # Deliberate interior gap: dropping blanks would misalign later columns.
     for col,dt,value in [(2,datetime(2026,1,31),100),(4,datetime(2026,3,31),300)]:
-        s.cell(9,col,dt);s.cell(60,col,value)
+        s.cell(9,col,dt);s.cell(61,col,value)
     w.save(p)
     assert read_reserves(p).to_dicts() == [{'date':date(2026,1,31),'reserves_mkr':100.0},{'date':date(2026,3,31),'reserves_mkr':300.0}]
-    s.cell(60,1,'Unrelated asset row');w.save(p)
-    with pytest.raises(ValueError,match='row or unit'): read_reserves(p)
+    s.cell(61,1,'Unrelated asset row');w.save(p)
+    with pytest.raises(ValueError,match='not found'): read_reserves(p)
 
 
 def test_liquidity_sums_categories_without_double_counting_maturities(tmp_path):
