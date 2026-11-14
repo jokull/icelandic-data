@@ -5,7 +5,7 @@ description: HMS — kaupskrá fasteigna (222k transactions), landeignaskrá par
 
 # HMS - Húsnæðis- og mannvirkjastofnun
 
-**Requires:** Tier 0 (core). Only the landeignaskrá shapefile build needs Tier 1 (maps).
+**Requires:** Tier 0 (core). The landeignaskrá shapefile build needs Tier 1 (maps); mánaðarskýrsla discovery needs Tier 2 (browser).
 
 Property registry and housing market data from Iceland's Housing and Construction Authority.
 
@@ -194,6 +194,39 @@ ETag, newest `UTGAFUDAGUR`) and snapshots each release to
 `price_published` / `rent_published` per row. Quote a rent-index value with
 its `rent_published` date, and diff two release snapshots before claiming a
 month-on-month change.
+
+## Mánaðarskýrsla (Monthly Housing-Market Report)
+
+**Listing:** `https://hms.is/skyrslur` → report pages `manadarskyrsla-{month}-{year}`
+(older slugs use a 2-digit year, e.g. `manadarskyrsla-agust-25`). Released late
+in the month (October 2026 issue: 22 Oct) with a news post under `/frettir/`.
+
+Web-native report (no PDF) plus one workbook, "Myndir að baki mánaðarskýrslu":
+figure sheets `FM.*` (fasteignamarkaður), `LEIGA.*`, `LM.*` (lánamarkaður),
+`BM.*` (byggingarmarkaður), and one manifest sheet per section (figure id →
+title). Row 1 of a figure sheet is its title and row 2 usually the header; the
+script skips a subtitle row (BM.3) and names columns `colN` when there is no
+header (BM.6), so check a one-off figure's CSV header before trusting it. Each issue has
+its own theme and figure set (September and October 2026 share only FM.1–FM.2),
+so ids mean nothing across workbooks — match on the title in `figures.csv`.
+
+The workbook sits on Prismic's CDN under a random asset id, so its URL must be
+read off the (Vercel-guarded) report page; `scripts/hms_manadarskyrsla.py` does
+that with headless Chromium and archives each month with the rendered page text:
+
+```bash
+uv run python scripts/hms_manadarskyrsla.py list      # mánaðarskýrslur on the listing page
+uv run python scripts/hms_manadarskyrsla.py           # fetch newest -> data/raw/hms/manadarskyrsla/{YYYY-MM}/
+uv run python scripts/hms_manadarskyrsla.py fetch manadarskyrsla-september-2026
+uv run python scripts/hms_manadarskyrsla.py process   # -> data/processed/hms_manadarskyrsla/{YYYY-MM}/{sheet}.csv
+```
+
+Gotchas: the newest month of kaupsamningar (FM.1) is preliminary — þinglýsing
+lags, so it is revised up the following month. Shares are fractions (0.035), but
+LM.3 is in percent (35.0). No health probe: hms.is answers httpx with the
+checkpoint page and the CDN URL cannot be predicted. `page.txt` length varies
+between renders of the same issue, so don't diff it to detect revisions; diff the
+workbook CSVs.
 
 ## Húsnæðisáætlanir (Housing Plans)
 
