@@ -19,14 +19,9 @@ rent-index value quoted last month can differ from the same month today.
 The per-row publication date is carried through as `rent_published` /
 `price_published`, and each release is snapshotted so revisions can be diffed.
 
-The kaupvisitala file has regional breakdowns (national, capital area, landsbyggð,
-and sérbýli/fjölbýli by region). The leiguvisitala CSV is NATIONAL ONLY — no
-regional disaggregation is published (HMS has an interactive dashboard
-'Leiguverðsja' for region filters, but the static CSV is national only).
-
-We produce a long format with region ∈ {national, capital_area, rest_of_country}.
-The rental index is populated only for 'national' (rebased so national price and
-national rent both = 100 at 2023-05, the first rent observation).
+The purchase index has national and regional breakdowns. The public rent
+index covers capital-area market rents in recent contracts, not all Iceland.
+Rent is attached only to capital_area; comparisons use matching geography.
 """
 from __future__ import annotations
 
@@ -99,7 +94,7 @@ def load_leigu() -> pl.DataFrame:
             1,
         ).alias("date"),
         published_col(),
-    ).select("date", pl.col("published").alias("rent_published"), pl.col("VISITALA").alias("rent_national"))
+    ).select("date", pl.col("published").alias("rent_published"), pl.col("VISITALA").alias("rent_capital_area"))
     return df.sort("date")
 
 
@@ -184,8 +179,8 @@ def cmd_process(args: argparse.Namespace) -> None:
         value_name="price_index",
     )
 
-    rent_long = leigu.rename({"rent_national": "rent_index"}).with_columns(
-        pl.lit("national").alias("region"),
+    rent_long = leigu.rename({"rent_capital_area": "rent_index"}).with_columns(
+        pl.lit("capital_area").alias("region"),
     )
 
     merged = price_long.join(rent_long, on=["date", "region"], how="left")
@@ -234,16 +229,16 @@ def cmd_process(args: argparse.Namespace) -> None:
 
     # Cumulative divergence since 2023-05 (anchor for both = 100)
     print("\nCumulative change since 2023-05 (both anchored at 100):")
-    latest_national_row = (
-        merged.filter(pl.col("region") == "national")
+    latest_capital_row = (
+        merged.filter(pl.col("region") == "capital_area")
         .filter(pl.col("rent_index").is_not_null())
         .sort("date")
         .tail(1)
     )
-    p = latest_national_row["price_index"].item()
-    r = latest_national_row["rent_index"].item()
-    d = latest_national_row["date"].item()
-    print(f"  As of {d}: national price_index={p:.1f}, rent_index={r:.1f}")
+    p = latest_capital_row["price_index"].item()
+    r = latest_capital_row["rent_index"].item()
+    d = latest_capital_row["date"].item()
+    print(f"  As of {d}: capital-area price_index={p:.1f}, rent_index={r:.1f}")
     print(f"  Price cum Δ = {p - 100:+.1f} pts, Rent cum Δ = {r - 100:+.1f} pts")
     print(f"  Divergence (price − rent) = {p - r:+.1f} pts")
 

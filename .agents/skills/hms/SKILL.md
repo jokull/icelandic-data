@@ -179,7 +179,8 @@ uv run python scripts/hms_indices.py          # → data/processed/hms_rent_vs_p
 
 **Columns:** `UTGAFUDAGUR` (publication date — blank on old kaupvísitala rows),
 `AR`, `MANUDUR`, `VISITALA`, then regional splits. The kaupvísitala file has
-regional breakdowns; the leiguvísitala CSV is **national only**. Note the
+regional breakdowns; the leiguvísitala CSV is **capital area only** (höfuðborgarsvæðið,
+new contracts) — see the coverage correction below. Note the
 monthly publication cadence: the newest `UTGAFUDAGUR` can lag a
 month or two.
 
@@ -273,3 +274,7 @@ Open data, attribution required: "Byggir á upplýsingum frá Húsnæðis- og ma
 ## Public CSV download CLI
 
 `scripts/hms_public.py kaupvisitala|leiguvisitala|kaupskra --out /path/output.csv` downloads public object-storage files and archives original bytes by hash. Index CSVs are UTF-8; purchase registry is converted from ISO-8859-1. This does not apply market filters or infer completed/unsold housing.
+
+## Public rent index coverage correction
+
+`leiguvisitala.csv` covers capital-area market rents in recent contracts, not a national rent index. `hms_indices.py` attaches rent only to `capital_area`. Do not compare its geographic coverage silently with the national purchase index. HMS: "Leiguvísitala HMS er einungis fyrir höfuðborgarsvæðið" (verified 2026-11-14), https://hms.is/frettir/visitolur-hms-eru-olikar-maelingum-hagstofu-islands-a-husnaediskostnadi
