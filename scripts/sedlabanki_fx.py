@@ -68,7 +68,18 @@ FX_SERIES = {
 
 # "Sedlabanki" sheet row numbers in the balance-sheet workbook (stable layout)
 _CB_ROW_DATES = 9
-_CB_ROW_RESERVES = 60  # Liðir til skýringar: Gjaldeyrisforði (erlendar eignir, a-f)
+# The reserves row is found by label, not number: CBI inserts balance-sheet lines
+# above it (row 60 -> 61 in Nov 2026). Match the line itself, not the
+# "Aðrar eignir í gjaldeyrisforða" asset line that also contains the word.
+_CB_RESERVES_LABEL = "Gjaldeyrisforði/"
+
+
+def reserves_row_index(ws) -> int:
+    """1-based row of the 'Gjaldeyrisforði/ Foreign exchange reserves' memo line."""
+    for i, (label,) in enumerate(ws.iter_rows(min_col=1, max_col=1, values_only=True), 1):
+        if isinstance(label, str) and label.strip().startswith(_CB_RESERVES_LABEL):
+            return i
+    raise ValueError("CBI reserves row 'Gjaldeyrisforði/' not found in Sedlabanki sheet")
 
 
 def _client() -> httpx.Client:
@@ -177,7 +188,8 @@ def read_reserves(path: Path) -> pl.DataFrame:
     wb = load_workbook(path, data_only=True)
     ws = wb["Sedlabanki"]
     dates = next(ws.iter_rows(min_row=_CB_ROW_DATES, max_row=_CB_ROW_DATES, values_only=True))
-    reserve_row = next(ws.iter_rows(min_row=_CB_ROW_RESERVES, max_row=_CB_ROW_RESERVES, values_only=True))
+    r_idx = reserves_row_index(ws)
+    reserve_row = next(ws.iter_rows(min_row=r_idx, max_row=r_idx, values_only=True))
     if "Gjaldeyrisforði" not in str(reserve_row[0]) or dates[0] != "M.kr.":
         raise ValueError("CBI reserve row or unit changed")
     rows = []

@@ -90,9 +90,10 @@ def test_reserve_workbook_date_and_value_columns(http):
     r=http.post(PROXY,json={'url':url})
     assert r.status_code==200, f'reserves proxy -> {r.status_code}'
     w=load_workbook(BytesIO(r.content),read_only=True,data_only=True)
+    from scripts.sedlabanki_fx import reserves_row_index
     s=w['Sedlabanki']
     assert s.cell(9,1).value=='M.kr.'
-    assert 'Gjaldeyrisforði' in str(s.cell(60,1).value)
+    row=reserves_row_index(s)  # by label: CBI inserts rows above it
     assert isinstance(s.cell(9,2).value,datetime)
-    assert isinstance(s.cell(60,2).value,(float,int))
+    assert isinstance(s.cell(row,2).value,(float,int)), f'reserves row {row} col B not numeric'
     w.close()
