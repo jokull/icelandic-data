@@ -1,6 +1,6 @@
 ---
 name: althingi
-description: Alþingi XML — MPs, per-MP vote records, bills, committees, speeches, ministers, lobbying submissions. Use for Icelandic parliamentary analysis.
+description: Alþingi — speech search/text via althingi.solberg.is (MCP); XML for MPs, per-MP votes, bills, committees, ministers, submissions.
 ---
 
 # Alþingi — Parliament XML
@@ -10,6 +10,31 @@ description: Alþingi XML — MPs, per-MP vote records, bills, committees, speec
 Open XML feeds from the Alþingi database: every MP since 1875, per-MP roll-call
 votes, the parliamentary matter catalogue, committee membership, speeches, ministerial
 appointments and consultation submissions.
+
+## Speech text and search: use althingi.solberg.is first
+
+**<https://althingi.solberg.is>** (Jökull's own project) already holds what the
+XML makes expensive: full speech text for þing 115–158 (Oct 1991 onward, ~350k
+speeches), Icelandic-aware lemmatized search, votes with every member's ballot,
+members, parties, sittings and the law collection. Public, read-only, no sign-in.
+
+- **MCP:** `https://althingi.solberg.is/mcp`
+  (`claude mcp add --transport http althingi https://althingi.solberg.is/mcp`).
+  Richest route; `topic_timeline(q="veiðigjald")` answers "how has the debate
+  on X evolved" in one call.
+- **Plain HTTP:** `/leit.json?q=…` (cursor-paged search, see `/openapi.json`),
+  and every page has a Markdown twin: append `.md`
+  (e.g. `/mal/157/a/300.md`, `/raedur/rad20180306T163325.md`).
+- **Guide:** `/llms.txt`, full tool list in `/llms-full.txt`.
+- **Queries are Icelandic keywords, not questions;** any inflection matches.
+  Put people, parties, dates and matters in filters, not in the query.
+- **Limits:** 60 MCP requests/min per IP, bursts over 40 / 10 s blocked.
+  For bulk use, ask rather than crawl.
+
+Use the XML below for tidy tables this repo builds (`scripts/althingi.py`:
+members, votes, bills, committees, sittings, speech metadata) and for anything
+older than þing 115. **Never build a speech-text crawler against althingi.is**:
+the corpus already exists at althingi.solberg.is.
 
 ## API
 
@@ -25,7 +50,7 @@ Alþingi is explicit about how robots should behave, in three places that agree
 
 | Rule | Source | What it means for us |
 |------|--------|----------------------|
-| `Crawl-delay: 5` | `robots.txt` | **5 s between requests.** Our script uses 0.25 s — fine for ~300 requests, not for a bulk crawl |
+| `Crawl-delay: 5` | `robots.txt` | **5 s between requests.** `scripts/althingi.py` sleeps 5 s after every uncached request |
 | "Use the XML service and the law-collection zip" | `llms.txt` | Sanctioned routes only: `/altext/xml/…` and `/lagasafn/zip/…` |
 | "Use a descriptive User-Agent that includes contact information" | `llms.txt` | `name/version (purpose; contact-email)`, not a bare library UA |
 | "Do not fetch the same document repeatedly"; closed sessions rarely change | `llms.txt` | Cache raw XML forever for closed þing (the script does) |
@@ -200,12 +225,10 @@ service: it **does** have a (dead-hosted) XSD and a default namespace
 Text = `ræðutexti/mgr` paragraphs. `id` is the speech's primary key
 (`r` + start timestamp); `skst` is the speaker's abbreviation.
 
-**Sizing a full speech corpus** (from the 5 s crawl-delay): one request per
-speech means requests, not bytes, are the limit. Þing 156 alone has 13,623
-speeches ≈ 19 h of wall-clock at 5 s; a few decades of data is millions of
-requests. Plan for a resumable, cache-first crawler, per-day batches, and a
-**single-parliament or single-topic scope first**. Total text is modest (a
-speech is ~1–10 KB); the cost is the request count, not storage.
+**Don't crawl speech text from althingi.is.** One request per speech at the
+5 s crawl-delay is ~19 h for þing 156 alone. The whole text corpus since 1991
+is already searchable and citable at althingi.solberg.is (see the top of this
+skill); fetch single speeches here only for something it doesn't cover.
 
 ## Laws (lagasafn) — one zip, not 5,000 pages
 
@@ -526,9 +549,10 @@ mapping is in the schema tables above. Values keep their Icelandic characters.
     not the text itself (see [Speech text](#speech-text-and-volume)). It was
     12.4 MB and 13,623 speeches for þing 156, but as of 2026-11-10
     `raedulisti/?lthing=156` **returns 429** for closed þing, so
-    `althingi.py fetch --dataset speeches --thing 156` fails with an HTTP error;
-    only the sitting þing still works. The script has not yet been moved to the
-    by-day filter.
+    `althingi.py fetch --dataset speeches` uses it only for the sitting þing and
+    lists closed ones one sitting day at a time (`?dagur=`, days from
+    `thingfundir/`): ~130 requests × 5 s the first time, cached forever after.
+    For speech **text**, use althingi.solberg.is instead.
 
     Speakers are not all MPs. `<ræðumaður>` carries role elements such as
     `<forsetiÍslands>`; the first speech of þing 156 is by Halla Tómasdóttir,
