@@ -105,6 +105,19 @@ budget balance (e.g. the 2008–2011 crisis deficits) comes from these tables.
 `scripts/hagstofan_rikissjod.py fetch` builds
 `data/processed/rikissjod_balance.csv` (all years, wide, m.kr).
 
+### Wages, employment and housing by municipality
+
+| Table | Path under `/is/` | Notes |
+|---|---|---|
+| `TEK01002` | `Samfelag/launogtekjur/3_tekjur/1_tekjur_skattframtol` | Income by sveitarfélag (1 Jan 2026 layout), 1990–2025. Codes: Tekjur og skattar 1=Atvinnutekjur, 5=Ráðstöfunartekjur; Eining 0=mean skilyrt, 2=median skilyrt, 4=count. Thousand kr/year. Includes part-time and part-year earners. |
+| `TEK01007` | same | Percentiles (10–99%) of atvinnutekjur by age (`Y25-64` etc.), national, 1990–2025. |
+| `TEK02003` | `Samfelag/launogtekjur/3_tekjur/0_stadgreidsla` | Monthly withholding wage payments (m.kr.) and persons paid, by **búseta incl. every municipality** and industry, 2008–. Full municipal names (e.g. `Reykjavíkurborg`, `Akureyrarbær`). Amount ÷ persons gives wage per paid month. |
+| `VIN10012` | `Samfelag/vinnumarkadur/vinnuaflskraargogn` | Employed by residence (landshluti + municipality), monthly 2003–; Bakgrunnur erlendur/íslenskur. Borgarbyggð and Skorradalshreppur reported together. |
+| `VIN01104` | `Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur` | LFS: full-time share and hours, Reykjavík / nágrenni / utan höfuðborgarsvæðis, 1991–2025. |
+| `VIN02002` | `Samfelag/launogtekjur/1_laun/1_laun` | Wage survey: full-time regular/total wages, national, 2014–2025. |
+| `SAM01603` | `Atvinnuvegir/ferdathjonusta/Gisting/3_allartegundirgististada` | Guest nights, all registered accommodation, **by municipality**, 1998–2025; dims include Mánuður (0 = whole year). Suppressed cells (`..`): Garðabær 2019–24, Kjósarhreppur 2024. |
+| `LFI03305`, `LIF03307`, `LIF03217` | `Samfelag/lifskjor/4_husnaedismal/...` | SILC housing-cost overburden by tenure / income quintile, tenure by area; series end 2021–22. |
+
 ## Tariff Codes (Bikes/E-bikes)
 
 Classification changed in 2020:

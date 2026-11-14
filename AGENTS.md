@@ -251,6 +251,10 @@ uv run python scripts/hms_indices.py           # -> data/processed/hms_rent_vs_p
 uv run python scripts/kaupskra_fetch.py        # -> data/raw/hms/kaupskra_utf8.csv
 uv run python scripts/kaupskra_fetch.py report
 
+# HMS mánaðarskýrsla: newest monthly report's workbook + page text (headless Chromium for discovery)
+uv run python scripts/hms_manadarskyrsla.py           # -> data/processed/hms_manadarskyrsla/{YYYY-MM}/{sheet}.csv
+uv run python scripts/hms_manadarskyrsla.py list
+
 # HMS húsnæðisáætlanir (annual housing plans): completions vs need, waitlists, plots
 uv run python scripts/hms_housing_plans.py            # parse the newest local workbook
 uv run python scripts/hms_housing_plans.py --year 2026
