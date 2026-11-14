@@ -5,7 +5,7 @@ description: Central Bank of Iceland — SDMX balance sheets + new credit, key i
 
 # Seðlabanki Íslands (Central Bank of Iceland)
 
-**Requires:** Tier 0 (core) for SDMX and FX; Tier 2 (browser) for the gagnabanki interest-rate scrape.
+**Requires:** Tier 0 (core) for SDMX and FX; Tier 2 (browser) for the gagnabanki interest-rate scrape and `sedlabanki_fx.py liquidity` link discovery.
 
 Monetary and financial statistics: interest rates, balance sheets, and new credit.
 
@@ -331,4 +331,4 @@ Policy rate can be fetched without Power BI: XML timeseries `TimeSeriesID=17923`
 
 `sedlabanki_fx.py fetch` now retains gross `purchases_mkr` and `sales_mkr` alongside net purchases. It preserves missing values, archives raw downloads by hash, and reads reserve dates and values from the same workbook column. The old reader erroneously paired a date with the next month's reserve value; regenerate cached reserve outputs. FX trades are not all discretionary intervention: regular reserve accumulation is included.
 
-`uv run python scripts/sedlabanki_fx.py liquidity` exports `sedlabanki_reserve_liquidity.csv`: date, reserve_assets_mkr, net_drains_12m_mkr. Source: https://cb.is/library/?itemid=6be01de6-0741-4ef9-9b56-9986e5b46ae7 (linked from https://cb.is/statistics/international-reserves/). Sheet I column B is gross reserves; sheet II columns B+V+AE are scheduled loans/deposits/securities, forwards/futures and other net flows. Flip source sign so positive net drains mean expected outflows. Do not add maturity subcategories again. Units M.kr., month-end; contingent drains are excluded. Latest figures preliminary. This is a history workbook; if latest observation exceeds 75 days, the CLI fails and the download link must be rediscovered. Gross reserves less scheduled drains is not an official reserve-adequacy measure.
+`uv run python scripts/sedlabanki_fx.py liquidity` exports `sedlabanki_reserve_liquidity.csv`: date, reserve_assets_mkr, net_drains_12m_mkr. Source: the "International Reserves <Month YYYY>" workbook linked from https://cb.is/statistics/international-reserves/. CBI posts each month as a new library item (`itemid` changes), and the page is Blazor Server, so the CLI reads the link with headless Chromium on every run; the download itself is httpx. Sheet I column B is gross reserves; sheet II columns B+V+AE are scheduled loans/deposits/securities, forwards/futures and other net flows. Flip source sign so positive net drains mean expected outflows. Do not add maturity subcategories again. Units M.kr., month-end; contingent drains are excluded. Latest figures preliminary. This is a history workbook; if the latest observation is over 75 days old the CLI fails, which now means CBI stopped updating, not a stale link. Gross reserves less scheduled drains is not an official reserve-adequacy measure.
