@@ -50,7 +50,9 @@ from rasterio.warp import calculate_default_transform, reproject
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from utils.cache import (  # noqa: E402
-    CacheMissingError, cached_array, iceland_constants,
+    CacheMissingError,
+    cached_array,
+    iceland_constants,
 )
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -244,7 +246,6 @@ def main() -> None:
 
     # ── statistics ────────────────────────────────────────────────────────
     valid = ~np.isnan(prob_3057)
-    n_valid = int(valid.sum())
     n_over_50 = int(((prob_3057 > 50.0) & valid).sum())
     n_any = int((valid).sum())
     area_over_50_km2 = n_over_50 * pixel_area_m2 / 1e6

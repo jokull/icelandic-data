@@ -15,6 +15,7 @@ appended to ``data/raw/hagstofan/query/index.jsonl`` keyed by table and
 LAST-UPDATED, so a vintage can be named and revisions can be diffed.
 """
 from __future__ import annotations
+
 import argparse
 import hashlib
 import html
@@ -22,8 +23,9 @@ import itertools
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 import httpx
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -170,7 +172,7 @@ def record_fetch(path: str, filters: dict, since: str, last_updated: str | None,
     vintage with different raw_sha256 are a revision. Curated scripts call
     this too, so the index covers every Hagstofan fetch the repo makes."""
     RAW_DIR.mkdir(parents=True, exist_ok=True)
-    fetched_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    fetched_at = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
     with (RAW_DIR / 'index.jsonl').open('a', encoding='utf-8') as f:
         f.write(json.dumps({'fetched_at': fetched_at, 'path': path, 'last_updated': last_updated,
                             'filters': filters, 'since': since, 'raw_sha256': sha}, ensure_ascii=False) + '\n')
@@ -198,7 +200,7 @@ def document_table(c, path: str, query: list, sidecar: dict) -> dict | None:
     entry = sidecar.get(code)
     if entry is None:
         sidecar[code] = {'path': path, 'last_updated': doc['last_updated'],
-                         'fetched_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                         'fetched_at': datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),
                          'units': doc['units'], 'refperiod': doc['refperiod'], 'notes': doc['notes'],
                          'value_notes': list(doc['value_notes']), 'links': list(doc['links'])}
         print(f"{code}: last updated {doc['last_updated']}, {sum(map(len, doc['notes'].values()))} notes", file=sys.stderr)
@@ -304,7 +306,7 @@ def main():
             print(render_notes(fetch_header(c, a.path, header_query(meta)), meta['title']));return
         filters=json.loads(a.filters)
         q = build_query(meta, filters, a.since)
-        fetched_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        fetched_at = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
         r=c.post(BASE+a.path,json={'query':q,'response':{'format':'json-stat2'}});r.raise_for_status()
         doc = fetch_header(c, a.path, q)
         sha=hashlib.sha256(r.content).hexdigest();raw=RAW_DIR/f'{sha}.json';raw.parent.mkdir(parents=True,exist_ok=True);raw.write_bytes(r.content)

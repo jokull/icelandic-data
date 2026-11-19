@@ -22,16 +22,15 @@ from __future__ import annotations
 
 import json
 
-
 from scripts.skodanakannanir import (
-    TAG_URL,
-    VISIR_TAG_URL,
-    _find_articles,
     _NEXT_DATA_RE,
     _VISIR_ARTICLE_RE,
     _VISIR_LINK_RE,
     _VISIR_TIME_RE,
     _VISIR_TITLE_RE,
+    TAG_URL,
+    VISIR_TAG_URL,
+    _find_articles,
 )
 
 

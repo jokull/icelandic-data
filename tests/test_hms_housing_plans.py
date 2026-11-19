@@ -124,6 +124,7 @@ def test_plot_need_year_is_read_from_the_workbook(tmp_path):
 
 def test_completions_consumer_keeps_history_and_excludes_forecasts(tmp_path,monkeypatch):
     import argparse
+
     from scripts import housing_completions as m
     p=tmp_path/'hms.csv';p.write_text('year,completed_national\n2025,3400\n2026,\n',encoding='utf-8')
     monkeypatch.setattr(m,'HMS_PROCESSED',p);monkeypatch.setattr(m,'DST',tmp_path/'merged.csv')
@@ -135,6 +136,7 @@ def test_completions_consumer_keeps_history_and_excludes_forecasts(tmp_path,monk
 
 def test_invalid_present_completions_file_does_not_fall_back(tmp_path,monkeypatch):
     import pytest
+
     from scripts import housing_completions as m
     p=tmp_path/'hms.csv';monkeypatch.setattr(m,'HMS_PROCESSED',p)
     for content in ['year,completed_national\n2025,\n','year,completed_national\n2025,3.5\n','year,completed_national\n2025,1\n2025,2\n']:

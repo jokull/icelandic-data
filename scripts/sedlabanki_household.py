@@ -4,11 +4,17 @@
 JSON output retains coverage. Mortgage bank values and pension household lending
 are published in ISK millions. No assumption that pension lending is bank lending.
 """
-import argparse,csv,hashlib,io,json
+import argparse
+import csv
+import hashlib
+import io
+import json
 from datetime import datetime
 from pathlib import Path
+
 import httpx
 from openpyxl import load_workbook
+
 ROOT=Path(__file__).resolve().parent.parent
 BANK='https://sedlabanki.is/library?itemid=b73e42d6-ba32-4eb3-b39e-1c70d2e45aec'
 PENSION='https://fr.sedlabanki.is/sdmx/v2/table/IS2_EXT/LIF_NEW_LOANS_TOTAL/1.0?format=xlsx'

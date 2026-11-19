@@ -9,7 +9,7 @@ import asyncio
 import json
 import re
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -1045,9 +1045,9 @@ async def company_command(kennitala: str, year: int | None, output_format: str) 
     try:
         # Try relative import first, then absolute
         try:
-            from skatturinn import get_company_info, download_annual_report
+            from skatturinn import download_annual_report, get_company_info
         except ImportError:
-            from scripts.skatturinn import get_company_info, download_annual_report
+            from scripts.skatturinn import download_annual_report, get_company_info
         from playwright.async_api import async_playwright
     except ImportError as e:
         print(f"Import error: {e}")
@@ -1139,8 +1139,9 @@ async def company_command(kennitala: str, year: int | None, output_format: str) 
 async def bank_command(kennitala: str, year: int | None, output_format: str) -> None:
     """Full pipeline for bank annual reports: download PDF and extract with bank-specific patterns."""
     try:
-        from scripts.skatturinn import get_company_info, download_annual_report
         from playwright.async_api import async_playwright
+
+        from scripts.skatturinn import download_annual_report, get_company_info
     except ImportError as e:
         print(f"Import error: {e}")
         print("Make sure skatturinn.py and playwright are available")

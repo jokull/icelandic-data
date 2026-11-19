@@ -21,7 +21,7 @@ is NO `limit` parameter (it 422s). Queries are bounded with start_time instead.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from xml.etree import ElementTree
 
 import pytest
@@ -34,7 +34,7 @@ LEGACY_OBS = "https://xmlweather.vedur.is/?op_w=xml&type=obs&lang=en&view=xml&id
 
 
 def _since(hours: int) -> str:
-    return (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S")
+    return (datetime.now(UTC) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 # --------------------------------------------------------------------------

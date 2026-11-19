@@ -13,7 +13,6 @@ import pytest
 
 from scripts import co2
 
-
 # --------------------------------------------------------------------------
 # Fixture — minimal HTML mirroring one Webflow viðfangsefni page
 # --------------------------------------------------------------------------

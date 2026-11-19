@@ -83,8 +83,9 @@ def test_proxy_reports_a_missing_table_rather_than_lying(http):
 
 
 def test_reserve_workbook_date_and_value_columns(http):
-    from io import BytesIO
     from datetime import datetime
+    from io import BytesIO
+
     from openpyxl import load_workbook
     url='https://sedlabanki.is/library?itemid=c0126d81-fd88-42bd-aee3-449e09b9089f'
     r=http.post(PROXY,json={'url':url})

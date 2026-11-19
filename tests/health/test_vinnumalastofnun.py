@@ -10,11 +10,11 @@ from datetime import timedelta
 import pytest
 
 from scripts.vinnumalastofnun import (
-    resolve_excel,
     LANDING,
     POWERBI_PAGE,
     POWERBI_REPORT_KEY,
     _embed_url,
+    resolve_excel,
 )
 from tests.health.conftest import assert_fresh
 

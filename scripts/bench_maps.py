@@ -28,7 +28,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -113,7 +113,7 @@ def _run_one(name: str, *, mode: str) -> dict:
 
     # Best-effort peak-memory: psutil if available, else just wall time.
     try:
-        import psutil   # type: ignore
+        import psutil  # type: ignore
         have_psutil = True
     except ImportError:
         have_psutil = False
@@ -231,7 +231,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     _build_cache_if_needed()
 
     record = {
-        "built_at": datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
+        "built_at": datetime.now(tz=UTC).isoformat(timespec="seconds"),
         "mode": args.mode,
         "python": sys.version.split()[0],
         "platform": sys.platform,

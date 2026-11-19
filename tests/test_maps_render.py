@@ -12,7 +12,6 @@ import pytest
 
 pytest.importorskip("numpy", reason="maps tier not installed (uv sync --group maps)")
 import numpy as np  # noqa: E402
-
 from PIL import Image
 
 from scripts.utils.cache import CONSTANTS_PATH, ROOT

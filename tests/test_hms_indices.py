@@ -1,6 +1,8 @@
 import argparse
+
 import httpx
 import pytest
+
 from scripts import hms_indices as m
 
 
@@ -16,7 +18,8 @@ def test_failed_second_index_download_preserves_both_previous_files(tmp_path,mon
 
 
 def test_published_col_blank_is_null():
-    import polars as pl
     from datetime import date
+
+    import polars as pl
     df = pl.DataFrame({"UTGAFUDAGUR": [" ", "2026-08-26"]}).with_columns(m.published_col())
     assert df["published"].to_list() == [None, date(2026, 8, 26)]

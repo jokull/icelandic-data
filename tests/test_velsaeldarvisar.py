@@ -14,7 +14,6 @@ import pytest
 
 from scripts import velsaeldarvisar as vv
 
-
 # --------------------------------------------------------------------------
 # Fixture: minimal HTML mirroring the live Webflow structure
 # --------------------------------------------------------------------------

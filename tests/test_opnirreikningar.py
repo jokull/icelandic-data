@@ -1,4 +1,5 @@
 from datetime import date
+
 from scripts.opnirreikningar import coverage_warning
 
 

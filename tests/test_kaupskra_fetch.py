@@ -24,9 +24,11 @@ def test_latin1_to_utf8_is_utf8_reencodable():
 
 def test_invalid_download_preserves_previous_copy(tmp_path, monkeypatch):
     import argparse
+    from contextlib import contextmanager
+
     import httpx
     import pytest
-    from contextlib import contextmanager
+
     from scripts import kaupskra_fetch as m
     monkeypatch.setattr(m,'RAW_DIR',tmp_path)
     monkeypatch.setattr(m,'DST',tmp_path/'kaupskra_utf8.csv')
@@ -42,8 +44,10 @@ def test_invalid_download_preserves_previous_copy(tmp_path, monkeypatch):
 
 def test_download_validates_and_retains_original_encoding(tmp_path, monkeypatch):
     import argparse
-    import httpx
     from contextlib import contextmanager
+
+    import httpx
+
     from scripts import kaupskra_fetch as m
     monkeypatch.setattr(m,'RAW_DIR',tmp_path);monkeypatch.setattr(m,'DST',tmp_path/'kaupskra_utf8.csv')
     raw='FAERSLUNUMER;THINGLYSTDAGS;UTGDAG;TEGUND\n1;2026-08-31 00:00:00.0;2026-08-01;Fjölbýli\n'.encode('latin1')

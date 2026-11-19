@@ -746,9 +746,11 @@ def extract_esb_prose_figures(paragraphs: list[str]) -> tuple[list[dict], list[s
                     # behaviors.
                     no_marker_gap = len(sentence)
 
-                    def _current_vs_historical_rank(pm):
-                        cur_d = min((_point_gap(pm, p) for p in current_markers), default=no_marker_gap)
-                        hist_d = min((_point_gap(pm, p) for p in historical_markers), default=no_marker_gap)
+                    def _current_vs_historical_rank(
+                        pm, cur=current_markers, hist=historical_markers, gap=no_marker_gap
+                    ):
+                        cur_d = min((_point_gap(pm, p) for p in cur), default=gap)
+                        hist_d = min((_point_gap(pm, p) for p in hist), default=gap)
                         return cur_d - hist_d
 
                     chosen = min(percent_matches, key=_current_vs_historical_rank)

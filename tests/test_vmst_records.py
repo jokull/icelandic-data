@@ -1,7 +1,9 @@
 import io
 from datetime import datetime
+
 import pytest
 from openpyxl import Workbook
+
 from scripts.vinnumalastofnun import parse_records, resolve_excel
 
 

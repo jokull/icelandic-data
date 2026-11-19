@@ -100,7 +100,7 @@ def fetch_recent_from_api(start: date, end: date, station_id: str) -> pl.DataFra
                 station_data = data.get(station_id, {})
                 if isinstance(station_data, dict):
                     pm10 = station_data.get("parameters", {}).get("PM10", {})
-                    for k, v in pm10.items():
+                    for _k, v in pm10.items():
                         if isinstance(v, dict) and "value" in v:
                             try:
                                 rows.append({

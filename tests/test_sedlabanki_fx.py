@@ -1,6 +1,8 @@
-from datetime import datetime, date
-from openpyxl import Workbook
+from datetime import date, datetime
+
 import pytest
+from openpyxl import Workbook
+
 from scripts.sedlabanki_fx import read_reserves
 
 
@@ -34,6 +36,7 @@ def test_liquidity_sums_categories_without_double_counting_maturities(tmp_path):
 
 def test_monthly_preserves_gross_and_net_trades(tmp_path,monkeypatch):
     import polars as pl
+
     from scripts import sedlabanki_fx as m
     day=date(2026,1,30)
     fx=pl.DataFrame({'date':[day]*4,'series_id':[282,284,285,287],'value_mkr':[1.,100.,20.,30.]})

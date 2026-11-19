@@ -10,7 +10,6 @@ from pathlib import Path
 import polars as pl
 from openpyxl import load_workbook
 
-
 RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / "sedlabanki"
 PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
 

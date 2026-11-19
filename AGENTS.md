@@ -427,6 +427,7 @@ uv run pytest tests/test_cache_consistency.py tests/test_maps_render.py -v
 ## Tests and source health
 
 ```bash
+uv run ruff check . --fix              # lint — every selected rule is a CI error; no warnings
 uv run pytest -m "not slow"            # fast, offline — what PR CI runs
 uv run pytest -m slow                  # network + Playwright integration tests
 

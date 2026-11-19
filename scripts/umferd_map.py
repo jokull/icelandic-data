@@ -161,7 +161,7 @@ def main():
     # Sort by count so large dots are drawn on top
     order = np.argsort(counts)
     lons_s, lats_s = lons[order], lats[order]
-    counts_s, log_s, sizes_s = counts[order], log_counts[order], sizes[order]
+    _counts_s, log_s, sizes_s = counts[order], log_counts[order], sizes[order]
 
     # Outer glow
     ax.scatter(lons_s, lats_s, s=sizes_s * 1.8, c=log_s, cmap=cmap, norm=norm,
@@ -170,7 +170,7 @@ def main():
     ax.scatter(lons_s, lats_s, s=sizes_s * 1.25, c=log_s, cmap=cmap, norm=norm,
                alpha=0.20, edgecolors="none", zorder=12)
     # Core dot
-    sc = ax.scatter(lons_s, lats_s, s=sizes_s, c=log_s, cmap=cmap, norm=norm,
+    ax.scatter(lons_s, lats_s, s=sizes_s, c=log_s, cmap=cmap, norm=norm,
                     alpha=0.85, edgecolors="white", linewidths=0.4, zorder=13)
 
     # --- Label busiest stations ---

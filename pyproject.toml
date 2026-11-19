@@ -22,6 +22,7 @@ dependencies = [
 dev = [
     "ipython>=8.0",
     "pytest>=8.0",
+    "ruff==0.17.5",
 ]
 # Tier 1 — maps: geospatial + raster + matplotlib (large wheels, all platforms)
 maps = [
@@ -47,3 +48,23 @@ markers = [
     "degraded_ok: staleness check — reports degraded, does not fail the scheduled run",
 ]
 testpaths = ["tests"]
+
+# Lint: every selected rule is an error (CI fails); everything else is off.
+# No warnings tier — if a rule isn't worth failing on, it isn't selected.
+[tool.ruff]
+target-version = "py312"
+extend-exclude = ["data", "reports"]
+
+[tool.ruff.lint]
+select = [
+    "E9",   # syntax errors
+    "F",    # pyflakes: undefined names, unused imports/variables
+    "B",    # bugbear: likely bugs
+    "I",    # import order (autofix)
+    "UP",   # pyupgrade (autofix)
+]
+ignore = [
+    "B905", # zip() without strict= — noise for this codebase
+    "B904", # raise-from inside except — style, not a bug
+    "B008", # function call in default arg — typer/argparse idiom
+]

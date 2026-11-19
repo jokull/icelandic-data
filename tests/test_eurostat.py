@@ -1,4 +1,4 @@
-from scripts.eurostat import json_stat_to_long, dataset_meta
+from scripts.eurostat import dataset_meta, json_stat_to_long
 
 # Trimmed from a live nama_10_gdp?geo=DE&geo=FR&sinceTimePeriod=2024 response:
 # DE 2024 = 4386940, DE 2025 = 4529710, FR 2024 = 2935236.2, FR 2025 = 2991055.9,

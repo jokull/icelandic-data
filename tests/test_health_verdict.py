@@ -7,11 +7,11 @@ pinned down explicitly rather than left to drift.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from scripts import health_verdict as hv
 
-NOW = datetime(2026, 7, 16, 6, 17, tzinfo=timezone.utc)
+NOW = datetime(2026, 7, 16, 6, 17, tzinfo=UTC)
 
 
 def _row(source="hagstofan", status="healthy", days_ago=0, kind="", error_class="", message=""):

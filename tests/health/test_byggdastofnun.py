@@ -24,10 +24,10 @@ from __future__ import annotations
 import pytest
 
 from scripts.byggdastofnun import (
-    INDEX,
-    SEED_CATALOG,
     _SUBPAGE_RE,
     _TABLEAU_VIEW_RE,
+    INDEX,
+    SEED_CATALOG,
     embed_url,
     page_url,
 )
