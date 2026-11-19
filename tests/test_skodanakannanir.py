@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from scripts import skodanakannanir as s
 
-
 # --------------------------------------------------------------------------
 # _canonicalize_chart_answer — Highcharts aria-label parsing
 # --------------------------------------------------------------------------

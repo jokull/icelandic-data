@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pathlib
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from scripts.health_panel import COLOR, PROBES, dot, render
 
@@ -86,7 +86,7 @@ def test_history_drives_the_colour(tmp_path):
     # Relative dates: the verdict window is "now − 30 days", and hardcoded
     # timestamps age out — this test broke exactly that way in 2026-08 when
     # its July fixtures slid out of the window and vedur went 'unknown'.
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     hist.write_text(
         "\n".join(
             f'{{"ts": "{(now - timedelta(days=2 - day)).isoformat()}", '

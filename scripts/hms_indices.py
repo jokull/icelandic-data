@@ -28,11 +28,11 @@ from __future__ import annotations
 import argparse
 import io
 import json
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
-from tempfile import TemporaryDirectory
 import sys
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import polars as pl
 
@@ -114,7 +114,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     import httpx
 
     RAW.mkdir(parents=True, exist_ok=True)
-    meta = {"fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "files": {}}
+    meta = {"fetched_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "files": {}}
     with TemporaryDirectory(dir=RAW, prefix="indices-") as staging:
         for url, name in ((KAUPVISITALA_URL, "kaupvisitala.csv"),
                           (LEIGUVISITALA_URL, "leiguvisitala.csv")):

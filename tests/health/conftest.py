@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pathlib
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -171,11 +171,11 @@ def assert_fresh(observed, max_age, *, label: str) -> None:
     reports as degraded rather than failing the scheduled run. An upstream that
     is up but three days behind is a different problem from one that is down.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if observed.tzinfo is None:
-        observed = observed.replace(tzinfo=timezone.utc)
+        observed = observed.replace(tzinfo=UTC)
     age = now - observed
     assert age <= max_age, (
         f"{label} is stale: latest observation {observed.isoformat()} "

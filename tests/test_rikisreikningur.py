@@ -13,7 +13,6 @@ import pytest
 
 from scripts import rikisreikningur as rr
 
-
 # --------------------------------------------------------------------------
 # Fast unit tests
 # --------------------------------------------------------------------------
@@ -105,7 +104,7 @@ def test_file_list_includes_main_rikisreikningur_reports():
 
 
 def test_annotate_period_marks_year_to_date_rows():
-    from scripts.rikisreikningur import annotate_period, SUMMARY_SCHEMA
+    from scripts.rikisreikningur import SUMMARY_SCHEMA, annotate_period
     afkoma = [{"ar": 2026, "tekjur": 3, "gjold": 4, "afkoma": -1}, {"ar": 2025, "tekjur": 10, "gjold": 9, "afkoma": 1}]
     tg = [{"timabil_ar": 2025, "timabil": "13"}, {"timabil_ar": 2026, "timabil": "03"}]
     rows = annotate_period(afkoma, tg)

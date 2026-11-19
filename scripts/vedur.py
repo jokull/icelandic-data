@@ -27,7 +27,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -64,7 +64,7 @@ def raw_cache(path: Path, args: argparse.Namespace) -> httpx.Response | None:
     """Reuse a fresh cached raw file (24h TTL) unless --force."""
     if args.force or not path.exists():
         return None
-    age = datetime.now(timezone.utc) - datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+    age = datetime.now(UTC) - datetime.fromtimestamp(path.stat().st_mtime, UTC)
     if age > CACHE_TTL:
         print(f"  cached {path.name} is {age.days}d old — re-fetching")
         return None
@@ -132,7 +132,7 @@ def fetch_observations(args: argparse.Namespace) -> None:
 
 
 def fetch_quakes(args: argparse.Namespace) -> None:
-    start = (datetime.now(timezone.utc) - timedelta(days=args.days)).strftime("%Y-%m-%dT%H:%M:%S")
+    start = (datetime.now(UTC) - timedelta(days=args.days)).strftime("%Y-%m-%dT%H:%M:%S")
     params = {"start_time": start, "size_min": args.min_magnitude}
 
     RAW_DIR.mkdir(parents=True, exist_ok=True)

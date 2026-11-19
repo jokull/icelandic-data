@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.fjarlog import BASE, _CSV_LINK_RE, _RENAME, _gogn_url
+from scripts.fjarlog import _CSV_LINK_RE, _RENAME, BASE, _gogn_url
 
 # Matches the `fetch --year` default in scripts/fjarlog.py. Bump both together
 # when the ministry publishes the next budget year.

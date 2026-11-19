@@ -36,7 +36,7 @@ import hashlib
 import json
 import re
 import sys
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -138,7 +138,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         "xlsx_url": xlsx_url,
         "xlsx_file": name,
         "xlsx_sha256": hashlib.sha256(r.content).hexdigest(),
-        "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "fetched_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     (out / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"  {name} ({len(r.content):,} bytes), page.txt ({len(text):,} chars) -> {out}")

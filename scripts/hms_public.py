@@ -4,9 +4,12 @@
 Raw responses are archived by hash. Output is UTF-8 CSV. Purchase registry
 is ISO-8859-1 upstream; index files are UTF-8. No filtering is applied here.
 """
-import argparse,hashlib
+import argparse
+import hashlib
 from pathlib import Path
+
 import httpx
+
 ROOT=Path(__file__).resolve().parent.parent
 BASE='https://frs3o1zldvgn.objectstorage.eu-frankfurt-1.oci.customer-oci.com/n/frs3o1zldvgn/b/public_data_for_download/o/'
 def main():

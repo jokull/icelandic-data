@@ -30,8 +30,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -77,7 +77,7 @@ def get_json(code: str, filters: dict[str, str], retries: int = 3) -> dict:
             r = httpx.get(url, params=params, timeout=60, follow_redirects=True)
             r.raise_for_status()
             return r.json()
-        except httpx.HTTPStatusError as e:
+        except httpx.HTTPStatusError:
             if attempt == retries - 1:
                 raise
             time.sleep(2 * (attempt + 1))
@@ -125,7 +125,7 @@ def dataset_meta(js: dict, filters: dict) -> dict:
         "dataset": js.get("extension", {}).get("id"),
         "label": js.get("label"),
         "updated": js.get("updated"),
-        "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "fetched_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "filters": filters,
         "status_legend": ((js.get("extension") or {}).get("status") or {}).get("label") or {},
         "flagged_cells": len(js.get("status") or {}),

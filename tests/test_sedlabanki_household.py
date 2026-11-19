@@ -1,7 +1,10 @@
 import io
-from openpyxl import Workbook
+
 import pytest
+from openpyxl import Workbook
+
 from scripts.sedlabanki_household import parse_pensions
+
 
 def test_pension_identity_and_missing_values():
  w=Workbook();s=w.active;s.title='LIF_NEW_LOANS_TOTAL';s.cell(3,3,'2026-07')

@@ -1,4 +1,11 @@
-from scripts.hagstofan_query import unpack, parse_px_header, decode_px, header_query, build_query
+from scripts.hagstofan_query import (
+ build_query,
+ decode_px,
+ header_query,
+ parse_px_header,
+ unpack,
+)
+
 
 def test_sparse_json_stat_preserves_labels_and_nulls():
  meta={'variables':[{'code':'x','values':['a','b'],'valueTexts':['Þing','Önnur']} ]}
@@ -16,7 +23,7 @@ PX = ('﻿CHARSET="ANSI";\nAXIS-VERSION="2013";\nCODEPAGE="utf-8";\nLANGUAGE="is
       'NOTE[en]="Series were revised. See <A HREF=https://x.is/g.pdf TARGET=_Next paragraph.";\n'
       'VALUENOTE("Vísitala","Vísitala án húsnæðis")="Án leigu (041 og 042).";\n'
       'VALUENOTE("Liður","Breyting (%)")="Prósent.";\n'
-      'DATA=\n1 2 3\n;\n').encode('utf-8')
+      'DATA=\n1 2 3\n;\n').encode()
 
 def test_decode_px_uses_codepage_not_http_charset():
  assert decode_px(PX).startswith('CHARSET')
@@ -46,8 +53,11 @@ def test_build_query_applies_since_and_filters():
 
 
 import json
+
 import httpx
+
 from scripts import hagstofan_query as hq
+
 
 def test_record_fetch_line_shape(tmp_path, monkeypatch):
  monkeypatch.setattr(hq,'RAW_DIR',tmp_path/'query')

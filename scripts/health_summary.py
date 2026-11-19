@@ -24,7 +24,7 @@ import pathlib
 import re
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 from xml.etree import ElementTree
 
@@ -177,7 +177,7 @@ def append_history(
     that scheduled runs may be dropped entirely. Nothing here fabricates a row
     for a run that never happened.
     """
-    stamp = ts or datetime.now(timezone.utc).isoformat(timespec="seconds")
+    stamp = ts or datetime.now(UTC).isoformat(timespec="seconds")
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         for r in results:

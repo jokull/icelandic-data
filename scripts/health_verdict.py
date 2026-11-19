@@ -34,7 +34,7 @@ import json
 import pathlib
 import sys
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 Verdict = Literal["dead", "broken", "flaky", "healthy", "unknown"]
@@ -101,7 +101,7 @@ def load(path: pathlib.Path, window_days: int) -> dict[str, list[dict]]:
     """Read JSONL history, newest-last, filtered to the window."""
     if not path.exists():
         return {}
-    cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
+    cutoff = datetime.now(UTC) - timedelta(days=window_days)
     by_source: dict[str, list[dict]] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -114,7 +114,7 @@ def load(path: pathlib.Path, window_days: int) -> dict[str, list[dict]]:
             # A corrupt line must not take the whole report down.
             continue
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
+            ts = ts.replace(tzinfo=UTC)
         if ts < cutoff:
             continue
         by_source.setdefault(row["source"], []).append(row)
@@ -155,8 +155,8 @@ def judge(source: str, rows: list[dict]) -> SourceVerdict:
     if last_ok and newest["status"] != "healthy":
         then = datetime.fromisoformat(last_ok)
         if then.tzinfo is None:
-            then = then.replace(tzinfo=timezone.utc)
-        down_days = round((datetime.now(timezone.utc) - then).total_seconds() / 86400, 2)
+            then = then.replace(tzinfo=UTC)
+        down_days = round((datetime.now(UTC) - then).total_seconds() / 86400, 2)
 
     if structural_streak >= BROKEN_AFTER:
         verdict: Verdict = "broken"
@@ -298,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
             json.dumps(
                 {
                     "window_days": args.window_days,
-                    "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    "generated": datetime.now(UTC).isoformat(timespec="seconds"),
                     "verdicts": [asdict(v) for v in verdicts],
                 },
                 ensure_ascii=False,

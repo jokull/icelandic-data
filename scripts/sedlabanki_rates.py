@@ -14,7 +14,7 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
@@ -103,7 +103,7 @@ def parse_pbi_timeseries(responses: list[dict]) -> list[dict]:
     for dm in dm0_list:
         if "G0" in dm:
             try:
-                dt = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(
+                dt = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(
                     milliseconds=dm["G0"]
                 )
                 prev_date = dt.strftime("%Y-%m-%d")
@@ -177,7 +177,7 @@ async def fetch_interest_rates() -> list[dict]:
         await page.goto(EMBED_URL, wait_until="domcontentloaded", timeout=60000)
 
         # Poll until data-bearing responses arrive or timeout (90s)
-        for i in range(45):
+        for _i in range(45):
             await page.wait_for_timeout(2000)
             has_data = any(
                 r.get("results", [{}])[0]

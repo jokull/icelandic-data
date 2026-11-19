@@ -320,8 +320,8 @@ def cmd_list(args) -> int:
     """Print the CPI series catalog."""
     print("Hagstofan CPI sub-component series (fetch builds each from "
           "archive + current tables, chain-linked at the overlap month):")
-    for (code, name_is, name_en, level,
-         archive_path, archive_val, current_path, current_val) in SERIES:
+    for (code, _name_is, _name_en, level,
+         archive_path, _archive_val, current_path, _current_val) in SERIES:
         cur = current_path.split("/")[-1] if current_path else "-"
         arc = archive_path.split("/")[-1] if archive_path else "-"
         print(f"  {code:<16} {level:<12} current={cur:<12} archive={arc}")

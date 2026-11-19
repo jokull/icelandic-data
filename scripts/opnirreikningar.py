@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -163,7 +163,7 @@ def fetch(args):
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)
         pl.DataFrame(rows, schema=CSV_FIELDS).write_csv(output)
-        meta = {"fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        meta = {"fetched_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "date_from": args.date_from, "date_to": args.date_to, "loaded_through": loaded.isoformat(),
                 "range_complete": warning is None, "org": args.org, "org_text": org_text, "vendor": vendor_id,
                 "rows": len(rows)}
