@@ -57,14 +57,14 @@ jobs:
         id: required
         continue-on-error: true
         run: |
-          uv run pytest -m "health and not degraded_ok" \
+          uv run pytest tests/health -m "health and not degraded_ok" \
             --junit-xml=health-required.xml
 
       - name: Degraded probes
         id: degraded
         continue-on-error: true
         run: |
-          uv run pytest -m "health and degraded_ok" \
+          uv run pytest tests/health -m "health and degraded_ok" \
             --junit-xml=health-degraded.xml
 
       # Today's snapshot. Reported for the eye, but it does NOT gate — a lone

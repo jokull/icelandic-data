@@ -12,7 +12,6 @@ Usage:
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 import httpx
@@ -132,7 +131,7 @@ def cmd_list():
             cached = f"{size_mb:.1f} MB"
         print(f"  {layer:<42s} {cached:>8s}  {desc}")
 
-    print(f"\nExtra layers (fetch on demand with 'fetch <layer>'):\n")
+    print("\nExtra layers (fetch on demand with 'fetch <layer>'):\n")
     for layer, desc in EXTRA_LAYERS.items():
         path = GEODATA_DIR / layer_filename(layer)
         cached = "—"
@@ -191,7 +190,7 @@ def cmd_fetch(layer: str):
             layer = matches[0]
         else:
             print(f"Unknown layer: {layer}")
-            print(f"Use 'list' to see available layers, or pass a full WFS name like 'ERM:Landmask'")
+            print("Use 'list' to see available layers, or pass a full WFS name like 'ERM:Landmask'")
             return
 
     path = GEODATA_DIR / layer_filename(layer)

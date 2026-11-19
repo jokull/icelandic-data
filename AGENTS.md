@@ -168,9 +168,6 @@ uv run python scripts/eurostat.py fetch prc_hicp_midx --filter geo=EA20 --filter
 uv run python scripts/eurostat.py fetch namq_10_a10 --filter geo=EA20 --filter na_item=D1 --filter s_adj=SCA --filter unit=CP_MEUR --filter nace_r2=TOTAL
 uv run python scripts/eurostat.py fetch namq_10_pe --filter geo=EA20 --filter na_item=EMP_DC --filter s_adj=SCA --filter unit=THS_PER
 
-# Real wage comparison Iceland vs euro area (Chart.js HTML report)
-uv run python reports/real_wages_is_vs_euro.py
-
 # Property price analysis
 uv run python scripts/sql.py "SELECT YEAR(kaupsamningur_dags), median(kaupverd*1000/einflm_m2) FROM 'data/processed/kaupskra_geocoded.parquet' WHERE NOT onothaefur AND tegund='Fjölbýli' GROUP BY 1 ORDER BY 1"
 
@@ -270,18 +267,6 @@ uv run python scripts/lmi.py download
 uv run python scripts/kortagerð.py static -o reports/iceland-map.png
 uv run python scripts/kortagerð.py html -o reports/iceland-map.html
 uv run python scripts/kortagerð.py static --bounds capital --highlight "Reykjavíkurborg" -o reports/rvk.png
-
-# Náttúrufræðistofnun: habitat-type mask from the 5 m vistgerðir raster via WCS
-# (1:25.000 3rd ed.; DN=95 = L14.2 Tún og akurlendi, 1,806 km²)
-# The old LMI_vektor:vistgerd polygon layer was withdrawn in 2026 — raster only.
-# Fetch cost is server-bound and scales with output pixels — see --res below.
-uv run python scripts/natt.py habitat --dn 95            # 50 m ISN93 mask, ~2 min
-uv run python scripts/natt.py habitat --dn 95 --res 100  # ~1 min, still map-grade
-uv run python scripts/natt.py habitat --dn 95 --res 20   # ~30 min, detail work
-uv run python scripts/natt.py inventory          # DN→htxt codes, from the WMS legend
-
-# Map of Iceland's agricultural land (PNG + single-file Leaflet HTML)
-uv run python scripts/agricultural_land_map.py
 
 # Iceland grassland map (Copernicus HRL via LMI, 20 m raster) — uses Tier 3 cache
 uv run python scripts/lmi_hrl.py fetch grassland       # one-time, ~860 MB

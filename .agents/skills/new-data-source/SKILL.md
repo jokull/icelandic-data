@@ -5,6 +5,8 @@ description: Methodology for adding a new Icelandic data source — discovery, p
 
 # New Data Source — How to Learn and Integrate
 
+**Requires:** Tier 0 (core).
+
 Step-by-step methodology for adding a new Icelandic data source to this toolkit. Based on proven patterns from 20+ existing skills.
 
 ## Phase 1: Discovery

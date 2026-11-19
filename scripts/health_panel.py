@@ -55,7 +55,7 @@ PROBES = [
     "energy", "ferdamalastofa", "fiskistofa", "fjarlog", "fuel", "gengi", "hafogvatn", "hagstofan", "heimsmarkmid",
     "eurostat",
     "hms", "housing_completions", "income_distribution", "landlaeknir", "lanamal", "laun", "lmi", "lmi_hrl", "loftgaedi",
-    "maelabord_landbunadarins", "maskina", "nasdaq", "natt", "opnirreikningar",
+    "maelabord_landbunadarins", "maskina", "nasdaq", "opnirreikningar",
     "reykjavik", "rikisreikningur", "samgongustofa", "sedlabanki", "sedlabanki_fx", "skatturinn",
     "skipulagsmal", "skodanakannanir", "tekjusagan", "tenders", "umferd", "utbod_reykjavik", "vedur",
     "ust_gis", "velsaeldarvisar", "vernd", "vinnumalastofnun",

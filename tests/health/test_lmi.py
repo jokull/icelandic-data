@@ -6,7 +6,7 @@ published name, and the GeoServer still answers the one request shape
 `srsName=EPSG:4326`.
 
 Layer *renames* are the realistic break here, not an outage: LMI reorganises
-workspaces (the sibling `natt` probe documents one such disappearance), and a
+workspaces (Náttúrufræðistofnun's vistgerðir layers vanished this way in 2026), and a
 renamed layer only surfaces as "0 features" at the bottom of a download run.
 GetCapabilities catches it up front, for ~130 KB per workspace.
 

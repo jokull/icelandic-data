@@ -17,10 +17,8 @@ Auth is not required for any of these endpoints.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
-from typing import Any
 
 import httpx
 

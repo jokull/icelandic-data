@@ -21,7 +21,6 @@ import argparse
 import json
 import sqlite3
 import sys
-from collections import Counter
 from pathlib import Path
 
 import polars as pl

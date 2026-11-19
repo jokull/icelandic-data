@@ -5,7 +5,6 @@ Combines with Brent crude prices to compute implied retail margins.
 
 import json
 from pathlib import Path
-from datetime import datetime
 
 import polars as pl
 

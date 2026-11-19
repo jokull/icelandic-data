@@ -44,9 +44,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
 from matplotlib.colors import ListedColormap
-from matplotlib.patches import Patch
 from rasterio.enums import Resampling
-from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds
 from rasterio.warp import calculate_default_transform, reproject
 
