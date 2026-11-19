@@ -17,7 +17,6 @@ from typing import Literal
 # Add scripts directory to path for relative imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-import polars as pl
 
 RAW_DIR = Path(__file__).parent.parent / "data" / "raw" / "skatturinn"
 PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed" / "financials"

@@ -44,7 +44,7 @@ def embed_url() -> str:
 
 def cmd_info(args=None):
     print("Lykilupplýsingar um vernd — umsækjendur um alþjóðlega vernd")
-    print(f"  owner       : Ríkislögreglustjóri")
+    print("  owner       : Ríkislögreglustjóri")
     print(f"  tenant      : {TENANT}")
     print(f"  report key  : {REPORT_KEY}")
     print(f"  cluster     : {CLUSTER}")

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -24,8 +23,6 @@ MAPS = [
     ("grassland", "scripts/grassland_map.py", "reports/grassland-map.png"),
     ("grassland_prob", "scripts/grassland_probability_heatmap.py",
      "reports/grassland-probability-heatmap.png"),
-    ("agricultural", "scripts/agricultural_land_map.py",
-     "reports/agricultural-land-map.png"),
 ]
 
 
@@ -42,16 +39,6 @@ def test_map_renders(name: str, script: str, output: str) -> None:
     output_path = ROOT / output
     if not script_path.exists():
         pytest.skip(f"{script} not present in this branch")
-
-    # If the agricultural-land source raster is missing, skip — fetching is
-    # out-of-scope for the test suite (the bench harness covers cold runs).
-    # natt.py names the mask by habitat code and resolution, e.g.
-    # vistgerd_dn95_20m.tif; the map script takes the finest one present.
-    if name == "agricultural" and not list(
-            (ROOT / "data" / "raw" / "natt" / "vistgerdir")
-            .glob("vistgerd_dn95_*m.tif")):
-        pytest.skip("agricultural source raster missing — "
-                    "run: scripts/natt.py habitat --dn 95")
 
     result = subprocess.run(
         [sys.executable, str(script_path)],

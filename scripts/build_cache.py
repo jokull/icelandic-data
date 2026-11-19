@@ -291,7 +291,7 @@ def _status_line(label: str, exists: bool, *, hint: str = "") -> str:
 def cmd_status(_: argparse.Namespace) -> None:
     print(f"Cache root: {CACHE.relative_to(ROOT) if CACHE.exists() else 'data/cache'}\n",
           file=sys.stderr)
-    print(_status_line(f"constants.json", CONSTANTS_PATH.exists(),
+    print(_status_line("constants.json", CONSTANTS_PATH.exists(),
                        hint="→ build_cache.py constants"))
     if CONSTANTS_PATH.exists():
         K = json.loads(CONSTANTS_PATH.read_text(encoding="utf-8"))

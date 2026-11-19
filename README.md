@@ -129,7 +129,6 @@ Systematic coverage of public dashboards published under Iceland's data-access l
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/co2.svg" width="12"> | CO2 (co2.is) | Climate action plan — 106 numbered actions across 4 kerfi, status + ministry + year tracking |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/lmi.svg" width="12"> | LMI | Vector geodata via GeoServer WFS — coastline, roads, rivers, glaciers |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/lmi_hrl.svg" width="12"> | LMI HRL | Copernicus High Resolution Layers via LMI — grassland, imperviousness (20 m raster) |
-| <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/natt.svg" width="12"> | Náttúrufræðistofnun | Habitat-type polygons (vistgerðir) via WFS |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/eea_sdi.svg" width="12"> | EEA SDI | European Environment Agency geospatial catalogue (GeoNetwork 4.4) |
 | <img src="https://raw.githubusercontent.com/jokull/icelandic-data/health-history/dots/ust_gis.svg" width="12"> | UST GIS | Environment Agency WFS — contaminated land, water, protected areas, noise and wastewater |
 | · | Kortagerð | Iceland map generation — matplotlib (static) + Leaflet (interactive) |

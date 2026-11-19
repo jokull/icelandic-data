@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -50,10 +49,6 @@ MAPS: dict[str, dict] = {
     "grassland_prob": {
         "script": "scripts/grassland_probability_heatmap.py",
         "output": "reports/grassland-probability-heatmap.png",
-    },
-    "agricultural": {
-        "script": "scripts/agricultural_land_map.py",
-        "output": "reports/agricultural-land-map.png",
     },
 }
 

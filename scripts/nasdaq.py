@@ -14,9 +14,7 @@ Usage:
 
 import httpx
 import json
-import sys
 from pathlib import Path
-from urllib.parse import quote
 
 BASE_URL = "https://api.news.eu.nasdaq.com/news"
 DATA_DIR = Path(__file__).parent.parent / "data" / "raw" / "nasdaq"

@@ -100,7 +100,7 @@ def test_history_drives_the_colour(tmp_path):
     assert written["vedur"] == "healthy"
     assert COLOR["healthy"] in (tmp_path / "dots" / "vedur.svg").read_text(encoding="utf-8")
     # Untouched sources stay grey rather than inheriting anything.
-    assert written["natt"] == "unknown"
+    assert written["nasdaq"] == "unknown"
 
 
 def test_dot_is_sanitiser_safe():

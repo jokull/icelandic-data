@@ -6,7 +6,6 @@ built yet, so they're safe to run on a fresh checkout.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 

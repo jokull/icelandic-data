@@ -144,7 +144,7 @@ def jsonstat_to_df(js: dict) -> pl.DataFrame:
 
 
 def fetch_balance() -> pl.DataFrame:
-    print(f"[1/1] THJ05211 — Helstu hagstærðir ríkissjóðs 1980-2025...")
+    print("[1/1] THJ05211 — Helstu hagstærðir ríkissjóðs 1980-2025...")
     meta = CLIENT.get(f"{BASE}/{TABLE}").json()
     sk = next(v for v in meta["variables"] if v["code"] == "Skipting")
     ar = next(v for v in meta["variables"] if v["code"] == "Ár")
@@ -180,7 +180,7 @@ def fetch_balance() -> pl.DataFrame:
 
 
 def cmd_list(args):
-    print(f"THJ05211.px — Helstu hagstærðir ríkissjóðs 1980-2025 (one-stop balance: tekjur, gjöld, tekjuafgangur, % af VLF)")
+    print("THJ05211.px — Helstu hagstærðir ríkissjóðs 1980-2025 (one-stop balance: tekjur, gjöld, tekjuafgangur, % af VLF)")
     print(f"  {BASE}/{TABLE}")
     for name, desc in SIBLINGS:
         print(f"{name} — {desc}")

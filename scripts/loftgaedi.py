@@ -5,7 +5,6 @@ Produces daily aggregated CSV for Reykjavik Grensásvegur station.
 Uses annual bulk CSV downloads from api.ust.is (~70-100MB each) instead of per-day API.
 """
 
-import io
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -85,7 +84,6 @@ def load_pm10_from_csv(csv_path: Path, station_id: str) -> pl.DataFrame:
 
 def fetch_recent_from_api(start: date, end: date, station_id: str) -> pl.DataFrame:
     """Fetch recent data from per-day API (for current year not yet in bulk CSV)."""
-    import json
     import time
 
     rows = []
